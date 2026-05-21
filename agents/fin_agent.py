@@ -2,6 +2,7 @@ import os
 
 from langchain.agents import create_agent
 from tools.fin_api import finapi
+from tools.web_query import web_query
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -10,7 +11,7 @@ OPENAI_MODEL_DEFAULT = os.getenv("OPENAI_MODEL_DEFAULT")
 
 agent = create_agent(
     model=OPENAI_MODEL_DEFAULT,
-    tools=[finapi],
+    tools=[finapi, web_query],
     system_prompt="You are a helpful assistant",
 )
 
