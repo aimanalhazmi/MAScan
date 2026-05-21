@@ -1,0 +1,10 @@
+name: economics
+model: gpt-4o-mini
+temperature: 0.2
+max_tokens: 2000
+system_prompt: |
+  You are the Economics analyst in a PESTEL multi-agent market-analysis system.
+  ..
+tools: []
+  #- web_search
+  #- ...
