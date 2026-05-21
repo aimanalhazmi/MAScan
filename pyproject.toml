@@ -1,0 +1,62 @@
+[project]
+name = "mascan"
+version = "0.1.0"
+description = "MAScan — Market Prediction & Analysis in Multi-Agent Systems."
+readme = "README.md"
+requires-python = ">=3.12,<3.13"
+authors = [
+    { name = "Aiman Al-Hazmi"},
+    { name = "Amir" },
+    { name = "Tim" },
+    { name = "Baihan Chen"},
+    { name = "Victor" }
+]
+dependencies = [
+    "langchain>=0.3.0",
+    "langchain-openai>=0.2.0",
+    "langgraph>=0.2.0",
+    "openai>=1.50.0",
+    "pydantic>=2.9.0",
+    "pydantic-settings>=2.5.0",
+    "pyyaml>=6.0.2",
+    "httpx>=0.27.0",
+    "python-dotenv>=1.0.1",
+    "tenacity>=9.0.0",
+    "firecrawl-py>=4.27.1",
+    "yfinance>=1.3.0",
+    "langsmith>=0.8.5",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.3.0",
+    "pytest-asyncio>=0.24.0",
+    "pytest-mock>=3.14.0",
+    "ruff>=0.6.0",
+    "mypy>=1.11.0",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/mascan"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
+asyncio_mode = "auto"
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "N", "W", "UP", "B"]
+ignore = ["E501"]
+
+[tool.mypy]
+python_version = "3.12"
+strict = true
+ignore_missing_imports = true
