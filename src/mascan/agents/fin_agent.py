@@ -1,8 +1,8 @@
 import os
 
 from langchain.agents import create_agent
-from tools.fin_api import finapi
-from tools.web_query import web_query
+from src.mascan.tools.fin_api import finapi
+from src.mascan.tools.web_query import web_query
 from dotenv import load_dotenv
 
 load_dotenv()
