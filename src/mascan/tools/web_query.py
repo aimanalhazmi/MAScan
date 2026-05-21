@@ -33,7 +33,7 @@ def web_query(
         query,
         limit=FIRECRAWL_QUERY_LIMIT,
         scrape_options={
-            "formats": ["summary"],
+            "formats": ["summary"], # Only return summaries to reduce token usage (non summarized results will break the context window)
         }
     )
     
