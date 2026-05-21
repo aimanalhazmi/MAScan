@@ -1,4 +1,17 @@
+"""
+This tool allows agents to perform web queries.
+Inspired by Langchain's WebSearchTool.
+@author: Tim
+"""
+
+import os
+
 from langchain.tools import tool
+from dotenv import load_dotenv
+
+load_dotenv()
+
+FIRECRAWL_API_KEY = os.getenv("FIRECRAWL_API_KEY")
 
 @tool
 def web_query():
