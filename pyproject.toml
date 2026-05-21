@@ -22,6 +22,7 @@ dependencies = [
     "httpx>=0.27.0",
     "python-dotenv>=1.0.1",
     "tenacity>=9.0.0",
+    "firecrawl>=4.27.1",
 ]
 
 [project.optional-dependencies]
