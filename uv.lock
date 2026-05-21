@@ -166,7 +166,7 @@ wheels = [
 ]
 
 [[package]]
-name = "firecrawl"
+name = "firecrawl-py"
 version = "4.27.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
@@ -178,9 +178,9 @@ dependencies = [
     { name = "requests" },
     { name = "websockets" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/d9/40/a449ed5f5fba30c7e7ddce2c2687e785e52e38a32dc4b7bfcdc65a175fac/firecrawl-4.27.1.tar.gz", hash = "sha256:7c81d546f5881a08c6d75d554ee65e72b0ac3581810de202f4105a4721acfbfe", size = 187076, upload-time = "2026-05-17T17:13:27.182Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/b1/ab/ba7b2fa1ad41ac4b6eb281985eebf1ee2f6e4e7a5688994cc78a13ece544/firecrawl_py-4.27.1.tar.gz", hash = "sha256:491012b64cec2bb7cae890d8beea71863624bbe50297ca06d454ade32820ccca", size = 187034, upload-time = "2026-05-17T17:13:22.163Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/c6/02/470b9b02cf552612ffe3fb286e6c1d3696bb584ae32f9775203bb87dd562/firecrawl-4.27.1-py3-none-any.whl", hash = "sha256:93034765e8d63d7f356057d7d6a5c649b46710d86e49492702b46c2cb31c64d2", size = 233628, upload-time = "2026-05-17T17:13:25.209Z" },
+    { url = "https://files.pythonhosted.org/packages/29/52/0d8189fb17f910aa1393fdb47e2a139f19fd410154d08fd00ce70ccb0128/firecrawl_py-4.27.1-py3-none-any.whl", hash = "sha256:dc6112f0ead68dd4dddf05e2511b0e01cee217a1ee3628c1bee80a6f4240bf21", size = 233663, upload-time = "2026-05-17T17:13:19.825Z" },
 ]
 
 [[package]]
@@ -472,7 +472,7 @@ name = "mascan"
 version = "0.1.0"
 source = { editable = "." }
 dependencies = [
-    { name = "firecrawl" },
+    { name = "firecrawl-py" },
     { name = "httpx" },
     { name = "langchain" },
     { name = "langchain-openai" },
@@ -496,7 +496,7 @@ dev = [
 
 [package.metadata]
 requires-dist = [
-    { name = "firecrawl", specifier = ">=4.27.1" },
+    { name = "firecrawl-py", specifier = ">=4.27.1" },
     { name = "httpx", specifier = ">=0.27.0" },
     { name = "langchain", specifier = ">=0.3.0" },
     { name = "langchain-openai", specifier = ">=0.2.0" },
