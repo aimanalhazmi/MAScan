@@ -41,7 +41,7 @@ class BaseTool(ABC):
             raise ValueError(f"{type(self).__name__} must set class attribute `name`.")
         if not self.description:
             raise ValueError(f"{type(self).__name__} must set class attribute `description`.")
-        self._logger = get_logger(f"tools.{self.name}")
+        self.logger = get_logger(f"tools.{self.name}")
 
     @abstractmethod
     def run(self, **kwargs: Any) -> ToolResult:
