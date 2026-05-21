@@ -46,9 +46,8 @@ src/mascan/
 ├── contracts/    Shared Pydantic shapes (AgentReport, ToolResult, ...)
 ├── agents/       PESTEL agents. One folder per agent.
 ├── tools/        Tools (external APIs, web search). Common + per-agent.
-├── rag/          Retrieval (internal documents). Stub in Phase 1.
-├── orchestrator/ Phase 2 placeholder.
-└── app/          Phase 3 placeholder.
+├── orchestrator/ placeholder.
+└── app/           placeholder.
 scripts/          Standalone CLIs for development.
 tests/            Unit tests.
 ```
