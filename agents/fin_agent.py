@@ -1,14 +1,21 @@
+import os
+
 from langchain.agents import create_agent
 from tools.fin_api import finapi
+from dotenv import load_dotenv
+
+load_dotenv()
+
+OPENAI_MODEL_DEFAULT = os.getenv("OPENAI_MODEL_DEFAULT")
 
 agent = create_agent(
-    model="openai:gpt-5.4",
+    model=OPENAI_MODEL_DEFAULT,
     tools=[finapi],
     system_prompt="You are a helpful assistant",
 )
 
 result = agent.invoke(
-    {"messages": [{"role": "user", "content": "What's the weather in San Francisco?"}]}
+    {"messages": [{"role": "user", "content": "Give me the current stock price of Apple Inc."}]}
 )
 
 if __name__ == "__main__":
