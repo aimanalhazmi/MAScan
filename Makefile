@@ -1,4 +1,17 @@
-.PHONY: install test lint format clean run-economics run-political
+.DEFAULT_GOAL := help
+.PHONY: help install test lint format clean run-economics run-political
+
+help:  ## Show this help message
+	@echo "MAScan — available commands:"
+	@echo ""
+	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | \
+		awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-22s\033[0m %s\n", $$1, $$2}'
+	@echo ""
+	@echo "Usage examples:"
+	@echo "  make install"
+	@echo "  make run-economics Q=\"EU manufacturing outlook\""
+	@echo "  make test"
+
 
 install:
 	uv sync --extra dev
