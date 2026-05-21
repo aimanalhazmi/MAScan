@@ -5,7 +5,6 @@ Inspired by Langchain's WebSearchTool.
 """
 
 import os
-import requests
 
 from langchain.tools import tool
 from dotenv import load_dotenv
@@ -14,7 +13,7 @@ from firecrawl import Firecrawl
 load_dotenv()
 
 FIRECRAWL_API_KEY = os.getenv("FIRECRAWL_API_KEY")
-FIRECRAWL_QUERY_LIMIT = 3
+FIRECRAWL_QUERY_LIMIT = 5
 
 firecrawl_client = Firecrawl(api_key=FIRECRAWL_API_KEY)
 
@@ -27,17 +26,16 @@ def web_query(
     Args:
         query (str): The search query to perform.
     Returns:
-        str: The search results from the FireCrawl API.
+        str: The summarized search results from the FireCrawl API.
     """
 
     results = firecrawl_client.search(
         query,
         limit=FIRECRAWL_QUERY_LIMIT,
         scrape_options={
-            "formats": ["markdown", "links"],
-            "blockAds": True
+            "formats": ["summary"],
         }
-        )
+    )
     
     return results
 
