@@ -1,4 +1,4 @@
-"""EconomicsAgent — Mode C (mixed) using LangGraph's create_react_agent.
+"""EconomicsAgent — Mode C (mixed).
 
 Pattern:
   1. Always call certain tools deterministically (core data we always need).
