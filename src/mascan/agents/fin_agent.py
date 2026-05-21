@@ -11,12 +11,12 @@ OPENAI_MODEL_DEFAULT = os.getenv("OPENAI_MODEL_DEFAULT")
 
 agent = create_agent(
     model=OPENAI_MODEL_DEFAULT,
-    tools=[get_weekly_stock_prices],
+    tools=[web_query],
     system_prompt="You are a helpful assistant",
 )
 
 result = agent.invoke(
-    {"messages": [{"role": "user", "content": "Give me the current stock price of Apple Inc."}]}
+    {"messages": [{"role": "user", "content": "What is the capital of France? Also give me the source of your information."}]}
 )
 
 if __name__ == "__main__":
