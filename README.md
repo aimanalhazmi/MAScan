@@ -15,7 +15,7 @@ Market Prediction & Analysis in Multi-Agent Systems
 ### Prerequisites
 - Python 3.12
 - [`uv`](https://github.com/astral-sh/uv)
-- `make` (preinstalled on macOS/Linux; on Windows use WSL or Git Bash)
+- `make`
 - An OpenAI API key
 
 ### Setup
@@ -64,9 +64,9 @@ Every agent decides how it uses its tools. All three modes share the same
 
 | Mode | What it does | When to use |
 |---|---|---|
-| **A — Code-driven** | You call `self.tools["x"].run(...)` in code. | Known, fixed workflow. Predictable, cheap. |
-| **B — LLM-driven** | The LLM picks which tools to call via `create_react_agent`. | LLM should choose among many similar tools dynamically. |
-| **C — Mixed** | Always-call tools + LLM-optional tools. | One or two core tools + situational ones. **Default for most PESTEL agents.** |
+| **A — Code-driven** | You call `self.tools["x"].run(...)` in code. | Known, fixed workflow. Predictable |
+| **B — LLM-driven** | The LLM picks which tools to call via `create_react_agent`. | LLM should choose among many tools dynamically. |
+| **C — Mixed** | Always-call tools + LLM-optional tools. | One or two core tools + situational ones. |
 
 Reference implementation: `src/mascan/agents/economics/agent.py` (Mode C).
 
