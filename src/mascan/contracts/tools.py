@@ -7,7 +7,7 @@ from pydantic import BaseModel, Field
 
 T = TypeVar("T")
 
-class ToolResult(BaseModel):
+class ToolResult(BaseModel, Generic[T]):
     """Uniform contract returned by every BaseTool."""
     success: bool
     data: T | None = None
