@@ -1,7 +1,7 @@
 import os
 
 from langchain.agents import create_agent
-from src.mascan.tools.fin_api import finapi
+from src.mascan.tools.fin_api import get_weekly_stock_prices
 from src.mascan.tools.web_query import web_query
 from dotenv import load_dotenv
 
@@ -11,7 +11,7 @@ OPENAI_MODEL_DEFAULT = os.getenv("OPENAI_MODEL_DEFAULT")
 
 agent = create_agent(
     model=OPENAI_MODEL_DEFAULT,
-    tools=[finapi, web_query],
+    tools=[get_weekly_stock_prices],
     system_prompt="You are a helpful assistant",
 )
 
