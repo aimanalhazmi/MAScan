@@ -41,7 +41,7 @@ def test_political_agent_run_returns_report(mocker: Any) -> None:
     assert report.tasks == ["EU battery regulation"]
     assert report.findings == "Political risk findings"
     assert report.metadata["mode"] == "mixed"
-    assert report.metadata["deterministic_tools"] == ["web_search"]
+    assert report.metadata["deterministic_tools"] == ["web_search", "news_api"]
     assert "## Political Analysis" in report.rendered_markdown
     assert [source.name for source in report.sources] == ["web_search:firecrawl"]
     assert report.sources[0].metadata == {"query": "EU battery regulation", "count": 1}

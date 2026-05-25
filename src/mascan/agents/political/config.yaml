@@ -13,3 +13,4 @@ system_prompt: |
   Focus on business implications over general political commentary.
 tools:
   - web_search
+  - news_api
