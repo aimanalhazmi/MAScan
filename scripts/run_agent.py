@@ -9,6 +9,8 @@ Bypasses the orchestrator. Use it to develop and test a single agent
 
 import sys
 
+from dotenv import load_dotenv
+
 import mascan.agents.economics
 import mascan.agents.political
 from mascan.agents import agent_registry
@@ -16,6 +18,7 @@ from mascan.core.logging import configure_logging, get_logger
 
 
 def main() -> int:
+    load_dotenv()
     configure_logging()
     logger = get_logger("scripts.run_agent")
 
