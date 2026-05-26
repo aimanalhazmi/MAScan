@@ -32,9 +32,11 @@ clean:
 	find . -type f -name "*.pyc" -delete
 
 run-economics:
-	uv run python scripts/run_agent.py economics "$(Q)"
+	PYTHONPATH=src uv run python scripts/run_agent.py economics "$(Q)"
 
 run-political:
+	PYTHONPATH=src uv run python scripts/run_agent.py political "$(Q)"
+
 	uv run python scripts/run_agent.py political "$(Q)"
 
 run-orchestrator:

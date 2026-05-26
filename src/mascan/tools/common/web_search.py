@@ -1,4 +1,5 @@
 from typing import Any
+
 from firecrawl import Firecrawl
 
 from mascan.contracts.tools import ToolResult
@@ -13,12 +14,13 @@ class WebSearchTool(BaseTool):
     )
 
     def __init__(self, api_key: str | None = None) -> None:
-        """Initialize Firecrawl. 
-        
-        Accepts api_key explicitly, otherwise falls back to the 
+        """Initialize Firecrawl.
+
+        Accepts api_key explicitly, otherwise falls back to the
         FIRECRAWL_API_KEY environment variable.
         """
-        self.client = Firecrawl(api_key=api_key)
+        self.api_key = api_key
+        self.client: Firecrawl | None = None
         super().__init__()
 
     def run(self, query: str, max_results: int = 5, **_: Any) -> ToolResult[list[dict[str, Any]]]:
@@ -33,17 +35,20 @@ class WebSearchTool(BaseTool):
         except Exception as exc:
             self.logger.exception("web_search failed for query=%r", query)
             return ToolResult(
-                success=False, 
-                source="web_search:firecrawl", 
-                error=str(exc)
+                success=False,
+                source="web_search:firecrawl",
+                error=str(exc),
             )
 
     def search_impl(self, query: str, max_results: int) -> list[dict[str, Any]]:
         """Executes the live search against Firecrawl's API endpoint.
-        
-        Returns a structured list containing titles, source URLs, and full 
+
+        Returns a structured list containing titles, source URLs, and full
         scraped markdown strings tailored for LLM consumption.
         """
+        if self.client is None:
+            self.client = Firecrawl(api_key=self.api_key)
+
         response = self.client.search(query=query, limit=max_results)
 
         formatted_results = []
@@ -57,10 +62,12 @@ class WebSearchTool(BaseTool):
                 title = doc.metadata.get("title", title)
                 url = doc.metadata.get("url", url)
 
-            formatted_results.append({
-                "title": title,
-                "url": url,
-                "markdown": markdown_content,
-            })
-            
+            formatted_results.append(
+                {
+                    "title": title,
+                    "url": url,
+                    "markdown": markdown_content,
+                }
+            )
+
         return formatted_results
