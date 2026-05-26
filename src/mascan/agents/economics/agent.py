@@ -8,8 +8,8 @@ Pattern:
 
 from typing import Any
 
-from langchain_core.messages import HumanMessage
 from langchain.agents import create_agent
+from langchain_core.messages import HumanMessage
 
 from mascan.agents.base import BaseAgent
 from mascan.agents.economics.prompts import build_user_prompt, render_tool_outputs
@@ -18,9 +18,9 @@ from mascan.contracts.tools import ToolResult
 from mascan.core.llm import get_chat_model
 
 
-ALWAYS_CALL_TOOLS: tuple[str, ...] = ("tool_name_1",)  # called every run
-OPTIONAL_TOOLS: tuple[str, ...] = ("tool_name_2",)     # LLM may call
-MAX_LLM_ITERATIONS = 10   # passed to create_react_agent as recursion_limit
+ALWAYS_CALL_TOOLS: tuple[str, ...] = ("web_query",)  # called every run
+OPTIONAL_TOOLS: tuple[str, ...] = ("get_weekly_stock_prices",)  # LLM may call
+MAX_LLM_ITERATIONS = 10  # passed to create_react_agent as recursion_limit
 
 
 class EconomicsAgent(BaseAgent):
@@ -53,7 +53,6 @@ class EconomicsAgent(BaseAgent):
             },
         )
 
-
     def gather_deterministic(self, tasks: list[str]) -> dict[str, ToolResult]:
         """Call the always-call tools regardless of the question."""
         query = " ; ".join(tasks)
@@ -64,7 +63,6 @@ class EconomicsAgent(BaseAgent):
             else:
                 self.logger.warning("Always-call tool %r not available; skipping.", tool_name)
         return outputs
-
 
     def get_optional_tools(self) -> list:
         """Return LangChain-wrapped tools the LLM is allowed to call."""
