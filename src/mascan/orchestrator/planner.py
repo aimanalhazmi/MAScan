@@ -9,7 +9,7 @@ from mascan.core.logging import get_logger
 from mascan.core.settings import get_settings
 from mascan.orchestrator.state import GraphState
 
-_logger = get_logger("orchestrator.planner")
+logger = get_logger("orchestrator.planner")
 
 PLANNER_SYSTEM_PROMPT = """\
 You are the planner of a PESTEL multi-agent market-analysis system.
@@ -50,7 +50,7 @@ def planner_node(state: GraphState) -> dict[str, Any]:
     """LangGraph node: build the plan and write it to state."""
     available = agent_registry.all_names()
     if not available:
-        _logger.warning("No agents registered; planner has nothing to plan.")
+        logger.warning("No agents registered; planner has nothing to plan.")
         return {"plan": {}}
 
     settings = get_settings()
@@ -72,7 +72,7 @@ def planner_node(state: GraphState) -> dict[str, Any]:
 
     raw_plan = {a.agent_name: a.tasks for a in result.assignments}
     plan = _filter_to_known_agents(raw_plan, available)
-    _logger.info("Planner selected %d agent(s): %s", len(plan), sorted(plan.keys()))
+    logger.info("Planner selected %d agent(s): %s", len(plan), sorted(plan.keys()))
     return {"plan": plan}
 
 
@@ -83,7 +83,7 @@ def _filter_to_known_agents(
     filtered: dict[str, list[str]] = {}
     for name, tasks in plan.items():
         if name not in known:
-            _logger.warning("Planner hallucinated unknown agent %r; dropping.", name)
+            logger.warning("Planner hallucinated unknown agent %r; dropping.", name)
             continue
         if not tasks:
             continue

@@ -8,7 +8,7 @@ from mascan.core.logging import get_logger
 from mascan.core.settings import get_settings
 from mascan.orchestrator.state import GraphState
 
-_logger = get_logger("orchestrator.synthesizer")
+logger = get_logger("orchestrator.synthesizer")
 
 SYNTHESIZER_SYSTEM_PROMPT = """\
 You are the synthesizer of a PESTEL multi-agent market-analysis system.
@@ -26,7 +26,7 @@ You receive findings from one or more specialist agents. Your job:
 def synthesizer_node(state: GraphState) -> dict[str, Any]:
     """LangGraph node: produce the final summary and markdown."""
     if not state.reports and not state.failures:
-        _logger.warning("Synthesizer ran with no reports and no failures.")
+        logger.warning("Synthesizer ran with no reports and no failures.")
         return {
             "final_summary": "(no agents produced output)",
             "final_markdown": "## Final Report\n\n_No agents produced output._\n",
