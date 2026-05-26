@@ -17,7 +17,7 @@ class Settings(BaseSettings):
     openai_model_default: str = Field("gpt-4o-mini", description="Default model name.")
 
     #  Tools
-    #firecrawl_api_key: str = Field(..., description="Firecrawl API key.")
+    firecrawl_api_key: str = Field(..., description="Firecrawl API key.")
 
     #  App
     log_level: str = Field("INFO", description="Logging level.")
