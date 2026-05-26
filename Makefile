@@ -36,3 +36,9 @@ run-economics:
 
 run-political:
 	uv run python scripts/run_agent.py political "$(Q)"
+
+run-orchestrator:
+	uv run python scripts/run_orchestrator.py "$(Q)"
+
+run-orchestrator-stream:
+	uv run python scripts/run_orchestrator.py --stream "$(Q)"
