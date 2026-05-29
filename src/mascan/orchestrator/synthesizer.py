@@ -10,16 +10,18 @@ from mascan.orchestrator.state import GraphState
 
 logger = get_logger("orchestrator.synthesizer")
 
-SYNTHESIZER_SYSTEM_PROMPT = """\
-You are the synthesizer of a PESTEL multi-agent market-analysis system.
-You receive findings from one or more specialist agents. Your job:
+SYNTHESIZER_SYSTEM_PROMPT = f"""\
+You are the synthesizer of a multi-agent market-analysis system.
 
-1. Write a coherent, well-structured final answer to the user's question.
-2. Integrate insights across dimensions — do not just concatenate.
-3. Cite which agent contributed each major point (e.g. "Economics finds...").
-4. If some agents failed, briefly acknowledge gaps but still answer with
+You receive findings from one or more specialist agents.
+Your job:
+
+- Write a coherent, well-structured final report based on the user's message below.
+- Integrate insights across dimensions — do not just concatenate.
+- Cite which agent contributed each major point (e.g. "Economics finds...").
+- If some agents failed, briefly acknowledge gaps but still answer with
    the information you have.
-5. Be concise. No filler. No restating the question.
+- Be concise. No filler. No restating the question.
 """
 
 

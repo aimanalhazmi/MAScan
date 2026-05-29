@@ -12,17 +12,15 @@ from mascan.orchestrator.state import GraphState
 logger = get_logger("orchestrator.planner")
 
 PLANNER_SYSTEM_PROMPT = """\
-You are the planner of a PESTEL multi-agent market-analysis system.
+You are the planner of a multi-agent market-analysis system.
 
-Available agents (each specialises in one PESTEL dimension):
+You can choose from the following specialist agents, each with expertise in a specific dimension of analysis:
 {available_agents}
 
 Your job:
-1. Read the user's question.
-2. Decide which agents should investigate it. Only pick agents whose
-   dimension is genuinely relevant. Skip agents whose dimension doesn't
-   apply to this question.
-3. For each selected agent, write 1 to 3 short, specific sub-tasks
+- Use the user's message below to determine which dimensions of analysis are relevant.
+- Skip agents whose dimension doesn't apply to this question.
+- For each selected agent, write 1 to 3 short, specific sub-tasks
    describing exactly what that agent should investigate.
 
 Return a JSON object with an "assignments" array. Each element has
