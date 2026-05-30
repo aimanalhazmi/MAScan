@@ -7,8 +7,6 @@ from pydantic import BaseModel, Field
 from mascan.contracts.tools import ToolResult
 from mascan.tools.base import BaseTool
 from mascan.tools.fin_api import get_weekly_stock_prices
-from mascan.tools.web_query import web_query
-
 
 class WebQueryInput(BaseModel):
     query: str = Field(..., description="Search query for economic or market context.")
@@ -18,31 +16,6 @@ class WeeklyStockPricesInput(BaseModel):
     ticker: str = Field(..., description="Yahoo Finance ticker, e.g. BMW.DE.")
     start_date: str = Field(..., description="Start date in YYYY-MM-DD format.")
     end_date: str = Field(..., description="End date in YYYY-MM-DD format.")
-
-
-class WebQueryTool(BaseTool):
-    name = "web_query"
-    description = "Search the web for economic and market context using Firecrawl."
-    input_schema: ClassVar[type[BaseModel] | None] = WebQueryInput
-
-    def run(self, query: str, **_: Any) -> ToolResult[Any]:
-        try:
-            data = web_query.invoke({"query": query})
-            return ToolResult(
-                success=True,
-                data=data,
-                source="web_query:firecrawl",
-                metadata={"query": query},
-            )
-        except Exception as exc:
-            self.logger.exception("web_query failed for query=%r", query)
-            return ToolResult(
-                success=False,
-                data=None,
-                source="web_query:firecrawl",
-                error=str(exc),
-                metadata={"query": query},
-            )
 
 
 class WeeklyStockPricesTool(BaseTool):
