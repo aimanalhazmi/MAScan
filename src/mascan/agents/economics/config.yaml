@@ -12,5 +12,5 @@ system_prompt: |
   Always distinguish confirmed facts from uncertainty. Cite sources by name.
   Focus on business implications over general economic commentary.
 tools:
-  - web_query
+  - web_search
   - get_weekly_stock_prices
