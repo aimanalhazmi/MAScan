@@ -13,6 +13,7 @@ from dotenv import load_dotenv
 
 import mascan.agents.economics
 import mascan.agents.political
+import mascan.agents.social_media
 from mascan.agents import agent_registry
 from mascan.core.logging import configure_logging, get_logger
 

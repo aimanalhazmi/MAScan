@@ -1,5 +1,5 @@
 .DEFAULT_GOAL := help
-.PHONY: help install test lint format clean run-economics run-political
+.PHONY: help install test lint format clean run-economics run-political run-social-media
 
 help:  ## Show this help message
 	@echo "MAScan — available commands:"
@@ -36,6 +36,9 @@ run-economics:
 
 run-political:
 	PYTHONPATH=src uv run python scripts/run_agent.py political "$(Q)"
+
+run-social-media:
+	PYTHONPATH=src uv run python scripts/run_agent.py social_media "$(Q)"
 
 run-orchestrator:
 	PYTHONPATH=src uv run python scripts/run_orchestrator.py "$(Q)"
