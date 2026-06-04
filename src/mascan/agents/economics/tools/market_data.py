@@ -65,7 +65,7 @@ class WeeklyStockPricesTool(BaseTool):
                 },
             )
         
-    def get_stock_prices(ticker: str, start_date: str, end_date:str) -> str:
+    def get_stock_prices(self, ticker: str, start_date: str, end_date:str) -> str:
         """Fetches weekly stock prices and fundamentals from Yahoo Finance.
 
         Args:

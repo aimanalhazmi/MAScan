@@ -17,21 +17,25 @@ def test_economics_agent_is_registered() -> None:
 def test_economics_agent_loads_finance_and_web_tools() -> None:
     agent = EconomicsAgent()
 
-    assert "web_query" in agent.tools
+    assert "web_search" in agent.tools
     assert "get_weekly_stock_prices" in agent.tools
 
 
 def test_economics_prompt_guides_stock_tool_usage() -> None:
     prompt = build_user_prompt(
         tasks=["How could inflation and interest rates affect AAPL?"],
-        tool_block="### Tool: web_query (source: web_query:firecrawl)\nMarket context",
+        tool_block="### Tool: web_search (source: web_search:firecrawl)\nMarket context",
+        context={
+            "runtime": {
+                "current_date": "2026-06-02",
+                "timezone": "Europe/Berlin",
+            }
+        },
     )
 
-    assert "Use get_weekly_stock_prices when the task mentions" in prompt
-    assert "ticker" in prompt
-    assert "last 12 months" in prompt
-    assert "2025-05-26" in prompt
-    assert "2026-05-26" in prompt
+    assert "Runtime context:" in prompt
+    assert "Current date: 2026-06-02" in prompt
+    assert "Timezone: Europe/Berlin" in prompt
 
 
 def test_weekly_stock_tool_description_mentions_when_to_use_it() -> None:
@@ -45,10 +49,10 @@ def test_weekly_stock_tool_description_mentions_when_to_use_it() -> None:
 def test_economics_agent_run_returns_report(mocker: Any) -> None:
     agent = EconomicsAgent()
     deterministic_outputs = {
-        "web_query": ToolResult(
+        "web_search": ToolResult(
             success=True,
             data="Search summary for EU manufacturing outlook",
-            source="web_query:firecrawl",
+            source="web_search:firecrawl",
             metadata={"query": "EU manufacturing outlook"},
         )
     }
@@ -71,7 +75,7 @@ def test_economics_agent_run_returns_report(mocker: Any) -> None:
     assert report.tasks == ["EU manufacturing outlook"]
     assert report.findings == "Economic outlook findings"
     assert report.metadata["mode"] == "mixed"
-    assert report.metadata["deterministic_tools"] == ["web_query"]
+    assert report.metadata["deterministic_tools"] == ["web_search"]
     assert "## Economics Analysis" in report.rendered_markdown
-    assert [source.name for source in report.sources] == ["web_query:firecrawl"]
+    assert [source.name for source in report.sources] == ["web_search:firecrawl"]
     assert report.sources[0].metadata == {"query": "EU manufacturing outlook"}

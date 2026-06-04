@@ -32,7 +32,11 @@ class PoliticalAgent(BaseAgent):
         deterministic_outputs = self.gather_deterministic(tasks)
 
         # LLM with optional tools — decides what else (if anything) to call.
-        findings, llm_used_tools = self.run_react_agent(tasks, deterministic_outputs)
+        findings, llm_used_tools = self.run_react_agent(
+            tasks,
+            deterministic_outputs,
+            context=context,
+        )
 
         # assemble the report.
         sources = self.collect_sources(deterministic_outputs, llm_used_tools)
@@ -75,6 +79,7 @@ class PoliticalAgent(BaseAgent):
         self,
         tasks: list[str],
         deterministic_outputs: dict[str, ToolResult[Any]],
+        context: dict[str, Any] | None = None,
     ) -> tuple[str, list[str]]:
         """Run a ReAct agent with the optional tools bound.
 
@@ -92,7 +97,12 @@ class PoliticalAgent(BaseAgent):
             system_prompt=self.config.system_prompt,
         )
 
-        user_prompt = build_user_prompt(tasks, render_tool_outputs(deterministic_outputs))
+        # Runtime context is rendered into the prompt so the LLM can resolve relative dates.
+        user_prompt = build_user_prompt(
+            tasks,
+            render_tool_outputs(deterministic_outputs),
+            context=context,
+        )
         result = agent.invoke(
             {"messages": [HumanMessage(content=user_prompt)]},
             config={"recursion_limit": MAX_LLM_ITERATIONS},
