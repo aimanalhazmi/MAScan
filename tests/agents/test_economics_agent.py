@@ -29,9 +29,7 @@ def test_economics_prompt_guides_stock_tool_usage() -> None:
 
     assert "Use get_weekly_stock_prices when the task mentions" in prompt
     assert "ticker" in prompt
-    assert "last 12 months" in prompt
-    assert "2025-05-26" in prompt
-    assert "2026-05-26" in prompt
+    assert "last 12 months relative to the runtime current date" in prompt
 
 
 def test_weekly_stock_tool_description_mentions_when_to_use_it() -> None:
