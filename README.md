@@ -16,6 +16,7 @@ Market Prediction & Analysis in Multi-Agent Systems
 - [`uv`](https://github.com/astral-sh/uv)
 - `make`
 - An OpenAI API key
+- Docker installed and running.
 
 ### Setup
 
@@ -183,10 +184,49 @@ read via `mascan.core.settings`. **Document any new env var in `.env.example`.**
 
 ---
 
+## Running with FastAPI and Open WebUI
+
+MAScan exposes its orchestrator over HTTP. Open WebUI runs in Docker and
+calls the MAScan API through a small Pipe Function.
+
+### Setup (one time)
+
+1. **Start Open WebUI:** `make openwebui-up` (first run pulls ~500 MB).
+2. **Open `http://localhost:3000`** and create your admin account.
+3. **Install the Pipe:** Admin Panel → Functions → **+** → paste the
+   contents of `src/mascan/app/openwebui_pipe.py` → Save → enable the toggle.
+4. **Set Valves** (gear icon on the function):
+   - `mascan_api_url`: `http://host.docker.internal:8000`
+   - `stream_progress`: `true` for live per-agent progress, `false` for one final message.
+
+### Run a query
+
+```bash
+make run-api    # keep this terminal open
+```
+
+In your browser at `http://localhost:3000`: new chat → select **MAScan** → ask your question.
+
+### Useful commands
+
+| Command | Purpose |
+|---|---|
+| `make run-api` | Start the FastAPI server (`localhost:8000`) |
+| `make openwebui-up` / `down` / `logs` | Manage the Open WebUI container |
+| `docker start mascan-openwebui` | Resume an existing stopped container |
+
+### Troubleshooting
+
+- **"Could not reach the MAScan API"** — make sure `make run-api` is running.
+- **Model not in dropdown** — the Pipe isn't enabled; toggle it on and refresh.
+- **Errors in chat** — check `make openwebui-logs` for the Python traceback.
+- **Edited the Pipe?** — re-paste it into Open WebUI; it doesn't auto-reload from repo.
+
+
 ## Make commands
-
+ 
 All day-to-day tasks go through `make`. Run `make help` to see what's available.
-
+ 
 | Command | What it does |
 |---|---|
 | `make install` | Create the virtualenv and install dependencies via uv |
@@ -196,18 +236,23 @@ All day-to-day tasks go through `make`. Run `make help` to see what's available.
 | `make clean` | Remove caches and build artifacts |
 | `make run-economics Q="..."` | Run the Economics agent on a query |
 | `make run-<agent> Q="..."` | Same pattern for any agent (see *add a new agent* above) |
-
+| `make run-api` | Start the MAScan FastAPI server on `http://localhost:8000` |
+| `make openwebui-up` | Start Open WebUI in Docker on `http://localhost:3000` |
+| `make openwebui-down` | Stop and remove the Open WebUI container |
+| `make openwebui-logs` | Follow Open WebUI container logs |
+ 
 ### If `make` is unavailable
-
+ 
 Equivalent raw commands (rarely needed):
-
+ 
 ```bash
 uv sync --extra dev                                          # install
 uv run pytest -v                                             # test
 uv run ruff check src tests && uv run mypy src               # lint
 uv run python scripts/run_agent.py economics "your query"    # run an agent
+uv run uvicorn mascan.app.api:app --host 0.0.0.0 --port 8000 # run the API
 ```
-
+ 
 ---
 
 ## How to contribute
