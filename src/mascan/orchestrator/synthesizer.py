@@ -82,13 +82,13 @@ def _render_markdown(state: GraphState, summary: str) -> str:
         f"**Query:** {state.user_input}\n",
         "## Summary\n",
         summary,
-        "\n## Detailed Findings\n",
+        # "\n## Detailed Findings\n",
     ]
-    for name, report in state.reports.items():
-        parts.append(report.rendered_markdown)
-        parts.append("\n")
-    if state.failures:
-        parts.append("## Failed Agents\n")
-        for name, err in state.failures.items():
-            parts.append(f"- **{name}**: {err}\n")
+    # for name, report in state.reports.items():
+    #     parts.append(report.rendered_markdown)
+    #     parts.append("\n")
+    # if state.failures:
+    #     parts.append("## Failed Agents\n")
+    #     for name, err in state.failures.items():
+    #         parts.append(f"- **{name}**: {err}\n")
     return "\n".join(parts)
