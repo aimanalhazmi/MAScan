@@ -186,61 +186,55 @@ read via `mascan.core.settings`. **Document any new env var in `.env.example`.**
 
 ## Running with FastAPI and Open WebUI
 
-MAScan exposes its orchestrator over HTTP. Open WebUI runs in Docker and
-calls the MAScan API through a small Pipe Function.
+MAScan exposes its orchestrator over HTTP. Open WebUI provides a chat
+interface and calls the MAScan API through a small Pipe Function.
 
-### Setup (one time)
+### Docker Compose 
 
-1. **Start Open WebUI:** `make openwebui-up` (first run pulls ~500 MB).
-2. **Open `http://localhost:3000`** and create your admin account.
-3. **Install the Pipe:** Admin Panel → Functions → **+** → paste the
-   contents of `src/mascan/app/openwebui_pipe.py` → Save → enable the toggle.
-4. **Set Valves** (gear icon on the function):
-   - `mascan_api_url`: `http://host.docker.internal:8000`
-   - `stream_progress`: `true` for live per-agent progress, `false` for one final message.
-
-### Run a query
+**1. Start the stack:**
 
 ```bash
-make run-api    # keep this terminal open
+make compose-up
 ```
+First run takes ~2 minutes (builds the API image, pulls Open WebUI).
+Subsequent runs are instant.
 
-In your browser at `http://localhost:3000`: new chat → select **MAScan** → ask your question.
+- MAScan API: `http://localhost:8000`
+- Open WebUI: `http://localhost:3000`
 
-### Useful commands
+**2. Create your admin account** at `http://localhost:3000` (first user
+becomes admin).
 
-| Command | Purpose |
-|---|---|
-| `make run-api` | Start the FastAPI server (`localhost:8000`) |
-| `make openwebui-up` / `down` / `logs` | Manage the Open WebUI container |
-| `docker start mascan-openwebui` | Resume an existing stopped container |
+**3. Install the Pipe Function** (one-time):
+- Admin Panel → Functions → **+** (Add Function).
+- Copy the entire contents of `src/mascan/app/openwebui_pipe.py`.
+- Paste, name it `mascan_pestel_analyst`, Save, enable the toggle.
+- The Pipe's default `mascan_api_url` is `http://mascan-api:8000` —
+  this is correct for compose; no Valve changes needed.
 
-### Troubleshooting
-
-- **"Could not reach the MAScan API"** — make sure `make run-api` is running.
-- **Model not in dropdown** — the Pipe isn't enabled; toggle it on and refresh.
-- **Errors in chat** — check `make openwebui-logs` for the Python traceback.
-- **Edited the Pipe?** — re-paste it into Open WebUI; it doesn't auto-reload from repo.
+**4. Ask a question** — open a new chat, select "MAScan",
+type your query.
 
 
 ## Make commands
  
 All day-to-day tasks go through `make`. Run `make help` to see what's available.
  
-| Command | What it does |
-|---|---|
-| `make install` | Create the virtualenv and install dependencies via uv |
-| `make test` | Run pytest |
-| `make lint` | Ruff + mypy checks |
-| `make format` | Format and autofix the code |
-| `make clean` | Remove caches and build artifacts |
-| `make run-economics Q="..."` | Run the Economics agent on a query |
-| `make run-<agent> Q="..."` | Same pattern for any agent (see *add a new agent* above) |
+| Command | What it does                                               |
+|---|------------------------------------------------------------|
+| `make install` | Create the virtualenv and install dependencies via uv      |
+| `make test` | Run pytest                                                 |
+| `make lint` | Ruff + mypy checks                                         |
+| `make format` | Format and autofix the code                                |
+| `make clean` | Remove caches and build artifacts                          |
+| `make run-economics Q="..."` | Run the Economics agent on a query                         |
+| `make run-<agent> Q="..."` | Same pattern for any agent (see *add a new agent* above)   |
 | `make run-api` | Start the MAScan FastAPI server on `http://localhost:8000` |
-| `make openwebui-up` | Start Open WebUI in Docker on `http://localhost:3000` |
-| `make openwebui-down` | Stop and remove the Open WebUI container |
-| `make openwebui-logs` | Follow Open WebUI container logs |
- 
+| `make compose-up` | Start the full stack app (mascan-api + openwebui)          |
+| `make compose-down` | Stop and remove the full stack app                         |
+| `make compose-logs` | Follow logs from all services                              |
+| `make compose-rebuild` | Force a rebuild of the mascan-api image                    |
+
 ### If `make` is unavailable
  
 Equivalent raw commands (rarely needed):

@@ -34,12 +34,14 @@ class Pipe:
         """User-configurable settings shown in the Open WebUI admin panel."""
 
         mascan_api_url: str = Field(
-            default="http://host.docker.internal:8000",
+            default="http://mascan-api:8000",
             description=(
                 "Base URL of the MAScan FastAPI server. "
-                "Use http://host.docker.internal:8000 when Open WebUI runs "
-                "in Docker and MAScan runs on the host. "
-                "Use http://localhost:8000 when both run on the host."
+                "Default (http://mascan-api:8000) works when running via "
+                "docker compose. "
+                "Use http://host.docker.internal:8000 if Open WebUI is in Docker "
+                "and MAScan runs on the host. "
+                "Use http://localhost:8000 only if both run on the host."
             ),
         )
         stream_progress: bool = Field(
