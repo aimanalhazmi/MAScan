@@ -205,8 +205,7 @@ calls the MAScan API through a small Pipe Function.
 make run-api    # keep this terminal open
 ```
 
-In your browser at `http://localhost:3000`: new chat → select **MAScan
-PESTEL Analyst** → ask your question.
+In your browser at `http://localhost:3000`: new chat → select **MAScan** → ask your question.
 
 ### Useful commands
 
