@@ -4,7 +4,7 @@ Paste into Open WebUI:
     Admin Settings → Functions → Add New Function
     Paste this file, save, enable.
 
-A new model "MAScan PESTEL Analyst" appears in the model dropdown.
+A new model "MAScan" appears in the model dropdown.
 
 This Pipe supports TWO modes, switchable via Valves in the admin UI:
 
@@ -158,10 +158,23 @@ class Pipe:
         # Otherwise it's an agent node.
         reports = update.get("reports") or {}
         failures = update.get("failures") or {}
-        if reports:
-            return f"✅ `{node}` finished"
-        if failures:
-            return f"❌ `{node}` failed: {failures.get(node, 'unknown error')}"
+        if node in reports:
+            report = reports[node]
+            agent_markdown = report.get("rendered_markdown") or report.get("findings") or ""
+            confidence = report.get("confidence")
+            conf_str = f" (confidence {confidence:.2f})" if isinstance(confidence, (int, float)) else ""
+
+            # Collapsible block — click the summary to expand.
+            return (
+                f"<details>\n"
+                f"<summary>✅ {node} finished{conf_str} — click to expand</summary>\n\n"
+                f"{agent_markdown}\n\n"
+                f"</details>"
+            )
+
+        if node in failures:
+            return f"❌ **{node}** failed: `{failures.get(node)}`"
+
         return ""
 
     # --- Shared helpers
