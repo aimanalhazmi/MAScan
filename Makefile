@@ -36,6 +36,9 @@ run-economics:
 run-political:
 	PYTHONPATH=src uv run python scripts/run_agent.py political "$(Q)"
 
+run-environmental:
+	PYTHONPATH=src uv run python scripts/run_agent.py environmental "$(Q)"
+
 run-orchestrator:
 	PYTHONPATH=src uv run python scripts/run_orchestrator.py "$(Q)"
 

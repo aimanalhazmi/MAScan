@@ -11,9 +11,10 @@ import sys
 
 from dotenv import load_dotenv
 
+from mascan.agents import agent_registry
 import mascan.agents.economics  # noqa: F401  # register economics agent
 import mascan.agents.political  # noqa: F401  # register political agent
-from mascan.agents import agent_registry
+import mascan.agents.environmental  # noqa: F401  # register environmental agent
 from mascan.core.logging import configure_logging, get_logger
 from mascan.orchestrator.state import RuntimeContext
 

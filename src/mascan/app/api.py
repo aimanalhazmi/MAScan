@@ -13,8 +13,10 @@ from mascan.core.logging import get_logger, configure_logging
 from mascan.orchestrator import run as orchestrator_run
 from mascan.orchestrator import stream as orchestrator_stream
 
+from mascan.agents import agent_registry
 import mascan.agents.economics  # noqa: F401
 import mascan.agents.political  # noqa: F401
+import mascan.agents.environmental  # noqa: F401
 
 configure_logging()
 logger = get_logger("app.api")
