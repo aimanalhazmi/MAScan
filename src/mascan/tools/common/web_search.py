@@ -1,9 +1,15 @@
-from typing import Any
+from typing import Any, ClassVar
 
 from firecrawl import Firecrawl
+from pydantic import BaseModel, Field
 
 from mascan.contracts.tools import ToolResult
 from mascan.tools.base import BaseTool
+
+
+class WebSearchInput(BaseModel):
+    query: str = Field(..., description="Search query for recent web information.")
+    max_results: int = Field(5, description="Maximum number of pages to return.")
 
 
 class WebSearchTool(BaseTool):
@@ -12,6 +18,7 @@ class WebSearchTool(BaseTool):
         "Search the public web for recent information. "
         "Returns a list of matching pages with markdown body content."
     )
+    input_schema: ClassVar[type[BaseModel] | None] = WebSearchInput
 
     def __init__(self, api_key: str | None = None) -> None:
         """Initialize Firecrawl.
