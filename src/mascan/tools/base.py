@@ -1,5 +1,7 @@
 """BaseTool — the contract every tool must implement."""
 
+import functools
+import inspect
 from abc import ABC, abstractmethod
 from typing import  Any, ClassVar
 
@@ -54,7 +56,7 @@ class BaseTool(ABC):
         Use this when you want the LLM to decide *whether* and *with what
         arguments* to call the tool, instead of calling `run()` directly in
         code. Bind the result to a chat model with `llm.bind_tools([...])`
-        or pass it to `create_react_agent(...)`.
+        or pass it to `create_agent(...)`.
 
         Returns:
             A LangChain StructuredTool whose name and description come from
@@ -62,13 +64,16 @@ class BaseTool(ABC):
         """
 
 
-        def invoke(**kwargs: Any) -> Any:
-            result = self.run(**kwargs)
+        @functools.wraps(self.run)
+        def invoke(**call_kwargs: Any) -> Any:
+            result = self.run(**call_kwargs)
             if not result.success:
                 return f"Tool {self.name!r} failed: {result.error}"
             if isinstance(result.data, BaseModel):
                 return result.data.model_dump(mode="json")
             return result.data
+
+        invoke.__signature__ = inspect.signature(self.run)
 
         kwargs: dict[str, Any] = {
             "func": invoke,
