@@ -1,6 +1,6 @@
 """PESTEL agents. Each subfolder is one agent; everything that agent owns lives there."""
 
-import mascan.tools.common # Import common tools so they're registered and available to all agents
+import mascan.tools.common # noqa: F401 register shared tools
 
 from mascan.agents.base import BaseAgent
 from mascan.agents.config import AgentConfig
