@@ -32,4 +32,3 @@ system_prompt: |
 
 tools:
   - web_search
-  - get_weekly_stock_prices
