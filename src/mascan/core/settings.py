@@ -18,10 +18,8 @@ class Settings(BaseSettings):
 
     #  Tools
     firecrawl_api_key: str = Field(..., description="Firecrawl API key.")
-    reddit_client_id: str | None = Field(None, description="Optional Reddit client ID.")
-    reddit_client_secret: str | None = Field(None, description="Optional Reddit client secret.")
-    reddit_user_agent: str | None = Field(None, description="Optional Reddit user agent.")
-    x_bearer_token: str | None = Field(None, description="Optional X API bearer token.")
+    twitter_cli_command: str = Field("twitter", description="Optional twitter-cli command name.")
+    reddit_cli_command: str = Field("rdt", description="Optional rdt-cli command name.")
 
     #  App
     log_level: str = Field("INFO", description="Logging level.")

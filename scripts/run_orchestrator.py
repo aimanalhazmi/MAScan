@@ -3,7 +3,7 @@ import sys
 
 import mascan.agents.economics
 import mascan.agents.political         
-import mascan.agents.social_media
+import mascan.agents.social
 
 from mascan.core.logging import configure_logging, get_logger
 from mascan.orchestrator.graph import run, stream
