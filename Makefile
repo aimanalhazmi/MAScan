@@ -1,5 +1,5 @@
 .DEFAULT_GOAL := help
-.PHONY: help install test lint format clean run-economics run-political
+.PHONY: help install test lint format clean run-economics run-political run-legal
 
 help:  ## Show this help message
 	@echo "MAScan — available commands:"
@@ -36,3 +36,6 @@ run-economics:
 
 run-political:
 	uv run python scripts/run_agent.py political "$(Q)"
+
+run-legal:
+	uv run python scripts/run_agent.py legal "$(Q)"

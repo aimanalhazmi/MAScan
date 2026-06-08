@@ -3,6 +3,7 @@
 Usage:
     uv run python scripts/run_agent.py economics "EU manufacturing outlook"
     uv run python scripts/run_agent.py political "US-China trade tensions"
+    uv run python scripts/run_agent.py legal "EU AI Act compliance obligations"
 
 Bypasses the orchestrator. Use it to develop and test a single agent
 """
@@ -10,6 +11,7 @@ Bypasses the orchestrator. Use it to develop and test a single agent
 import sys
 
 import mascan.agents.economics
+import mascan.agents.legal
 import mascan.agents.political
 from mascan.agents import agent_registry
 from mascan.core.logging import configure_logging, get_logger
