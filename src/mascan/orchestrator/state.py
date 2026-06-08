@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import Annotated
+from typing import Annotated, Any
 from zoneinfo import ZoneInfo
 
 from pydantic import BaseModel, Field
@@ -7,7 +7,7 @@ from pydantic import BaseModel, Field
 from mascan.contracts.reports import AgentReport
 
 
-def merge_dicts(left: dict, right: dict) -> dict:
+def merge_dicts(left: dict[str, Any], right: dict[str, Any]) -> dict[str, Any]:
     return {**left, **right}
 
 
