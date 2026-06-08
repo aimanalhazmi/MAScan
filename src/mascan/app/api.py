@@ -15,6 +15,7 @@ from mascan.orchestrator import stream as orchestrator_stream
 
 import mascan.agents.economics  # noqa: F401
 import mascan.agents.political  # noqa: F401
+import mascan.agents.social # noqa: F401
 
 configure_logging()
 logger = get_logger("app.api")
