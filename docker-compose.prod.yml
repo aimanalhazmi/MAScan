@@ -35,6 +35,7 @@ services:
       - "traefik.http.routers.mascan-dev-ui.middlewares=mascan-dev-ui-auth"
       - "traefik.http.services.mascan-dev-ui.loadbalancer.server.port=8080"
       - "traefik.http.middlewares.mascan-dev-ui-auth.basicauth.users=${TRAEFIK_BASIC_AUTH_USERS:?Set TRAEFIK_BASIC_AUTH_USERS in Dokploy environment}"
+      - "traefik.http.middlewares.mascan-dev-ui-auth.basicauth.removeheader=true"
     volumes:
       - openwebui-data:/app/backend/data
     depends_on:
