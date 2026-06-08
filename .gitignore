@@ -42,3 +42,5 @@ logs/
 
 # OS
 Thumbs.db
+pyproject.toml
+uv.lock
