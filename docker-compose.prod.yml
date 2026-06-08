@@ -28,12 +28,6 @@ services:
     labels: # To add a password to protect the URL from Bots
       - "traefik.enable=true"
       - "traefik.docker.network=dokploy-network"
-      - "traefik.http.routers.mascan-dev-ui.rule=Host(`mascan-dev-ui.amirajmi.com`)"
-      - "traefik.http.routers.mascan-dev-ui.entrypoints=websecure"
-      - "traefik.http.routers.mascan-dev-ui.tls.certresolver=letsencrypt"
-      - "traefik.http.routers.mascan-dev-ui.service=mascan-dev-ui"
-      - "traefik.http.routers.mascan-dev-ui.middlewares=mascan-dev-ui-auth"
-      - "traefik.http.services.mascan-dev-ui.loadbalancer.server.port=8080"
       - "traefik.http.middlewares.mascan-dev-ui-auth.basicauth.users=${TRAEFIK_BASIC_AUTH_USERS:?Set TRAEFIK_BASIC_AUTH_USERS in Dokploy environment}"
       - "traefik.http.middlewares.mascan-dev-ui-auth.basicauth.removeheader=true"
     volumes:
