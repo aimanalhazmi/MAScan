@@ -64,10 +64,18 @@ def planner_node(state: GraphState) -> dict[str, Any]:
     system_prompt = PLANNER_SYSTEM_PROMPT.format(
         available_agents="\n".join(f"- {name}" for name in available)
     )
+    # Adding runtime context to planner agent
+    runtime = state.runtime_context.model_dump()
+    user_prompt = (
+        "Runtime context:\n"
+        f"- Current date: {runtime['current_date']}\n"
+        f"- Timezone: {runtime['timezone']}\n\n"
+        f"User question:\n{state.user_input}"
+    )
 
     result: PlanModel = structured_llm.invoke([
         SystemMessage(content=system_prompt),
-        HumanMessage(content=state.user_input),
+        HumanMessage(content=user_prompt),
     ])
 
     raw_plan = {a.agent_name: a.tasks for a in result.assignments}
