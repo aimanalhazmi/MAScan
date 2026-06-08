@@ -38,6 +38,27 @@ def test_economics_prompt_guides_stock_tool_usage() -> None:
     assert "Timezone: Europe/Berlin" in prompt
 
 
+def test_economics_prompt_renders_retry_feedback_with_previous_report() -> None:
+    prompt = build_user_prompt(
+        tasks=["Analyze economic risks for AAPL"],
+        tool_block="### Tool: web_search (source: web_search:firecrawl)\nMarket context",
+        context={
+            "retry_feedback": {
+                "status": "missing",
+                "feedback": "The report missed exchange-rate exposure.",
+                "previous_report": "Prior report covered inflation only.",
+                "instruction": "Use the previous report as a base and return a complete revised report.",
+            }
+        },
+    )
+
+    assert "Quality gate retry feedback:" in prompt
+    assert "Status: missing" in prompt
+    assert "The report missed exchange-rate exposure." in prompt
+    assert "Prior report covered inflation only." in prompt
+    assert "Use the previous report as a base" in prompt
+
+
 def test_weekly_stock_tool_description_mentions_when_to_use_it() -> None:
     tool = WeeklyStockPricesTool()
 
