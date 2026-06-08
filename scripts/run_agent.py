@@ -16,6 +16,7 @@ import mascan.agents.political
 import mascan.agents.social
 from mascan.agents import agent_registry
 from mascan.core.logging import configure_logging, get_logger
+from mascan.orchestrator.state import RuntimeContext
 
 
 def main() -> int:
@@ -38,7 +39,13 @@ def main() -> int:
         return 1
 
     logger.info("Running agent=%s query=%r", agent_name, query)
-    report = agent.run(tasks=[query])
+    runtime_context = RuntimeContext.from_system()
+    report = agent.run(
+        tasks=[query],
+        context={
+            "runtime": runtime_context.model_dump(),
+        },
+    )
 
     print("\n" + "=" * 70)
     print(report.rendered_markdown)

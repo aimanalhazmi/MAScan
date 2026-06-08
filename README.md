@@ -16,6 +16,7 @@ Market Prediction & Analysis in Multi-Agent Systems
 - [`uv`](https://github.com/astral-sh/uv)
 - `make`
 - An OpenAI API key
+- Docker installed and running.
 
 ### Setup
 
@@ -183,19 +184,56 @@ read via `mascan.core.settings`. **Document any new env var in `.env.example`.**
 
 ---
 
+## Running with FastAPI and Open WebUI
+
+MAScan exposes its orchestrator over HTTP. Open WebUI provides a chat
+interface and calls the MAScan API through a small Pipe Function.
+
+### Docker Compose
+
+**1. Start the stack:**
+
+```bash
+make compose-up
+```
+First run takes ~2 minutes (builds the API image, pulls Open WebUI).
+Subsequent runs are instant.
+
+- MAScan API: `http://localhost:8000`
+- Open WebUI: `http://localhost:3000`
+
+**2. Create your admin account** at `http://localhost:3000` (first user
+becomes admin).
+
+**3. Install the Pipe Function** (one-time):
+- Admin Panel → Functions → **+** (Add Function).
+- Copy the entire contents of `src/mascan/app/openwebui_pipe.py`.
+- Paste, name it `mascan_pestel_analyst`, Save, enable the toggle.
+- The Pipe's default `mascan_api_url` is `http://mascan-api:8000` —
+  this is correct for compose; no Valve changes needed.
+
+**4. Ask a question** — open a new chat, select "MAScan",
+type your query.
+
+
 ## Make commands
 
 All day-to-day tasks go through `make`. Run `make help` to see what's available.
 
-| Command | What it does |
-|---|---|
-| `make install` | Create the virtualenv and install dependencies via uv |
-| `make test` | Run pytest |
-| `make lint` | Ruff + mypy checks |
-| `make format` | Format and autofix the code |
-| `make clean` | Remove caches and build artifacts |
-| `make run-economics Q="..."` | Run the Economics agent on a query |
-| `make run-<agent> Q="..."` | Same pattern for any agent (see *add a new agent* above) |
+| Command | What it does                                               |
+|---|------------------------------------------------------------|
+| `make install` | Create the virtualenv and install dependencies via uv      |
+| `make test` | Run pytest                                                 |
+| `make lint` | Ruff + mypy checks                                         |
+| `make format` | Format and autofix the code                                |
+| `make clean` | Remove caches and build artifacts                          |
+| `make run-economics Q="..."` | Run the Economics agent on a query                         |
+| `make run-<agent> Q="..."` | Same pattern for any agent (see *add a new agent* above)   |
+| `make run-api` | Start the MAScan FastAPI server on `http://localhost:8000` |
+| `make compose-up` | Start the full stack app (mascan-api + openwebui)          |
+| `make compose-down` | Stop and remove the full stack app                         |
+| `make compose-logs` | Follow logs from all services                              |
+| `make compose-rebuild` | Force a rebuild of the mascan-api image                    |
 
 ### If `make` is unavailable
 
@@ -206,6 +244,7 @@ uv sync --extra dev                                          # install
 uv run pytest -v                                             # test
 uv run ruff check src tests && uv run mypy src               # lint
 uv run python scripts/run_agent.py economics "your query"    # run an agent
+uv run uvicorn mascan.app.api:app --host 0.0.0.0 --port 8000 # run the API
 ```
 
 ---

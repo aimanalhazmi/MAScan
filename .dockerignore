@@ -1,0 +1,63 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg-info/
+.eggs/
+dist/
+build/
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# uv
+.uv/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+
+# Git
+.git/
+.gitignore
+.github/
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+.mypy_cache/
+.ruff_cache/
+
+# Docs and config we don't need at runtime
+*.md
+!README.md
+docs/
+
+# Environment files (provided via env_file or secrets at runtime)
+.env
+.env.local
+.env.*.local
+
+# Logs
+*.log
+logs/
+
+# OS
+Thumbs.db
+
+# Docker artifacts we don't want inside the image
+Dockerfile
+docker-compose.yml
+.dockerignore
+
+# Misc
+*.tar.gz
+*.zip
