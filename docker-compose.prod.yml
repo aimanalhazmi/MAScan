@@ -25,7 +25,7 @@ services:
     networks:
       - default
       - dokploy-network
-    labels:
+    labels: # To add a password to protect the URL from Bots
       - "traefik.enable=true"
       - "traefik.docker.network=dokploy-network"
       - "traefik.http.routers.mascan-dev-ui.rule=Host(`mascan-dev-ui.amirajmi.com`)"
