@@ -22,6 +22,19 @@ services:
     restart: unless-stopped
     expose:
       - "8080"
+    networks:
+      - default
+      - dokploy-network
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=dokploy-network"
+      - "traefik.http.routers.mascan-dev-ui.rule=Host(`mascan-dev-ui.amirajmi.com`)"
+      - "traefik.http.routers.mascan-dev-ui.entrypoints=websecure"
+      - "traefik.http.routers.mascan-dev-ui.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.mascan-dev-ui.service=mascan-dev-ui"
+      - "traefik.http.routers.mascan-dev-ui.middlewares=mascan-dev-ui-auth"
+      - "traefik.http.services.mascan-dev-ui.loadbalancer.server.port=8080"
+      - "traefik.http.middlewares.mascan-dev-ui-auth.basicauth.users=${TRAEFIK_BASIC_AUTH_USERS:?Set TRAEFIK_BASIC_AUTH_USERS in Dokploy environment}"
     volumes:
       - openwebui-data:/app/backend/data
     depends_on:
@@ -33,3 +46,7 @@ services:
 
 volumes:
   openwebui-data:
+
+networks:
+  dokploy-network:
+    external: true
