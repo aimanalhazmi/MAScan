@@ -42,3 +42,7 @@ logs/
 
 # OS
 Thumbs.db
+
+# local experiemnts 
+/playground/
+.agents
