@@ -1,7 +1,7 @@
 """Reports returned by agents to the orchestrator."""
 
-from datetime import datetime, timezone
-from typing import Any
+from datetime import UTC, datetime
+from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 
@@ -11,7 +11,7 @@ class Source(BaseModel):
 
     name: str = Field(..., description="Human-readable source name, e.g. 'FRED:GDP'.")
     url: str | None = Field(None, description="URL if applicable.")
-    accessed_at: datetime = Field(default_factory=datetime.utcnow)
+    accessed_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
     metadata: dict[str, Any] = Field(default_factory=dict)
 
 
@@ -26,6 +26,27 @@ class AgentReport(BaseModel):
     rendered_markdown: str = Field(..., description="Human-readable markdown rendering.")
     metadata: dict[str, Any] = Field(default_factory=dict)
 
+
+class AgentQualityReview(BaseModel):
+    """Quality gate result for one agent report."""
+
+    agent_name: str = Field(..., description="Identifier of the agent being reviewed.")
+    status: Literal["sufficient", "missing", "failed"] = Field(
+        ..., description="Whether the report is accepted, incomplete, or unusable."
+    )
+    feedback: str = Field(..., description="Reviewer feedback for retry or synthesis context.")
+    metadata: dict[str, Any] = Field(default_factory=dict)
+
+
+class AgentRetryFeedback(BaseModel):
+    """Feedback passed back to an agent during a quality-gate retry."""
+
+    status: Literal["missing", "failed"] = Field(
+        ..., description="Reason the agent is being retried."
+    )
+    feedback: str = Field(..., description="Reviewer feedback for the retry.")
+    previous_report: str | None = None
+    instruction: str = Field(..., description="Explicit retry instruction for the agent.")
 
 
 class FinalReport(BaseModel):
@@ -47,6 +68,6 @@ class FinalReport(BaseModel):
         description="Agents that failed: agent_name -> error message.",
     )
 
-    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
     metadata: dict[str, Any] = Field(default_factory=dict)
     rendered_markdown: str = Field(..., description="Markdown rendering for UI display.")
