@@ -63,6 +63,11 @@ def _build_synthesis_prompt(state: GraphState) -> str:
         for name, err in state.failures.items():
             parts.append(f"- {name}: {err}\n")
 
+    quality_review_notes = _format_quality_review_notes(state)
+    if quality_review_notes:
+        parts.append("Quality review notes:\n")
+        parts.extend(quality_review_notes)
+
     return "\n".join(parts)
 
 
@@ -73,6 +78,19 @@ def _format_report_for_prompt(name: str, report: AgentReport) -> str:
         f"{report.findings}\n"
         f"Sources: {src_block}\n"
     )
+
+
+def _format_quality_review_notes(state: GraphState) -> list[str]:
+    notes: list[str] = []
+    for name, report in state.reports.items():
+        review = report.metadata.get("quality_review")
+        if not isinstance(review, dict):
+            continue
+        status = review.get("status")
+        feedback = review.get("feedback")
+        if status and feedback:
+            notes.append(f"- {name}: {status} — {feedback}\n")
+    return notes
 
 
 def _render_markdown(state: GraphState, summary: str) -> str:
