@@ -36,7 +36,7 @@ class NewsDataSearchTool(BaseTool):
             settings = get_settings()
 
             api = NewsDataApiClient(
-                apikey=settings.NEWSDATA_API_KEY
+                apikey=settings.news_api_key
             )
 
             params = {

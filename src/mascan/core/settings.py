@@ -18,6 +18,7 @@ class Settings(BaseSettings):
 
     #  Tools
     #firecrawl_api_key: str = Field(..., description="Firecrawl API key.")
+    news_api_key: str = Field("", description="NewsData.io API key (NEWS_API_KEY).")
 
     #  App
     log_level: str = Field("INFO", description="Logging level.")
