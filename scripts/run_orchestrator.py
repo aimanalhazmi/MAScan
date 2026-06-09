@@ -4,6 +4,7 @@ import sys
 import mascan.agents.economics # noqa: F401
 import mascan.agents.political    # noqa: F401
 import mascan.agents.social # noqa: F401
+import mascan.agents.environmental # noqa: F401
 
 from mascan.core.logging import configure_logging, get_logger
 from mascan.orchestrator.graph import run, stream
