@@ -2,22 +2,18 @@
 
 from typing import Any
 
-from mascan.contracts.tools import ToolResult
+from mascan.agents.context import render_agent_context, render_runtime_context
 
 
-def render_tool_outputs(outputs: dict[str, ToolResult[Any]]) -> str:
-    parts: list[str] = []
-    for name, result in outputs.items():
-        if result.success:
-            parts.append(f"### Tool: {name} (source: {result.source})\n{result.data}\n")
-        else:
-            parts.append(f"### Tool: {name} — FAILED ({result.error})\n")
-    return "\n".join(parts)
-
-
-def build_user_prompt(tasks: list[str], tool_block: str) -> str:
+def build_user_prompt(
+    tasks: list[str],
+    tool_block: str,
+    context: dict[str, Any] | None = None,
+) -> str:
     task_lines = "\n".join(f"- {t}" for t in tasks)
     return (
+        f"{render_agent_context(context)}"
+        f"{render_runtime_context(context)}"
         f"Tasks to analyze:\n{task_lines}\n\n"
         f"Information already gathered:\n{tool_block}\n\n"
         "Write a concise PESTEL social analysis addressing the tasks above. "

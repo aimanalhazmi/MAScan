@@ -1,9 +1,11 @@
 """Reports returned by agents to the orchestrator."""
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
 from pydantic import BaseModel, Field
+
+from mascan.contracts.planning import AgentAssignment
 
 
 class Source(BaseModel):
@@ -11,7 +13,7 @@ class Source(BaseModel):
 
     name: str = Field(..., description="Human-readable source name, e.g. 'FRED:GDP'.")
     url: str | None = Field(None, description="URL if applicable.")
-    accessed_at: datetime = Field(default_factory=datetime.utcnow)
+    accessed_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
     metadata: dict[str, Any] = Field(default_factory=dict)
 
 
@@ -34,9 +36,9 @@ class FinalReport(BaseModel):
     user_input: str = Field(..., description="The original user query.")
     summary: str = Field(..., description="LLM-synthesized final answer.")
 
-    plan: dict[str, list[str]] = Field(
+    plan: dict[str, AgentAssignment] = Field(
         default_factory=dict,
-        description="Planner output: agent_name -> tasks assigned.",
+        description="Planner output: agent_name -> assignment.",
     )
     agent_reports: dict[str, AgentReport] = Field(
         default_factory=dict,
@@ -47,6 +49,6 @@ class FinalReport(BaseModel):
         description="Agents that failed: agent_name -> error message.",
     )
 
-    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
     metadata: dict[str, Any] = Field(default_factory=dict)
     rendered_markdown: str = Field(..., description="Markdown rendering for UI display.")

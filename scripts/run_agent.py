@@ -43,6 +43,10 @@ def main() -> int:
     report = agent.run(
         tasks=[query],
         context={
+            "objective_context": (
+                f"Standalone {agent_name} analysis. Use this full user query as the "
+                f"agent-specific objective context: {query}"
+            ),
             "runtime": runtime_context.model_dump(),
         },
     )

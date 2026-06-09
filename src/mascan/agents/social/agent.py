@@ -8,7 +8,8 @@ from langchain_core.messages import HumanMessage, SystemMessage
 from pydantic import BaseModel, Field
 
 from mascan.agents.base import BaseAgent
-from mascan.agents.social.prompts import build_user_prompt, render_tool_outputs
+from mascan.agents.context import render_agent_context, render_runtime_context, render_tool_outputs
+from mascan.agents.social.prompts import build_user_prompt
 from mascan.contracts.reports import AgentReport, Source
 from mascan.contracts.tools import ToolResult
 from mascan.core.llm import get_chat_model
@@ -67,8 +68,12 @@ class SocialAgent(BaseAgent):
     def run(self, tasks: list[str], context: dict[str, Any] | None = None) -> AgentReport:
         self.logger.info("Running Mode C (mixed) with %d task(s)", len(tasks))
 
-        deterministic_outputs = self.gather_deterministic(tasks)
-        findings, llm_used_tools = self.run_react_agent(tasks, deterministic_outputs)
+        deterministic_outputs = self.gather_deterministic(tasks, context=context)
+        findings, llm_used_tools = self.run_react_agent(
+            tasks,
+            deterministic_outputs,
+            context=context,
+        )
         evidence_tools = self.extract_evidence_tools(deterministic_outputs)
         sources = self.collect_sources(deterministic_outputs, llm_used_tools)
         rendered = self.render_markdown(tasks, findings, sources, evidence_tools)
@@ -89,9 +94,13 @@ class SocialAgent(BaseAgent):
             },
         )
 
-    def gather_deterministic(self, tasks: list[str]) -> dict[str, ToolResult[Any]]:
+    def gather_deterministic(
+        self,
+        tasks: list[str],
+        context: dict[str, Any] | None = None,
+    ) -> dict[str, ToolResult[Any]]:
         query = " ; ".join(tasks)
-        plan = self.plan_evidence(tasks)
+        plan = self.plan_evidence(tasks, context=context)
         self._last_evidence_plan = plan.model_dump()
         outputs: dict[str, ToolResult[Any]] = {}
 
@@ -145,7 +154,11 @@ class SocialAgent(BaseAgent):
             return default
         return value.strip().lower() not in {"0", "false", "no", "off"}
 
-    def plan_evidence(self, tasks: list[str]) -> SocialEvidencePlan:
+    def plan_evidence(
+        self,
+        tasks: list[str],
+        context: dict[str, Any] | None = None,
+    ) -> SocialEvidencePlan:
         llm = get_chat_model(
             model=self.config.model,
             temperature=0.0,
@@ -155,7 +168,14 @@ class SocialAgent(BaseAgent):
         result: SocialEvidencePlan = structured_llm.invoke(
             [
                 SystemMessage(content=SOCIAL_EVIDENCE_PLANNER_PROMPT),
-                HumanMessage(content="\n".join(f"- {task}" for task in tasks)),
+                HumanMessage(
+                    content=(
+                        f"{render_agent_context(context)}"
+                        f"{render_runtime_context(context)}"
+                        "Assigned social-analysis tasks:\n"
+                        + "\n".join(f"- {task}" for task in tasks)
+                    )
+                ),
             ]
         )
         return self.constrain_evidence_plan(result)
@@ -213,6 +233,7 @@ class SocialAgent(BaseAgent):
         self,
         tasks: list[str],
         deterministic_outputs: dict[str, ToolResult[Any]],
+        context: dict[str, Any] | None = None,
     ) -> tuple[str, list[str]]:
         llm = get_chat_model(
             model=self.config.model,
@@ -225,7 +246,11 @@ class SocialAgent(BaseAgent):
             system_prompt=self.config.system_prompt,
         )
 
-        user_prompt = build_user_prompt(tasks, render_tool_outputs(deterministic_outputs))
+        user_prompt = build_user_prompt(
+            tasks,
+            render_tool_outputs(deterministic_outputs),
+            context=context,
+        )
         result = agent.invoke(
             {"messages": [HumanMessage(content=user_prompt)]},
             config={"recursion_limit": MAX_LLM_ITERATIONS},
