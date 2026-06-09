@@ -16,6 +16,12 @@ from langchain_core.messages import HumanMessage
 from mascan.agents.base import BaseAgent
 from mascan.agents.context import render_tool_outputs
 from mascan.agents.economics.prompts import build_user_prompt
+from mascan.agents.sources import (
+    dedupe_sources,
+    render_source_lines,
+    sources_from_react,
+    sources_from_tool_results,
+)
 from mascan.contracts.reports import AgentReport, Source
 from mascan.contracts.tools import ToolResult
 from mascan.core.llm import get_chat_model
@@ -110,10 +116,15 @@ class EconomicsAgent(BaseAgent):
             {"messages": [HumanMessage(content=user_prompt)]},
             config={"recursion_limit": MAX_LLM_ITERATIONS},
         )
+        # yfinance calls expose no URL in their payload, so reconstruct a Yahoo
+        # Finance link from the ticker; other tools yield real article links.
+        llm_sources = dedupe_sources(
+            self.extract_llm_sources(result) + sources_from_react(result)
+        )
         return (
             self.extract_final_answer(result),
             self.extract_used_tools(result),
-            self.extract_llm_sources(result),
+            llm_sources,
         )
 
     @staticmethod
@@ -201,15 +212,10 @@ class EconomicsAgent(BaseAgent):
         deterministic_outputs: dict[str, ToolResult],
         llm_sources: list[Source],
     ) -> list[Source]:
-        sources_by_name: dict[str, Source] = {}
-        for result in deterministic_outputs.values():
-            if result.success and result.source not in sources_by_name:
-                sources_by_name[result.source] = Source(
-                    name=result.source, metadata=result.metadata
-                )
-        for source in llm_sources:
-            sources_by_name.setdefault(source.name, source)
-        return list(sources_by_name.values())
+        """Merge real article links from both the deterministic and LLM paths."""
+        return dedupe_sources(
+            sources_from_tool_results(deterministic_outputs) + llm_sources
+        )
 
     def render_markdown(
         self,
@@ -219,7 +225,7 @@ class EconomicsAgent(BaseAgent):
         llm_used_tools: list[str],
     ) -> str:
         task_lines = "\n".join(f"- {t}" for t in tasks)
-        src_lines = "\n".join(self.format_source_line(s) for s in sources) or "- (none)"
+        src_lines = render_source_lines(sources)
         llm_lines = "\n".join(f"- {t}" for t in llm_used_tools) or "- (none)"
         always_lines = "\n".join(f"- {t}" for t in ALWAYS_CALL_TOOLS)
         return (
@@ -230,9 +236,3 @@ class EconomicsAgent(BaseAgent):
             f"**Tools the LLM chose to call:**\n{llm_lines}\n\n"
             f"**Sources:**\n{src_lines}\n"
         )
-
-    @staticmethod
-    def format_source_line(source: Source) -> str:
-        if source.url:
-            return f"- [{source.name}]({source.url})"
-        return f"- {source.name}"

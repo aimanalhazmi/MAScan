@@ -45,7 +45,13 @@ def test_economics_agent_run_returns_report(mocker: Any) -> None:
     deterministic_outputs = {
         "web_search": ToolResult(
             success=True,
-            data="Search summary for EU manufacturing outlook",
+            data=[
+                {
+                    "title": "EU manufacturing PMI slips in Q4",
+                    "url": "https://example.com/eu-pmi",
+                    "markdown": "Manufacturing activity contracted.",
+                }
+            ],
             source="web_search:firecrawl",
             metadata={"query": "EU manufacturing outlook"},
         )
@@ -71,8 +77,12 @@ def test_economics_agent_run_returns_report(mocker: Any) -> None:
     assert report.metadata["mode"] == "mixed"
     assert report.metadata["deterministic_tools"] == ["web_search"]
     assert "## Economics Analysis" in report.rendered_markdown
-    assert [source.name for source in report.sources] == ["web_search:firecrawl"]
-    assert report.sources[0].metadata == {"query": "EU manufacturing outlook"}
+    # Sources are real article links labelled by title, not tool names.
+    assert [source.url for source in report.sources] == ["https://example.com/eu-pmi"]
+    assert report.sources[0].name == "EU manufacturing PMI slips in Q4"
+    assert "[EU manufacturing PMI slips in Q4](https://example.com/eu-pmi)" in (
+        report.rendered_markdown
+    )
 
 
 class _ToolMessage:
@@ -108,7 +118,9 @@ def test_extract_llm_sources_surfaces_market_data() -> None:
     assert source.metadata["ticker"] == "BMW.DE"
     assert source.metadata["company_name"] == "Bayerische Motoren Werke AG"
 
-    line = EconomicsAgent.format_source_line(source)
+    from mascan.agents.sources import format_source_line
+
+    line = format_source_line(source)
     assert line == "- [yfinance:BMW.DE](https://finance.yahoo.com/quote/BMW.DE)"
 
 

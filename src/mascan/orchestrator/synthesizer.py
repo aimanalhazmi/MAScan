@@ -67,28 +67,50 @@ def _build_synthesis_prompt(state: GraphState) -> str:
 
 
 def _format_report_for_prompt(name: str, report: AgentReport) -> str:
-    src_block = ", ".join(s.name for s in report.sources) or "(no sources)"
+    src_block = (
+        "\n".join(
+            f"  - {s.name}: {s.url}" if s.url else f"  - {s.name}"
+            for s in report.sources
+        )
+        or "  (no sources)"
+    )
     return (
         f"### Agent: {name} (confidence={report.confidence:.2f})\n"
         f"{report.findings}\n"
-        f"Sources: {src_block}\n"
+        f"Sources:\n{src_block}\n"
     )
 
 
 def _render_markdown(state: GraphState, summary: str) -> str:
-    """Combine the LLM summary with each agent's rendered report."""
+    """Combine the LLM summary with an aggregated Sources section."""
     parts = [
         "# Final Report\n",
         f"**Query:** {state.user_input}\n",
         "## Summary\n",
         summary,
-        # "\n## Detailed Findings\n",
     ]
-    # for name, report in state.reports.items():
-    #     parts.append(report.rendered_markdown)
-    #     parts.append("\n")
-    # if state.failures:
-    #     parts.append("## Failed Agents\n")
-    #     for name, err in state.failures.items():
-    #         parts.append(f"- **{name}**: {err}\n")
+    sources_section = _render_sources_section(state)
+    if sources_section:
+        parts.append("\n## Sources\n")
+        parts.append(sources_section)
     return "\n".join(parts)
+
+
+def _render_sources_section(state: GraphState) -> str:
+    """Gather every agent's real reference links into one grouped, deduped list."""
+    blocks: list[str] = []
+    for name, report in state.reports.items():
+        seen: set[str] = set()
+        lines: list[str] = []
+        for source in report.sources:
+            key = source.url or source.name
+            if key in seen:
+                continue
+            seen.add(key)
+            if source.url:
+                lines.append(f"- [{source.name}]({source.url})")
+            else:
+                lines.append(f"- {source.name}")
+        if lines:
+            blocks.append(f"**{name.title()}**\n" + "\n".join(lines))
+    return "\n\n".join(blocks)
