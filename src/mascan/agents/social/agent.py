@@ -1,6 +1,5 @@
 """SocialAgent — Mode C (mixed)."""
 
-import os
 from typing import Any
 
 from langchain.agents import create_agent
@@ -19,8 +18,6 @@ OPTIONAL_TOOLS: tuple[str, ...] = ("reddit_search", "x_search")
 MAX_LLM_ITERATIONS = 10
 MAX_SEARCH_QUERIES = 3
 WEB_RESULTS_PER_QUERY = 5
-REDDIT_RESULTS_PER_QUERY = 10
-X_RESULTS_PER_QUERY = 10
 
 SOCIAL_EVIDENCE_PLANNER_PROMPT = """\
 You plan evidence collection for the Social analyst in a PESTEL market-analysis system.
@@ -32,10 +29,6 @@ Given the assigned social-analysis tasks:
 2. Write up to 3 public web search queries. Do not simply copy the task; make each
    query targeted at social evidence such as consumer sentiment, workforce, education,
    public health, inequality, adoption barriers, social controversy, or community risk.
-3. Write up to 3 Reddit search queries only when Reddit discussion could add useful
-   qualitative evidence. Keep them short keyword queries.
-4. Write up to 3 X search queries only when recent public posts could add useful
-   qualitative evidence. Keep them short keyword queries.
 
 Return concise search phrases. Prefer fewer high-quality queries over filling all slots.
 """
@@ -51,14 +44,6 @@ class SocialEvidencePlan(BaseModel):
     web_queries: list[str] = Field(
         default_factory=list,
         description="Targeted public-web search queries.",
-    )
-    reddit_queries: list[str] = Field(
-        default_factory=list,
-        description="Targeted Reddit search queries for qualitative evidence.",
-    )
-    x_queries: list[str] = Field(
-        default_factory=list,
-        description="Targeted X search queries for recent qualitative evidence.",
     )
 
 
@@ -126,33 +111,7 @@ class SocialAgent(BaseAgent):
                 "world_bank_social_indicators",
             )
 
-        if self.env_enabled("SOCIAL_ENABLE_REDDIT") and "reddit_search" in self.tools:
-            outputs.update(
-                self.run_query_batch(
-                    tool_name="reddit_search",
-                    queries=plan.reddit_queries,
-                    limit_kwarg="limit",
-                    limit=REDDIT_RESULTS_PER_QUERY,
-                )
-            )
-
-        if self.env_enabled("SOCIAL_ENABLE_X") and "x_search" in self.tools:
-            outputs.update(
-                self.run_query_batch(
-                    tool_name="x_search",
-                    queries=plan.x_queries,
-                    limit_kwarg="max_results",
-                    limit=X_RESULTS_PER_QUERY,
-                )
-            )
         return outputs
-
-    @staticmethod
-    def env_enabled(name: str, default: bool = True) -> bool:
-        value = os.getenv(name)
-        if value is None:
-            return default
-        return value.strip().lower() not in {"0", "false", "no", "off"}
 
     def plan_evidence(
         self,
@@ -200,8 +159,6 @@ class SocialAgent(BaseAgent):
         return SocialEvidencePlan(
             country_codes=cls.normalize_country_codes(plan.country_codes),
             web_queries=cls.clean_queries(plan.web_queries),
-            reddit_queries=cls.clean_queries(plan.reddit_queries),
-            x_queries=cls.clean_queries(plan.x_queries),
         )
 
     @staticmethod
@@ -223,10 +180,16 @@ class SocialAgent(BaseAgent):
         return cleaned[:MAX_SEARCH_QUERIES]
 
     def get_optional_tools(self) -> list[Any]:
+        """LangChain-wrapped optional tools the LLM may call, gated by config.yaml options."""
+        options = self.config.options
+        enabled = {
+            "reddit_search": options.get("enable_reddit", True),
+            "x_search": options.get("enable_x", True),
+        }
         return [
             tool.as_langchain_tool()
             for name, tool in self.tools.items()
-            if name in OPTIONAL_TOOLS
+            if name in OPTIONAL_TOOLS and enabled.get(name, True)
         ]
 
     def run_react_agent(
@@ -242,7 +205,7 @@ class SocialAgent(BaseAgent):
         )
         agent = create_agent(
             model=llm,
-            tools=[],
+            tools=self.get_optional_tools(),
             system_prompt=self.config.system_prompt,
         )
 

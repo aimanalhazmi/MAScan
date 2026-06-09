@@ -3,9 +3,8 @@ from typing import Any
 from mascan.agents.registry import agent_registry
 from mascan.agents.social.agent import (
     ALWAYS_CALL_TOOLS,
-    REDDIT_RESULTS_PER_QUERY,
+    OPTIONAL_TOOLS,
     WEB_RESULTS_PER_QUERY,
-    X_RESULTS_PER_QUERY,
     SocialAgent,
     SocialEvidencePlan,
 )
@@ -120,8 +119,6 @@ def test_social_agent_constrains_evidence_plan() -> None:
     plan = SocialEvidencePlan(
         country_codes=["deu", "USA", "DEU", "CHN"],
         web_queries=[" germany ev recycling sentiment ", "battery recycling risk", "x", "y"],
-        reddit_queries=["reddit one", "reddit two", "reddit three", "reddit four"],
-        x_queries=["x one", "x one", "x two", "x three"],
     )
 
     constrained = SocialAgent.constrain_evidence_plan(plan)
@@ -132,11 +129,10 @@ def test_social_agent_constrains_evidence_plan() -> None:
         "battery recycling risk",
         "x",
     ]
-    assert constrained.reddit_queries == ["reddit one", "reddit two", "reddit three"]
-    assert constrained.x_queries == ["x one", "x two", "x three"]
 
 
-def test_social_agent_uses_planned_queries_and_countries(mocker: Any) -> None:
+def test_social_gather_deterministic_skips_reddit_and_x(mocker: Any) -> None:
+    """Reddit/X are now LLM-decided, so deterministic gathering must not call them."""
     agent = SocialAgent()
     web_search = mocker.Mock()
     world_bank = mocker.Mock()
@@ -148,8 +144,6 @@ def test_social_agent_uses_planned_queries_and_countries(mocker: Any) -> None:
         data=[],
         source="world_bank:social_indicators",
     )
-    reddit.run.return_value = ToolResult(success=True, data=[], source="reddit:test")
-    x_search.run.return_value = ToolResult(success=True, data=[], source="x:test")
     agent.tools = {
         "web_search": web_search,
         "world_bank_social_indicators": world_bank,
@@ -162,12 +156,10 @@ def test_social_agent_uses_planned_queries_and_countries(mocker: Any) -> None:
         return_value=SocialEvidencePlan(
             country_codes=["DEU", "USA"],
             web_queries=["germany ev battery recycling consumer sentiment", "recycling social risk"],
-            reddit_queries=["EV battery recycling Germany"],
-            x_queries=["EV battery recycling Germany sentiment"],
         ),
     )
 
-    agent.gather_deterministic(["Analyze Germany and United States labour trends"])
+    outputs = agent.gather_deterministic(["Analyze Germany and United States labour trends"])
 
     world_bank.run.assert_called_once_with(country_codes=["DEU", "USA"])
     assert web_search.run.call_count == 2
@@ -175,50 +167,85 @@ def test_social_agent_uses_planned_queries_and_countries(mocker: Any) -> None:
         query="germany ev battery recycling consumer sentiment",
         max_results=WEB_RESULTS_PER_QUERY,
     )
-    reddit.run.assert_called_once_with(
-        query="EV battery recycling Germany",
-        limit=REDDIT_RESULTS_PER_QUERY,
-    )
-    x_search.run.assert_called_once_with(
-        query="EV battery recycling Germany sentiment",
-        max_results=X_RESULTS_PER_QUERY,
-    )
+    reddit.run.assert_not_called()
+    x_search.run.assert_not_called()
+    assert not any(key.startswith(("reddit_search", "x_search")) for key in outputs)
 
 
-def test_x_search_without_cli_returns_failure(mocker: Any) -> None:
-    mocker.patch("mascan.agents.social.tools.x_api.shutil.which", return_value=None)
-    mocker.patch("mascan.agents.social.tools.x_api.Path.exists", return_value=False)
+def test_social_get_optional_tools_offers_reddit_and_x() -> None:
+    """The LLM-decided ReAct loop is offered the optional tools when enabled."""
+    import mascan.agents.social  # noqa: F401
+
+    agent = SocialAgent()
+    agent.config.options = {"enable_reddit": True, "enable_x": True}
+    optional = agent.get_optional_tools()
+
+    assert {tool.name for tool in optional} == set(OPTIONAL_TOOLS)
+
+
+def test_social_get_optional_tools_respects_flags() -> None:
+    import mascan.agents.social  # noqa: F401
+
+    agent = SocialAgent()
+    agent.config.options = {"enable_reddit": True, "enable_x": False}
+    optional = agent.get_optional_tools()
+
+    assert {tool.name for tool in optional} == {"reddit_search"}
+
+
+def test_x_search_without_tokens_returns_failure(mocker: Any) -> None:
+    settings = mocker.patch("mascan.agents.social.tools.x_api.get_settings").return_value
+    settings.twitter_auth_token = None
+    settings.twitter_ct0 = None
 
     result = XSearchTool().run(query="EV battery recycling")
 
     assert not result.success
     assert result.source == "x:twitter_cli_search"
-    assert result.error == "twitter-cli is not installed or not on PATH."
+    assert "TWITTER_AUTH_TOKEN" in result.error
     assert result.metadata["platform"] == "x"
     assert result.metadata["provider"] == "twitter-cli"
     assert result.metadata["query"] == "EV battery recycling"
     assert result.metadata["count"] == 0
 
 
-def test_reddit_search_uses_rdt_cli_json(mocker: Any) -> None:
-    completed = type(
-        "Completed",
+def test_reddit_search_without_credential_returns_failure(mocker: Any) -> None:
+    mocker.patch("rdt_cli.auth.load_credential", return_value=None)
+
+    result = RedditSearchTool().run(query="EV battery recycling", limit=5)
+
+    assert not result.success
+    assert result.source == "reddit:rdt_cli_search"
+    assert "rdt login" in result.error
+    assert result.metadata["count"] == 0
+
+
+def test_reddit_search_formats_listing(mocker: Any) -> None:
+    post = type(
+        "Post",
         (),
         {
-            "stdout": (
-                '[{"id":"abc123","title":"Battery recycling concerns",'
-                '"subreddit":"r/electricvehicles","score":10,"comments":3,'
-                '"url":"https://reddit.com/r/electricvehicles/comments/abc123",'
-                '"snippet":"People discuss recycling options."}]'
-            ),
-            "stderr": "",
+            "to_dict": lambda self: {
+                "id": "abc123",
+                "title": "Battery recycling concerns",
+                "subreddit": "electricvehicles",
+                "score": 10,
+                "num_comments": 3,
+                "permalink": "/r/electricvehicles/comments/abc123",
+                "url": "",
+                "author": "someone",
+                "created_utc": 1.0,
+                "selftext": "People discuss recycling options.",
+            }
         },
     )()
-    mocker.patch("mascan.agents.social.tools.reddit_api.shutil.which", return_value="/bin/rdt")
-    mock_run = mocker.patch(
-        "mascan.agents.social.tools.reddit_api.subprocess.run",
-        return_value=completed,
-    )
+    listing = type("ListingPage", (), {"items": [post]})()
+
+    mocker.patch("rdt_cli.auth.load_credential", return_value=object())
+    client_cm = mocker.MagicMock()
+    client_cm.__enter__.return_value.search.return_value = {"raw": "payload"}
+    mocker.patch("rdt_cli.client.RedditClient", return_value=client_cm)
+    mocker.patch("rdt_cli.parser.parse_listing", return_value=listing)
 
     result = RedditSearchTool().run(query="EV battery recycling", limit=5)
 
@@ -228,27 +255,28 @@ def test_reddit_search_uses_rdt_cli_json(mocker: Any) -> None:
     assert result.metadata["count"] == 1
     assert result.data is not None
     assert result.data[0]["title"] == "Battery recycling concerns"
-    assert result.data[0]["subreddit"] == "r/electricvehicles"
-    mock_run.assert_called_once()
+    assert result.data[0]["subreddit"] == "electricvehicles"
+    assert result.data[0]["url"] == "https://reddit.com/r/electricvehicles/comments/abc123"
 
 
-def test_x_search_uses_twitter_cli_json(mocker: Any) -> None:
-    completed = type(
-        "Completed",
-        (),
-        {
-            "stdout": (
-                '[{"id":"123","text":"EV battery recycling is improving",'
-                '"username":"analyst","created_at":"2026-06-05",'
-                '"url":"https://x.com/analyst/status/123"}]'
-            ),
-            "stderr": "",
-        },
-    )()
-    mocker.patch("mascan.agents.social.tools.x_api.shutil.which", return_value="/bin/twitter")
-    mock_run = mocker.patch(
-        "mascan.agents.social.tools.x_api.subprocess.run",
-        return_value=completed,
+def test_x_search_formats_tweets(mocker: Any) -> None:
+    settings = mocker.patch("mascan.agents.social.tools.x_api.get_settings").return_value
+    settings.twitter_auth_token = "token"
+    settings.twitter_ct0 = "csrf"
+
+    client = mocker.patch("twitter_cli.client.TwitterClient").return_value
+    client.fetch_search.return_value = ["tweet-obj"]
+    mocker.patch(
+        "twitter_cli.serialization.tweets_to_data",
+        return_value=[
+            {
+                "id": "123",
+                "text": "EV battery recycling is improving",
+                "author": {"screenName": "analyst"},
+                "createdAtISO": "2026-06-05T00:00:00Z",
+                "metrics": {"likes": 5},
+            }
+        ],
     )
 
     result = XSearchTool().run(query="EV battery recycling", max_results=5)
@@ -260,7 +288,7 @@ def test_x_search_uses_twitter_cli_json(mocker: Any) -> None:
     assert result.data is not None
     assert result.data[0]["text"] == "EV battery recycling is improving"
     assert result.data[0]["author"] == "analyst"
-    mock_run.assert_called_once()
+    assert result.data[0]["url"] == "https://x.com/analyst/status/123"
 
 
 def test_world_bank_social_indicators_formats_latest_values(mocker: Any) -> None:

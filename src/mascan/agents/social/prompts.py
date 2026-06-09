@@ -34,5 +34,7 @@ def build_user_prompt(
         "or '(source: X)' when a URL is present in the tool output.\n"
         "- If a claim cannot be linked to a URL, explicitly mark it as unlinked evidence.\n\n"
         "Use the already gathered web_search and World Bank evidence as the baseline. "
-        "Use Reddit or X evidence only when it is present in the gathered tool outputs."
+        "When qualitative community or recent-post signals would strengthen the analysis, "
+        "call the reddit_search and/or x_search tools yourself; otherwise rely on the "
+        "baseline evidence. Only cite Reddit or X posts that those tool calls actually return."
     )

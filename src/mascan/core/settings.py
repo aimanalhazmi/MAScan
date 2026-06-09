@@ -18,8 +18,14 @@ class Settings(BaseSettings):
 
     #  Tools
     firecrawl_api_key: str = Field(..., description="Firecrawl API key.")
-    twitter_cli_command: str = Field("twitter", description="Optional twitter-cli command name.")
-    reddit_cli_command: str = Field("rdt", description="Optional rdt-cli command name.")
+
+    #  Social agent — X/Twitter cookie secrets (kept in env, not config.yaml)
+    twitter_auth_token: str | None = Field(
+        None, description="X/Twitter auth_token cookie for twitter-cli in-process auth."
+    )
+    twitter_ct0: str | None = Field(
+        None, description="X/Twitter ct0 (CSRF) cookie for twitter-cli in-process auth."
+    )
 
     #  App
     log_level: str = Field("INFO", description="Logging level.")

@@ -1,13 +1,9 @@
-import json
-import os
-import shutil
-import subprocess
-from pathlib import Path
 from typing import Any
 
 from pydantic import BaseModel, Field
 
 from mascan.contracts.tools import ToolResult
+from mascan.core.settings import get_settings
 from mascan.tools.base import BaseTool
 
 
@@ -19,36 +15,33 @@ class XSearchInput(BaseModel):
 class XSearchTool(BaseTool):
     name = "x_search"
     description = (
-        "Search recent public X posts using the local twitter-cli browser-cookie session. "
-        "Requires twitter-cli to be installed and access to logged-in browser cookies."
+        "Search recent public X posts via twitter-cli using cached auth tokens for "
+        "qualitative public-discussion signals. Requires TWITTER_AUTH_TOKEN and TWITTER_CT0."
     )
     input_schema = XSearchInput
 
     def run(self, query: str, max_results: int = 10, **_: Any) -> ToolResult[list[dict[str, Any]]]:
-        command = self._find_command(os.getenv("TWITTER_CLI_COMMAND", "twitter"))
-        if command is None:
+        settings = get_settings()
+        auth_token = settings.twitter_auth_token
+        ct0 = settings.twitter_ct0
+        if not auth_token or not ct0:
+            # Token-based auth only — never extract from the browser, so this stays
+            # non-interactive (no macOS Keychain password prompt mid-run).
             return self._failure(
-                query=query,
-                error="twitter-cli is not installed or not on PATH.",
+                query,
+                "X not authenticated. Set TWITTER_AUTH_TOKEN and TWITTER_CT0 in your .env.",
             )
 
         try:
-            completed = subprocess.run(
-                [
-                    command,
-                    "search",
-                    query,
-                    "--max",
-                    str(max(1, min(max_results, 100))),
-                    "--json",
-                ],
-                check=True,
-                capture_output=True,
-                text=True,
-                timeout=60,
-            )
-            payload = json.loads(completed.stdout)
-            posts = self._format_posts(payload)
+            from twitter_cli.client import TwitterClient
+            from twitter_cli.serialization import tweets_to_data
+        except ImportError as exc:
+            return self._failure(query, f"twitter-cli is not installed: {exc}")
+
+        try:
+            client = TwitterClient(auth_token, ct0)
+            tweets = client.fetch_search(query, count=max(1, min(max_results, 100)), product="Top")
+            posts = self._format_posts(tweets_to_data(tweets))
             return ToolResult(
                 success=True,
                 data=posts,
@@ -58,56 +51,33 @@ class XSearchTool(BaseTool):
                     "provider": "twitter-cli",
                     "query": query,
                     "count": len(posts),
-                    "command": Path(command).name,
                 },
             )
-        except subprocess.CalledProcessError as exc:
-            self.logger.exception("twitter-cli search failed for query=%r", query)
-            return self._failure(query=query, error=(exc.stderr or exc.stdout or str(exc)).strip())
         except Exception as exc:
             self.logger.exception("x_search failed for query=%r", query)
-            return self._failure(query=query, error=str(exc))
+            return self._failure(query, str(exc))
 
     @staticmethod
-    def _find_command(command: str) -> str | None:
-        found = shutil.which(command)
-        if found:
-            return found
-
-        local_bin = Path.home() / ".local" / "bin" / command
-        if local_bin.exists():
-            return str(local_bin)
-        return None
-
-    @staticmethod
-    def _extract_items(payload: Any) -> list[Any]:
-        if isinstance(payload, list):
-            return payload
-        if isinstance(payload, dict):
-            for key in ("data", "tweets", "results", "items"):
-                value = payload.get(key)
-                if isinstance(value, list):
-                    return value
-        return []
-
-    @classmethod
-    def _format_posts(cls, payload: Any) -> list[dict[str, Any]]:
+    def _format_posts(items: list[dict[str, Any]]) -> list[dict[str, Any]]:
         posts: list[dict[str, Any]] = []
-        for item in cls._extract_items(payload):
-            if not isinstance(item, dict):
-                continue
-            post_id = item.get("id") or item.get("tweet_id") or item.get("rest_id")
-            text = item.get("text") or item.get("full_text") or item.get("content")
-            username = item.get("username") or item.get("user") or item.get("screen_name")
+        for item in items:
+            post_id = item.get("id")
+            author = item.get("author") if isinstance(item.get("author"), dict) else {}
+            screen_name = author.get("screenName")
+            if screen_name and post_id:
+                url = f"https://x.com/{screen_name}/status/{post_id}"
+            elif post_id:
+                url = f"https://x.com/i/web/status/{post_id}"
+            else:
+                url = None
             posts.append(
                 {
                     "id": post_id,
-                    "text": text,
-                    "author": username,
-                    "created_at": item.get("created_at") or item.get("date"),
-                    "url": item.get("url")
-                    or (f"https://x.com/i/web/status/{post_id}" if post_id else None),
-                    "metrics": item.get("metrics") or item.get("public_metrics"),
+                    "text": item.get("text"),
+                    "author": screen_name,
+                    "created_at": item.get("createdAtISO") or item.get("createdAt"),
+                    "url": url,
+                    "metrics": item.get("metrics"),
                     "raw": item,
                 }
             )

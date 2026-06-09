@@ -1,5 +1,6 @@
 """AgentConfig — Pydantic schema + YAML loader used by every agent."""
 from pathlib import Path
+from typing import Any
 
 import yaml
 from pydantic import BaseModel, Field
@@ -15,6 +16,10 @@ class AgentConfig(BaseModel):
     max_tokens: int = Field(2000, gt=0)
     system_prompt: str = Field(..., description="System prompt for the agent.")
     tools: list[str] = Field(default_factory=list, description="Tool names this agent uses.")
+    options: dict[str, Any] = Field(
+        default_factory=dict,
+        description="Agent-specific options (e.g. feature toggles) read by that agent.",
+    )
 
     @classmethod
     def from_yaml(cls, path: Path | str):
