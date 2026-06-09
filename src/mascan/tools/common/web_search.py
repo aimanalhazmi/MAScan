@@ -20,6 +20,11 @@ class WebSearchTool(BaseTool):
     )
     input_schema: ClassVar[type[BaseModel] | None] = WebSearchInput
 
+    # Firecrawl returns the full scraped page as markdown. Left unbounded, a
+    # handful of long pages overflows the model context window, so cap each
+    # page's body before it is handed to the LLM.
+    MAX_MARKDOWN_CHARS: ClassVar[int] = 4000
+
     def __init__(self, api_key: str | None = None) -> None:
         """Initialize Firecrawl.
 
@@ -73,8 +78,15 @@ class WebSearchTool(BaseTool):
                 {
                     "title": title,
                     "url": url,
-                    "markdown": markdown_content,
+                    "markdown": self._truncate_markdown(markdown_content),
                 }
             )
 
         return formatted_results
+
+    @classmethod
+    def _truncate_markdown(cls, markdown: str) -> str:
+        """Cap a single page's markdown so a few long pages can't overflow context."""
+        if not isinstance(markdown, str) or len(markdown) <= cls.MAX_MARKDOWN_CHARS:
+            return markdown
+        return markdown[: cls.MAX_MARKDOWN_CHARS].rstrip() + "\n\n[...truncated...]"
