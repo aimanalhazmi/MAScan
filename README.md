@@ -189,7 +189,7 @@ read via `mascan.core.settings`. **Document any new env var in `.env.example`.**
 MAScan exposes its orchestrator over HTTP. Open WebUI provides a chat
 interface and calls the MAScan API through a small Pipe Function.
 
-### Docker Compose 
+### Docker Compose
 
 **1. Start the stack:**
 
@@ -217,9 +217,9 @@ type your query.
 
 
 ## Make commands
- 
+
 All day-to-day tasks go through `make`. Run `make help` to see what's available.
- 
+
 | Command | What it does                                               |
 |---|------------------------------------------------------------|
 | `make install` | Create the virtualenv and install dependencies via uv      |
@@ -236,9 +236,9 @@ All day-to-day tasks go through `make`. Run `make help` to see what's available.
 | `make compose-rebuild` | Force a rebuild of the mascan-api image                    |
 
 ### If `make` is unavailable
- 
+
 Equivalent raw commands (rarely needed):
- 
+
 ```bash
 uv sync --extra dev                                          # install
 uv run pytest -v                                             # test
@@ -246,7 +246,7 @@ uv run ruff check src tests && uv run mypy src               # lint
 uv run python scripts/run_agent.py economics "your query"    # run an agent
 uv run uvicorn mascan.app.api:app --host 0.0.0.0 --port 8000 # run the API
 ```
- 
+
 ---
 
 ## How to contribute

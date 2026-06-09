@@ -12,9 +12,9 @@ import sys
 from dotenv import load_dotenv
 
 from mascan.agents import agent_registry
-import mascan.agents.economics  # noqa: F401  # register economics agent
-import mascan.agents.political  # noqa: F401  # register political agent
-import mascan.agents.environmental  # noqa: F401  # register environmental agent
+import mascan.agents.economics # noqa: F401
+import mascan.agents.political # noqa: F401
+import mascan.agents.social # noqa: F401
 from mascan.core.logging import configure_logging, get_logger
 from mascan.orchestrator.state import RuntimeContext
 
@@ -43,6 +43,10 @@ def main() -> int:
     report = agent.run(
         tasks=[query],
         context={
+            "objective_context": (
+                f"Standalone {agent_name} analysis. Use this full user query as the "
+                f"agent-specific objective context: {query}"
+            ),
             "runtime": runtime_context.model_dump(),
         },
     )

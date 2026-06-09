@@ -1,0 +1,47 @@
+services:
+  mascan-api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      PYTHONUNBUFFERED: "1"
+    expose:
+      - "8000"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health').read()"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 10s
+
+  openwebui:
+    image: ghcr.io/open-webui/open-webui:main
+    restart: unless-stopped
+    expose:
+      - "8080"
+    networks:
+      - default
+      - dokploy-network
+    labels: # To add a password to protect the URL from Bots
+      - "traefik.enable=true"
+      - "traefik.docker.network=dokploy-network"
+      - "traefik.http.middlewares.mascan-dev-ui-auth.basicauth.users=${TRAEFIK_BASIC_AUTH_USERS:?Set TRAEFIK_BASIC_AUTH_USERS in Dokploy environment}"
+      - "traefik.http.middlewares.mascan-dev-ui-auth.basicauth.removeheader=true"
+    volumes:
+      - openwebui-data:/app/backend/data
+    depends_on:
+      mascan-api:
+        condition: service_healthy
+    environment:
+      ENABLE_OLLAMA_API: "false"
+      WEBUI_AUTH: "true"
+
+volumes:
+  openwebui-data:
+
+networks:
+  dokploy-network:
+    external: true

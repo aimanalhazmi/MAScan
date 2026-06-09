@@ -1,5 +1,6 @@
 from typing import Any
 
+from mascan.contracts import AgentAssignment
 from mascan.orchestrator.adapters import make_agent_node
 from mascan.orchestrator.state import GraphState, RuntimeContext
 
@@ -20,7 +21,16 @@ def test_agent_node_passes_runtime_context_to_agent() -> None:
     node = make_agent_node(agent)  # type: ignore[arg-type]
     state = GraphState(
         user_input="Analyze AAPL",
-        plan={"economics": ["Analyze AAPL"]},
+        plan={
+            "economics": AgentAssignment(
+                agent_name="economics",
+                objective_context=(
+                    "Assess the economic forces relevant to AAPL while preserving "
+                    "the user's company-specific focus."
+                ),
+                tasks=["Analyze AAPL"],
+            )
+        },
         runtime_context=RuntimeContext(
             current_date="2026-06-02",
             timezone="Europe/Berlin",
@@ -31,7 +41,10 @@ def test_agent_node_passes_runtime_context_to_agent() -> None:
 
     assert result == {"reports": {"economics": "agent report"}}
     assert agent.context == {
-        "user_input": "Analyze AAPL",
+        "objective_context": (
+            "Assess the economic forces relevant to AAPL while preserving "
+            "the user's company-specific focus."
+        ),
         "runtime": {
             "current_date": "2026-06-02",
             "timezone": "Europe/Berlin",

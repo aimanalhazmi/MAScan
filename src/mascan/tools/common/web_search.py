@@ -8,8 +8,8 @@ from mascan.tools.base import BaseTool
 
 
 class WebSearchInput(BaseModel):
-    query: str = Field(..., description="Search query for recent web information.")
-    max_results: int = Field(5, description="Maximum number of pages to return.")
+    query: str = Field(..., description="Search query for recent public-web information.")
+    max_results: int = Field(5, ge=1, le=10, description="Maximum number of pages to return.")
 
 
 class WebSearchTool(BaseTool):
