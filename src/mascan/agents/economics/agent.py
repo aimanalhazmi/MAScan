@@ -6,6 +6,8 @@ Pattern:
      also call optional tools, then writes the final answer.
 """
 
+import ast
+import json
 from typing import Any
 
 from langchain.agents import create_agent
@@ -33,14 +35,14 @@ class EconomicsAgent(BaseAgent):
         deterministic_outputs = self.gather_deterministic(tasks)
 
         # LLM with optional tools — decides what else (if anything) to call.
-        findings, llm_used_tools = self.run_react_agent(
+        findings, llm_used_tools, llm_sources = self.run_react_agent(
             tasks,
             deterministic_outputs,
             context=context,
         )
 
         # assemble the report.
-        sources = self.collect_sources(deterministic_outputs, llm_used_tools)
+        sources = self.collect_sources(deterministic_outputs, llm_sources)
         rendered = self.render_markdown(tasks, findings, sources, llm_used_tools)
 
         return AgentReport(
@@ -81,7 +83,7 @@ class EconomicsAgent(BaseAgent):
         tasks: list[str],
         deterministic_outputs: dict[str, ToolResult],
         context: dict[str, Any] | None = None,
-    ) -> tuple[str, list[str]]:
+    ) -> tuple[str, list[str], list[Source]]:
         """Run a ReAct agent with the optional tools bound.
 
         Prepends deterministic results as context so the LLM doesn't try to
@@ -108,7 +110,11 @@ class EconomicsAgent(BaseAgent):
             {"messages": [HumanMessage(content=user_prompt)]},
             config={"recursion_limit": MAX_LLM_ITERATIONS},
         )
-        return self.extract_final_answer(result), self.extract_used_tools(result)
+        return (
+            self.extract_final_answer(result),
+            self.extract_used_tools(result),
+            self.extract_llm_sources(result),
+        )
 
     @staticmethod
     def extract_final_answer(result: dict[str, Any]) -> str:
@@ -130,18 +136,80 @@ class EconomicsAgent(BaseAgent):
                     used.append(name)
         return used
 
+    @classmethod
+    def extract_llm_sources(cls, result: dict[str, Any]) -> list[Source]:
+        """Turn the LLM's market-data tool calls into rich Sources.
+
+        ``get_weekly_stock_prices`` returns only its ``data`` payload to the LLM
+        (the ``yfinance:TICKER`` source on the ToolResult is dropped by
+        ``as_langchain_tool``), so we reconstruct the source from the payload:
+        the ticker, the resolved company name, and a Yahoo Finance link.
+        """
+        sources_by_name: dict[str, Source] = {}
+        for msg in result.get("messages", []):
+            if getattr(msg, "type", None) != "tool":
+                continue
+            if getattr(msg, "name", None) != "get_weekly_stock_prices":
+                continue
+            payload = cls._parse_tool_payload(msg.content)
+            if not isinstance(payload, dict):
+                continue
+            ticker = payload.get("ticker")
+            if not isinstance(ticker, str) or not ticker:
+                continue
+            fundamentals = payload.get("fundamentals")
+            company = (
+                fundamentals.get("company_name")
+                if isinstance(fundamentals, dict)
+                else None
+            )
+            name = f"yfinance:{ticker}"
+            if name in sources_by_name:
+                continue
+            sources_by_name[name] = Source(
+                name=name,
+                url=f"https://finance.yahoo.com/quote/{ticker}",
+                metadata={
+                    "used_by": "llm_decision",
+                    "tool": "get_weekly_stock_prices",
+                    "provider": "yfinance",
+                    "ticker": ticker,
+                    "company_name": company,
+                    "start_date": payload.get("start_date"),
+                    "end_date": payload.get("end_date"),
+                },
+            )
+        return list(sources_by_name.values())
+
+    @staticmethod
+    def _parse_tool_payload(content: Any) -> Any:
+        """Best-effort decode of a ToolMessage payload (JSON, dict-repr, or dict)."""
+        if isinstance(content, dict):
+            return content
+        text = content if isinstance(content, str) else json.dumps(content, default=str)
+        try:
+            return json.loads(text)
+        except (json.JSONDecodeError, TypeError):
+            pass
+        try:
+            return ast.literal_eval(text)
+        except (ValueError, SyntaxError):
+            return None
+
     def collect_sources(
         self,
         deterministic_outputs: dict[str, ToolResult],
-        llm_used_tools: list[str],
+        llm_sources: list[Source],
     ) -> list[Source]:
-        sources: list[Source] = []
+        sources_by_name: dict[str, Source] = {}
         for result in deterministic_outputs.values():
-            if result.success:
-                sources.append(Source(name=result.source, metadata=result.metadata))
-        for name in llm_used_tools:
-            sources.append(Source(name=name, metadata={"used_by": "llm_decision"}))
-        return sources
+            if result.success and result.source not in sources_by_name:
+                sources_by_name[result.source] = Source(
+                    name=result.source, metadata=result.metadata
+                )
+        for source in llm_sources:
+            sources_by_name.setdefault(source.name, source)
+        return list(sources_by_name.values())
 
     def render_markdown(
         self,
@@ -151,7 +219,7 @@ class EconomicsAgent(BaseAgent):
         llm_used_tools: list[str],
     ) -> str:
         task_lines = "\n".join(f"- {t}" for t in tasks)
-        src_lines = "\n".join(f"- {s.name}" for s in sources) or "- (none)"
+        src_lines = "\n".join(self.format_source_line(s) for s in sources) or "- (none)"
         llm_lines = "\n".join(f"- {t}" for t in llm_used_tools) or "- (none)"
         always_lines = "\n".join(f"- {t}" for t in ALWAYS_CALL_TOOLS)
         return (
@@ -162,3 +230,9 @@ class EconomicsAgent(BaseAgent):
             f"**Tools the LLM chose to call:**\n{llm_lines}\n\n"
             f"**Sources:**\n{src_lines}\n"
         )
+
+    @staticmethod
+    def format_source_line(source: Source) -> str:
+        if source.url:
+            return f"- [{source.name}]({source.url})"
+        return f"- {source.name}"
