@@ -4,6 +4,7 @@ from zoneinfo import ZoneInfo
 
 from pydantic import BaseModel, Field
 
+from mascan.contracts.planning import AgentAssignment
 from mascan.contracts.reports import AgentReport
 
 
@@ -30,9 +31,9 @@ class GraphState(BaseModel):
     user_input: str
     # Runtime metadata available throughout a single graph execution.
     runtime_context: RuntimeContext = Field(default_factory=RuntimeContext.from_system)
-    plan: dict[str, list[str]] = Field(
+    plan: dict[str, AgentAssignment] = Field(
         default_factory=dict,
-        description="Planner output: agent_name -> tasks assigned.",
+        description="Planner output: agent_name -> assignment.",
     )
     reports: Annotated[dict[str, AgentReport], merge_dicts] = Field(
         default_factory=dict,

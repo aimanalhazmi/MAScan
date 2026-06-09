@@ -4,6 +4,7 @@ from langchain_core.messages import HumanMessage, SystemMessage
 from pydantic import BaseModel, Field
 
 from mascan.agents.registry import agent_registry
+from mascan.contracts.planning import AgentAssignment
 from mascan.core.llm import get_chat_model
 from mascan.core.logging import get_logger
 from mascan.core.settings import get_settings
@@ -22,26 +23,24 @@ Your job:
 2. Decide which agents should investigate it. Only pick agents whose
    dimension is genuinely relevant. Skip agents whose dimension doesn't
    apply to this question.
-3. For each selected agent, write 1 to 3 short, specific sub-tasks
-   describing exactly what that agent should investigate.
+3. For each selected agent, write:
+   - an objective_context: a short domain-specific brief explaining why this
+     agent was selected and what user intent, constraints, entities,
+     geography, time horizon, or decision context it must preserve.
+   - 1 to 3 short, specific sub-tasks describing exactly what that agent
+     should investigate.
 
 Return a JSON object with an "assignments" array. Each element has
-"agent_name" (string) and "tasks" (list of strings).
+"agent_name" (string), "objective_context" (string), and "tasks" (list of strings).
 Agents you do NOT pick must NOT appear in the output.
+Do not add facts that are not present in the user question or runtime context.
 """
-
-
-class AgentTasks(BaseModel):
-    """Tasks assigned to a single agent."""
-
-    agent_name: str = Field(description="Name of the agent.")
-    tasks: list[str] = Field(description="List of sub-tasks for this agent.")
 
 
 class PlanModel(BaseModel):
     """Structured output the planner LLM is forced to return."""
 
-    assignments: list[AgentTasks] = Field(
+    assignments: list[AgentAssignment] = Field(
         description="List of agent-task assignments.",
     )
 
@@ -78,22 +77,22 @@ def planner_node(state: GraphState) -> dict[str, Any]:
         HumanMessage(content=user_prompt),
     ])
 
-    raw_plan = {a.agent_name: a.tasks for a in result.assignments}
+    raw_plan = {a.agent_name: a for a in result.assignments}
     plan = _filter_to_known_agents(raw_plan, available)
     logger.info("Planner selected %d agent(s): %s", len(plan), sorted(plan.keys()))
     return {"plan": plan}
 
 
 def _filter_to_known_agents(
-    plan: dict[str, list[str]], available: list[str]
-) -> dict[str, list[str]]:
+    plan: dict[str, AgentAssignment], available: list[str]
+) -> dict[str, AgentAssignment]:
     known = set(available)
-    filtered: dict[str, list[str]] = {}
-    for name, tasks in plan.items():
+    filtered: dict[str, AgentAssignment] = {}
+    for name, assignment in plan.items():
         if name not in known:
             logger.warning("Planner hallucinated unknown agent %r; dropping.", name)
             continue
-        if not tasks:
+        if not assignment.tasks:
             continue
-        filtered[name] = tasks
+        filtered[name] = assignment
     return filtered
