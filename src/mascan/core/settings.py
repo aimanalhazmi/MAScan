@@ -18,6 +18,8 @@ class Settings(BaseSettings):
 
     #  Tools
     firecrawl_api_key: str = Field(..., description="Firecrawl API key.")
+    twitter_cli_command: str = Field("twitter", description="Optional twitter-cli command name.")
+    reddit_cli_command: str = Field("rdt", description="Optional rdt-cli command name.")
 
     #  App
     log_level: str = Field("INFO", description="Logging level.")

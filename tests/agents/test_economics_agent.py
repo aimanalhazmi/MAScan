@@ -25,17 +25,11 @@ def test_economics_prompt_guides_stock_tool_usage() -> None:
     prompt = build_user_prompt(
         tasks=["How could inflation and interest rates affect AAPL?"],
         tool_block="### Tool: web_search (source: web_search:firecrawl)\nMarket context",
-        context={
-            "runtime": {
-                "current_date": "2026-06-02",
-                "timezone": "Europe/Berlin",
-            }
-        },
     )
 
-    assert "Runtime context:" in prompt
-    assert "Current date: 2026-06-02" in prompt
-    assert "Timezone: Europe/Berlin" in prompt
+    assert "Use get_weekly_stock_prices when the task mentions" in prompt
+    assert "ticker" in prompt
+    assert "last 12 months relative to the runtime current date" in prompt
 
 
 def test_weekly_stock_tool_description_mentions_when_to_use_it() -> None:
