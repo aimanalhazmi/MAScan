@@ -10,16 +10,16 @@ logger = get_logger("orchestrator.adapters")
 
 def make_agent_node(agent: BaseAgent) -> Callable[[GraphState], dict[str, Any]]:
     def node(state: GraphState) -> dict[str, Any]:
-        tasks = state.plan.get(agent.name, [])
-        if not tasks:
+        assignment = state.plan.get(agent.name)
+        if assignment is None or not assignment.tasks:
             logger.info("Agent %r has no tasks; skipping.", agent.name)
             return {}
 
         try:
             report = agent.run(
-                tasks=tasks,
+                tasks=assignment.tasks,
                 context={
-                    "user_input": state.user_input,
+                    "objective_context": assignment.objective_context,
                     # Agents do not receive GraphState directly, so pass runtime metadata here.
                     "runtime": state.runtime_context.model_dump(),
                 },
