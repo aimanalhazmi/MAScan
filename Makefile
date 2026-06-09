@@ -1,5 +1,5 @@
 .DEFAULT_GOAL := help
-.PHONY: help install test lint format clean run-economics run-political run-social run-orchestrator run-orchestrator-stream run-api openwebui-up openwebui-down openwebui-logs compose-up compose-down compose-logs compose-rebuild
+.PHONY: help install test lint format clean run-economics run-political run-social run-environmental run-orchestrator run-orchestrator-stream run-api openwebui-up openwebui-down openwebui-logs compose-up compose-down compose-logs compose-rebuild
 help:  ## Show this help message
 	@echo "MAScan — available commands:"
 	@echo ""
