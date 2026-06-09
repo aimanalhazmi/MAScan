@@ -63,3 +63,9 @@ ignore = ["E501"]
 python_version = "3.12"
 strict = true
 ignore_missing_imports = true
+
+[dependency-groups]
+dev = [
+    "rdt-cli>=0.4.1",
+    "twitter-cli>=0.8.5",
+]
