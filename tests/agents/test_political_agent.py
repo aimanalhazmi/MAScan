@@ -43,5 +43,7 @@ def test_political_agent_run_returns_report(mocker: Any) -> None:
     assert report.metadata["mode"] == "mixed"
     assert report.metadata["deterministic_tools"] == ["web_search", "news_api"]
     assert "## Political Analysis" in report.rendered_markdown
-    assert [source.name for source in report.sources] == ["web_search:firecrawl"]
-    assert report.sources[0].metadata == {"query": "EU battery regulation", "count": 1}
+    # Sources are real article links labelled by title, not tool names.
+    assert [source.url for source in report.sources] == ["https://example.com"]
+    assert report.sources[0].name == "Policy update"
+    assert "[Policy update](https://example.com)" in report.rendered_markdown

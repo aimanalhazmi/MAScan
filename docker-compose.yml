@@ -12,9 +12,13 @@ services:
       - .env
     environment:
       PYTHONUNBUFFERED: "1"
+      HOME: /app
     volumes:
       - ./src:/app/src:ro
       - ./scripts:/app/scripts:ro
+      # Reddit session cached on the host by `rdt login`. Mounted read-only so the
+      # reddit_search tool can authenticate non-interactively inside the container.
+      - ${HOME}/.config/rdt-cli:/app/.config/rdt-cli:ro
     command:
       [
         "uvicorn",

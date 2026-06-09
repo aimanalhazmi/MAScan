@@ -1,7 +1,5 @@
 """SocialAgent — Mode C (mixed)."""
 
-import json
-import re
 from typing import Any
 
 from langchain.agents import create_agent
@@ -11,6 +9,12 @@ from pydantic import BaseModel, Field
 from mascan.agents.base import BaseAgent
 from mascan.agents.context import render_agent_context, render_runtime_context, render_tool_outputs
 from mascan.agents.social.prompts import build_user_prompt
+from mascan.agents.sources import (
+    dedupe_sources,
+    render_source_lines,
+    sources_from_react,
+    sources_from_tool_results,
+)
 from mascan.contracts.reports import AgentReport, Source
 from mascan.contracts.tools import ToolResult
 from mascan.core.llm import get_chat_model
@@ -221,7 +225,7 @@ class SocialAgent(BaseAgent):
         return (
             self.extract_final_answer(result),
             self.extract_used_tools(result),
-            self.extract_llm_sources(result),
+            sources_from_react(result),
         )
 
     @staticmethod
@@ -242,120 +246,15 @@ class SocialAgent(BaseAgent):
                     used.append(name)
         return used
 
-    @classmethod
-    def extract_llm_sources(cls, result: dict[str, Any]) -> list[Source]:
-        """Turn the LLM's tool-call outputs (ToolMessages) into Sources with post links."""
-        urls_by_tool: dict[str, list[str]] = {}
-        for msg in result.get("messages", []):
-            if getattr(msg, "type", None) != "tool":
-                continue
-            name = getattr(msg, "name", None)
-            if not name:
-                continue
-            bucket = urls_by_tool.setdefault(name, [])
-            for url in cls._extract_urls(msg.content):
-                if url not in bucket:
-                    bucket.append(url)
-
-        sources: list[Source] = []
-        for name, urls in urls_by_tool.items():
-            sources.append(
-                Source(
-                    name=name,
-                    url=urls[0] if urls else None,
-                    metadata={
-                        "used_by": "llm_decision",
-                        "source_urls": urls,
-                        "count": len(urls),
-                    },
-                )
-            )
-        return sources
-
-    @staticmethod
-    def _extract_urls(content: Any) -> list[str]:
-        """Collect post URLs from a ToolMessage payload (JSON list of dicts, or text)."""
-        text = content if isinstance(content, str) else json.dumps(content, default=str)
-        urls: list[str] = []
-        try:
-            data: Any = json.loads(text)
-        except (json.JSONDecodeError, TypeError):
-            data = None
-
-        def walk(obj: Any) -> None:
-            if isinstance(obj, dict):
-                url = obj.get("url")
-                if isinstance(url, str) and url.startswith("http"):
-                    urls.append(url)
-                for value in obj.values():
-                    walk(value)
-            elif isinstance(obj, list):
-                for value in obj:
-                    walk(value)
-
-        if data is not None:
-            walk(data)
-        if not urls:
-            urls = re.findall(r"https?://[^\s\"'\)\]]+", text)
-        return list(dict.fromkeys(urls))
-
     def collect_sources(
         self,
         deterministic_outputs: dict[str, ToolResult[Any]],
         llm_sources: list[Source],
     ) -> list[Source]:
-        sources_by_name: dict[str, Source] = {}
-        for result in deterministic_outputs.values():
-            if result.success:
-                source_urls = result.metadata.get("source_urls")
-                url = source_urls[0] if isinstance(source_urls, list) and source_urls else None
-                if result.source in sources_by_name:
-                    sources_by_name[result.source] = self.merge_source_metadata(
-                        sources_by_name[result.source],
-                        result.metadata,
-                    )
-                else:
-                    sources_by_name[result.source] = Source(
-                        name=result.source,
-                        url=url,
-                        metadata=result.metadata,
-                    )
-        for source in llm_sources:
-            if source.name in sources_by_name:
-                sources_by_name[source.name] = self.merge_source_metadata(
-                    sources_by_name[source.name],
-                    source.metadata,
-                )
-            else:
-                sources_by_name[source.name] = source
-        return list(sources_by_name.values())
-
-    @staticmethod
-    def merge_source_metadata(source: Source, metadata: dict[str, Any]) -> Source:
-        merged = dict(source.metadata)
-        if isinstance(merged.get("query"), str):
-            merged["queries"] = [merged["query"]]
-
-        for key in ("source_urls", "queries"):
-            existing = merged.get(key)
-            values = existing if isinstance(existing, list) else []
-            new_values = metadata.get(key)
-            if isinstance(new_values, list):
-                values = [*values, *new_values]
-            elif key == "queries" and isinstance(metadata.get("query"), str):
-                values = [*values, metadata["query"]]
-            if values:
-                merged[key] = list(dict.fromkeys(values))
-
-        if isinstance(metadata.get("query"), str):
-            queries = merged.get("queries") if isinstance(merged.get("queries"), list) else []
-            merged["queries"] = list(dict.fromkeys([*queries, metadata["query"]]))
-
-        count = merged.get("count", 0)
-        if isinstance(count, int) and isinstance(metadata.get("count"), int):
-            merged["count"] = count + metadata["count"]
-
-        return Source(name=source.name, url=source.url, metadata=merged)
+        """Merge real article links from both the deterministic and LLM paths."""
+        return dedupe_sources(
+            sources_from_tool_results(deterministic_outputs) + llm_sources
+        )
 
     def render_markdown(
         self,
@@ -365,7 +264,7 @@ class SocialAgent(BaseAgent):
         llm_used_tools: list[str],
     ) -> str:
         task_lines = "\n".join(f"- {t}" for t in tasks)
-        src_lines = "\n".join(self.format_source_line(source) for source in sources) or "- (none)"
+        src_lines = render_source_lines(sources)
         always_lines = "\n".join(f"- {t}" for t in ALWAYS_CALL_TOOLS)
         llm_lines = "\n".join(f"- {t}" for t in llm_used_tools) or "- (none)"
         return (
@@ -376,15 +275,3 @@ class SocialAgent(BaseAgent):
             f"**Tools the LLM chose to call:**\n{llm_lines}\n\n"
             f"**Sources:**\n{src_lines}\n"
         )
-
-    @staticmethod
-    def format_source_line(source: Source) -> str:
-        source_urls = source.metadata.get("source_urls")
-        if isinstance(source_urls, list) and source_urls:
-            links = ", ".join(f"[{index + 1}]({url})" for index, url in enumerate(source_urls))
-            return f"- {source.name}: {links}"
-
-        if source.url:
-            return f"- [{source.name}]({source.url})"
-
-        return f"- {source.name}"

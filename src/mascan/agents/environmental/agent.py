@@ -1,14 +1,19 @@
 from typing import Any
 
+from langchain.agents import create_agent
+from langchain_core.messages import HumanMessage
 
 from mascan.agents import BaseAgent
+from mascan.agents.environmental.prompts import build_user_prompt
+from mascan.agents.sources import (
+    dedupe_sources,
+    render_source_lines,
+    sources_from_react,
+    sources_from_tool_results,
+)
 from mascan.contracts.reports import AgentReport, Source
 from mascan.contracts.tools import ToolResult
 from mascan.core.llm import get_chat_model
-
-from mascan.agents.environmental.prompts import build_user_prompt
-from langchain.agents import create_agent
-from langchain_core.messages import HumanMessage
 
 ALWAYS_CALL_TOOLS: tuple[str, ...] = ()  # called every run
 OPTIONAL_TOOLS: tuple[str, ...] = ()  # LLM may call
@@ -42,7 +47,7 @@ class EnvironmentalAgent(BaseAgent):
 
 
         # assemble the report.
-        sources = self.collect_sources(llm_used_tools)
+        sources = self.collect_sources(llm_used_tools, react_result=result)
         rendered = self.render_markdown(tasks, findings, sources, llm_used_tools)
 
         return AgentReport(
@@ -90,16 +95,16 @@ class EnvironmentalAgent(BaseAgent):
     def collect_sources(
         self,
         llm_used_tools: list[str],
+        react_result: dict[str, Any] | None = None,
         deterministic_outputs: dict[str, ToolResult[Any]] | None = None,
     ) -> list[Source]:
+        """Real reference links harvested from the agent's tool calls."""
         sources: list[Source] = []
         if deterministic_outputs:
-            for result in deterministic_outputs.values():
-                if result.success:
-                    sources.append(Source(name=result.source, url=None, metadata=result.metadata))
-        for name in llm_used_tools:
-            sources.append(Source(name=name, url=None, metadata={"used_by": "llm_decision"}))
-        return sources
+            sources.extend(sources_from_tool_results(deterministic_outputs))
+        if react_result:
+            sources.extend(sources_from_react(react_result))
+        return dedupe_sources(sources)
 
     def render_markdown(
         self,
@@ -109,7 +114,7 @@ class EnvironmentalAgent(BaseAgent):
         llm_used_tools: list[str],
     ) -> str:
         task_lines = "\n".join(f"- {t}" for t in tasks)
-        src_lines = "\n".join(f"- {s.name}" for s in sources) or "- (none)"
+        src_lines = render_source_lines(sources)
         llm_lines = "\n".join(f"- {t}" for t in llm_used_tools) or "- (none)"
         always_lines = "\n".join(f"- {t}" for t in ALWAYS_CALL_TOOLS)
         return (
