@@ -1,5 +1,7 @@
 """SocialAgent — Mode C (mixed)."""
 
+import json
+import re
 from typing import Any
 
 from langchain.agents import create_agent
@@ -54,14 +56,13 @@ class SocialAgent(BaseAgent):
         self.logger.info("Running Mode C (mixed) with %d task(s)", len(tasks))
 
         deterministic_outputs = self.gather_deterministic(tasks, context=context)
-        findings, llm_used_tools = self.run_react_agent(
+        findings, llm_used_tools, llm_sources = self.run_react_agent(
             tasks,
             deterministic_outputs,
             context=context,
         )
-        evidence_tools = self.extract_evidence_tools(deterministic_outputs)
-        sources = self.collect_sources(deterministic_outputs, llm_used_tools)
-        rendered = self.render_markdown(tasks, findings, sources, evidence_tools)
+        sources = self.collect_sources(deterministic_outputs, llm_sources)
+        rendered = self.render_markdown(tasks, findings, sources, llm_used_tools)
 
         return AgentReport(
             agent_name=self.name,
@@ -74,7 +75,6 @@ class SocialAgent(BaseAgent):
                 "mode": "mixed",
                 "deterministic_tools": list(ALWAYS_CALL_TOOLS),
                 "llm_chosen_tools": llm_used_tools,
-                "evidence_tools": evidence_tools,
                 "evidence_plan": getattr(self, "_last_evidence_plan", None),
             },
         )
@@ -197,7 +197,7 @@ class SocialAgent(BaseAgent):
         tasks: list[str],
         deterministic_outputs: dict[str, ToolResult[Any]],
         context: dict[str, Any] | None = None,
-    ) -> tuple[str, list[str]]:
+    ) -> tuple[str, list[str], list[Source]]:
         llm = get_chat_model(
             model=self.config.model,
             temperature=self.config.temperature,
@@ -218,7 +218,11 @@ class SocialAgent(BaseAgent):
             {"messages": [HumanMessage(content=user_prompt)]},
             config={"recursion_limit": MAX_LLM_ITERATIONS},
         )
-        return self.extract_final_answer(result), self.extract_used_tools(result)
+        return (
+            self.extract_final_answer(result),
+            self.extract_used_tools(result),
+            self.extract_llm_sources(result),
+        )
 
     @staticmethod
     def extract_final_answer(result: dict[str, Any]) -> str:
@@ -238,10 +242,67 @@ class SocialAgent(BaseAgent):
                     used.append(name)
         return used
 
+    @classmethod
+    def extract_llm_sources(cls, result: dict[str, Any]) -> list[Source]:
+        """Turn the LLM's tool-call outputs (ToolMessages) into Sources with post links."""
+        urls_by_tool: dict[str, list[str]] = {}
+        for msg in result.get("messages", []):
+            if getattr(msg, "type", None) != "tool":
+                continue
+            name = getattr(msg, "name", None)
+            if not name:
+                continue
+            bucket = urls_by_tool.setdefault(name, [])
+            for url in cls._extract_urls(msg.content):
+                if url not in bucket:
+                    bucket.append(url)
+
+        sources: list[Source] = []
+        for name, urls in urls_by_tool.items():
+            sources.append(
+                Source(
+                    name=name,
+                    url=urls[0] if urls else None,
+                    metadata={
+                        "used_by": "llm_decision",
+                        "source_urls": urls,
+                        "count": len(urls),
+                    },
+                )
+            )
+        return sources
+
+    @staticmethod
+    def _extract_urls(content: Any) -> list[str]:
+        """Collect post URLs from a ToolMessage payload (JSON list of dicts, or text)."""
+        text = content if isinstance(content, str) else json.dumps(content, default=str)
+        urls: list[str] = []
+        try:
+            data: Any = json.loads(text)
+        except (json.JSONDecodeError, TypeError):
+            data = None
+
+        def walk(obj: Any) -> None:
+            if isinstance(obj, dict):
+                url = obj.get("url")
+                if isinstance(url, str) and url.startswith("http"):
+                    urls.append(url)
+                for value in obj.values():
+                    walk(value)
+            elif isinstance(obj, list):
+                for value in obj:
+                    walk(value)
+
+        if data is not None:
+            walk(data)
+        if not urls:
+            urls = re.findall(r"https?://[^\s\"'\)\]]+", text)
+        return list(dict.fromkeys(urls))
+
     def collect_sources(
         self,
         deterministic_outputs: dict[str, ToolResult[Any]],
-        llm_used_tools: list[str],
+        llm_sources: list[Source],
     ) -> list[Source]:
         sources_by_name: dict[str, Source] = {}
         for result in deterministic_outputs.values():
@@ -259,9 +320,14 @@ class SocialAgent(BaseAgent):
                         url=url,
                         metadata=result.metadata,
                     )
-        for name in llm_used_tools:
-            if name not in sources_by_name:
-                sources_by_name[name] = Source(name=name, metadata={"used_by": "llm_decision"})
+        for source in llm_sources:
+            if source.name in sources_by_name:
+                sources_by_name[source.name] = self.merge_source_metadata(
+                    sources_by_name[source.name],
+                    source.metadata,
+                )
+            else:
+                sources_by_name[source.name] = source
         return list(sources_by_name.values())
 
     @staticmethod
@@ -291,34 +357,23 @@ class SocialAgent(BaseAgent):
 
         return Source(name=source.name, url=source.url, metadata=merged)
 
-    @staticmethod
-    def extract_evidence_tools(outputs: dict[str, ToolResult[Any]]) -> list[str]:
-        tools: list[str] = []
-        for name, result in outputs.items():
-            if not result.success:
-                continue
-            tool_name = name.rsplit("_", 1)[0] if name.rsplit("_", 1)[-1].isdigit() else name
-            if tool_name not in tools:
-                tools.append(tool_name)
-        return tools
-
     def render_markdown(
         self,
         tasks: list[str],
         findings: str,
         sources: list[Source],
-        evidence_tools: list[str],
+        llm_used_tools: list[str],
     ) -> str:
         task_lines = "\n".join(f"- {t}" for t in tasks)
         src_lines = "\n".join(self.format_source_line(source) for source in sources) or "- (none)"
-        evidence_lines = "\n".join(f"- {t}" for t in evidence_tools) or "- (none)"
         always_lines = "\n".join(f"- {t}" for t in ALWAYS_CALL_TOOLS)
+        llm_lines = "\n".join(f"- {t}" for t in llm_used_tools) or "- (none)"
         return (
             "## Social Analysis\n\n"
             f"**Tasks:**\n{task_lines}\n\n"
             f"**Findings:**\n\n{findings}\n\n"
             f"**Tools always called:**\n{always_lines}\n\n"
-            f"**Evidence tools selected:**\n{evidence_lines}\n\n"
+            f"**Tools the LLM chose to call:**\n{llm_lines}\n\n"
             f"**Sources:**\n{src_lines}\n"
         )
 

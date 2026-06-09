@@ -11,7 +11,7 @@ from mascan.agents.social.agent import (
 from mascan.agents.social.tools.reddit_api import RedditSearchTool
 from mascan.agents.social.tools.world_bank import WorldBankSocialIndicatorsTool
 from mascan.agents.social.tools.x_api import XSearchTool
-from mascan.contracts.reports import AgentReport
+from mascan.contracts.reports import AgentReport, Source
 from mascan.contracts.tools import ToolResult
 
 
@@ -81,6 +81,17 @@ def test_social_agent_run_returns_report(mocker: Any) -> None:
         ),
     }
 
+    llm_sources = [
+        Source(
+            name="reddit_search",
+            url="https://reddit.com/r/electricvehicles/comments/abc123",
+            metadata={
+                "used_by": "llm_decision",
+                "source_urls": ["https://reddit.com/r/electricvehicles/comments/abc123"],
+                "count": 1,
+            },
+        )
+    ]
     mocker.patch.object(
         agent,
         "gather_deterministic",
@@ -89,7 +100,7 @@ def test_social_agent_run_returns_report(mocker: Any) -> None:
     mocker.patch.object(
         agent,
         "run_react_agent",
-        return_value=("Social sentiment findings", ["reddit_search"]),
+        return_value=("Social sentiment findings", ["reddit_search"], llm_sources),
     )
 
     report = agent.run(tasks=["consumer sentiment around EV battery recycling"])
@@ -103,16 +114,49 @@ def test_social_agent_run_returns_report(mocker: Any) -> None:
         "web_search",
         "world_bank_social_indicators",
     ]
+    assert report.metadata["llm_chosen_tools"] == ["reddit_search"]
     assert "## Social Analysis" in report.rendered_markdown
+    # The LLM-chosen tools render in their own section, not mixed into Sources.
+    assert "**Tools the LLM chose to call:**\n- reddit_search" in report.rendered_markdown
     assert [source.name for source in report.sources] == [
         "web_search:firecrawl",
         "world_bank:social_indicators",
         "reddit_search",
     ]
+    # The reddit Source carries the post link, not just the tool name.
+    assert "https://reddit.com/r/electricvehicles/comments/abc123" in report.rendered_markdown
     assert report.sources[0].metadata["count"] == 1
     assert "https://api.worldbank.org/v2/country/WLD/indicator/SP.POP.TOTL" in (
         report.rendered_markdown
     )
+
+
+def test_social_extract_llm_sources_pulls_post_links() -> None:
+    import json
+
+    from langchain_core.messages import AIMessage, ToolMessage
+
+    reddit_payload = json.dumps(
+        [{"id": "abc", "title": "t", "url": "https://reddit.com/r/x/comments/abc"}]
+    )
+    x_payload = json.dumps([{"id": "1", "text": "hi", "url": "https://x.com/u/status/1"}])
+    result = {
+        "messages": [
+            AIMessage(content="thinking"),
+            ToolMessage(content=reddit_payload, name="reddit_search", tool_call_id="a"),
+            ToolMessage(content=x_payload, name="x_search", tool_call_id="b"),
+        ]
+    }
+
+    sources = SocialAgent.extract_llm_sources(result)
+    by_name = {s.name: s for s in sources}
+
+    assert set(by_name) == {"reddit_search", "x_search"}
+    assert by_name["reddit_search"].metadata["source_urls"] == [
+        "https://reddit.com/r/x/comments/abc"
+    ]
+    assert by_name["x_search"].url == "https://x.com/u/status/1"
+    assert by_name["reddit_search"].metadata["used_by"] == "llm_decision"
 
 
 def test_social_agent_constrains_evidence_plan() -> None:
