@@ -59,7 +59,7 @@ def test_economics_agent_run_returns_report(mocker: Any) -> None:
     mocker.patch.object(
         agent,
         "run_react_agent",
-        return_value=("Economic outlook findings", []),
+        return_value=("Economic outlook findings", [], []),
     )
 
     report = agent.run(tasks=["EU manufacturing outlook"])
@@ -73,3 +73,70 @@ def test_economics_agent_run_returns_report(mocker: Any) -> None:
     assert "## Economics Analysis" in report.rendered_markdown
     assert [source.name for source in report.sources] == ["web_search:firecrawl"]
     assert report.sources[0].metadata == {"query": "EU manufacturing outlook"}
+
+
+class _ToolMessage:
+    """Minimal stand-in for a LangChain ToolMessage."""
+
+    def __init__(self, name: str, content: Any) -> None:
+        self.type = "tool"
+        self.name = name
+        self.content = content
+
+
+def test_extract_llm_sources_surfaces_market_data() -> None:
+    payload = {
+        "ticker": "BMW.DE",
+        "start_date": "2025-06-01",
+        "end_date": "2026-06-01",
+        "fundamentals": {"company_name": "Bayerische Motoren Werke AG"},
+        "weekly_prices": [],
+    }
+    result = {
+        "messages": [
+            _ToolMessage("get_weekly_stock_prices", payload),
+            _ToolMessage("get_weekly_stock_prices", payload),  # deduped
+        ]
+    }
+
+    sources = EconomicsAgent.extract_llm_sources(result)
+
+    assert len(sources) == 1
+    source = sources[0]
+    assert source.name == "yfinance:BMW.DE"
+    assert source.url == "https://finance.yahoo.com/quote/BMW.DE"
+    assert source.metadata["ticker"] == "BMW.DE"
+    assert source.metadata["company_name"] == "Bayerische Motoren Werke AG"
+
+    line = EconomicsAgent.format_source_line(source)
+    assert line == "- [yfinance:BMW.DE](https://finance.yahoo.com/quote/BMW.DE)"
+
+
+def test_weekly_stock_tool_fails_on_delisted_ticker(mocker: Any) -> None:
+    import pandas as pd
+
+    from mascan.agents.economics.tools import market_data
+
+    fake_ticker = mocker.Mock()
+    fake_ticker.info = {}
+    fake_ticker.history.return_value = pd.DataFrame()  # delisted -> empty frame
+    mocker.patch.object(market_data.yf, "Ticker", return_value=fake_ticker)
+
+    result = WeeklyStockPricesTool().run(
+        ticker="DMLRY", start_date="2025-06-01", end_date="2026-06-01"
+    )
+
+    assert result.success is False
+    assert result.data is None
+    assert "DMLRY" in result.error
+    assert result.metadata["price_points"] == 0
+
+
+def test_extract_llm_sources_ignores_failed_calls() -> None:
+    result = {
+        "messages": [
+            _ToolMessage("get_weekly_stock_prices", "Tool 'get_weekly_stock_prices' failed: boom"),
+        ]
+    }
+
+    assert EconomicsAgent.extract_llm_sources(result) == []

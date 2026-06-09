@@ -87,6 +87,27 @@ class WeeklyStockPricesTool(BaseTool):
                 interval="1wk",
             )
 
+            # yfinance does not raise for an unknown/delisted ticker — it logs a
+            # warning and returns an empty frame. Treat that as a failure so the
+            # agent does not cite a phantom source with no underlying data.
+            if history.empty:
+                return ToolResult(
+                    success=False,
+                    data=None,
+                    source=f"yfinance:{ticker}",
+                    error=(
+                        f"No price data for {ticker!r} between {start_date} and "
+                        f"{end_date} (ticker may be delisted, renamed, or invalid)."
+                    ),
+                    metadata={
+                        "provider": "yfinance",
+                        "interval": "1wk",
+                        "start_date": start_date,
+                        "end_date": end_date,
+                        "price_points": 0,
+                    },
+                ).model_dump_json()
+
             weekly_prices = []
 
             for index, row in history.iterrows():
