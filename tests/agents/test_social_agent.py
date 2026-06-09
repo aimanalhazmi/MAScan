@@ -301,6 +301,32 @@ def test_reddit_search_formats_listing(mocker: Any) -> None:
     assert result.data[0]["title"] == "Battery recycling concerns"
     assert result.data[0]["subreddit"] == "electricvehicles"
     assert result.data[0]["url"] == "https://reddit.com/r/electricvehicles/comments/abc123"
+    # The full raw post object is no longer attached (context-overflow guard).
+    assert "raw" not in result.data[0]
+
+
+def test_reddit_search_truncates_long_selftext(mocker: Any) -> None:
+    from mascan.agents.social.tools.reddit_api import RedditSearchTool
+
+    long_text = "z" * (RedditSearchTool.MAX_SNIPPET_CHARS + 500)
+    post = type(
+        "Post",
+        (),
+        {"to_dict": lambda self: {"id": "x", "title": "t", "selftext": long_text}},
+    )()
+    listing = type("ListingPage", (), {"items": [post]})()
+
+    mocker.patch("rdt_cli.auth.load_credential", return_value=object())
+    client_cm = mocker.MagicMock()
+    client_cm.__enter__.return_value.search.return_value = {"raw": "payload"}
+    mocker.patch("rdt_cli.client.RedditClient", return_value=client_cm)
+    mocker.patch("rdt_cli.parser.parse_listing", return_value=listing)
+
+    result = RedditSearchTool().run(query="anything", limit=1)
+
+    snippet = result.data[0]["snippet"]
+    assert snippet.endswith(" […]")
+    assert len(snippet) <= RedditSearchTool.MAX_SNIPPET_CHARS + len(" […]")
 
 
 def test_x_search_formats_tweets(mocker: Any) -> None:
@@ -333,6 +359,8 @@ def test_x_search_formats_tweets(mocker: Any) -> None:
     assert result.data[0]["text"] == "EV battery recycling is improving"
     assert result.data[0]["author"] == "analyst"
     assert result.data[0]["url"] == "https://x.com/analyst/status/123"
+    # The full raw tweet object is no longer attached (context-overflow guard).
+    assert "raw" not in result.data[0]
 
 
 def test_world_bank_social_indicators_formats_latest_values(mocker: Any) -> None:

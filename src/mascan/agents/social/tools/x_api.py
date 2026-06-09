@@ -1,4 +1,4 @@
-from typing import Any
+from typing import Any, ClassVar
 
 from pydantic import BaseModel, Field
 
@@ -57,8 +57,12 @@ class XSearchTool(BaseTool):
             self.logger.exception("x_search failed for query=%r", query)
             return self._failure(query, str(exc))
 
-    @staticmethod
-    def _format_posts(items: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    # Cap post text so a batch of tweets cannot overflow the model context
+    # window once they accumulate in the ReAct message history.
+    MAX_TEXT_CHARS: ClassVar[int] = 1000
+
+    @classmethod
+    def _format_posts(cls, items: list[dict[str, Any]]) -> list[dict[str, Any]]:
         posts: list[dict[str, Any]] = []
         for item in items:
             post_id = item.get("id")
@@ -73,15 +77,20 @@ class XSearchTool(BaseTool):
             posts.append(
                 {
                     "id": post_id,
-                    "text": item.get("text"),
+                    "text": cls._truncate(item.get("text")),
                     "author": screen_name,
                     "created_at": item.get("createdAtISO") or item.get("createdAt"),
                     "url": url,
                     "metrics": item.get("metrics"),
-                    "raw": item,
                 }
             )
         return posts
+
+    @classmethod
+    def _truncate(cls, text: Any) -> Any:
+        if not isinstance(text, str) or len(text) <= cls.MAX_TEXT_CHARS:
+            return text
+        return text[: cls.MAX_TEXT_CHARS].rstrip() + " […]"
 
     @staticmethod
     def _failure(query: str, error: str) -> ToolResult[list[dict[str, Any]]]:

@@ -1,4 +1,4 @@
-from typing import Any
+from typing import Any, ClassVar
 
 from pydantic import BaseModel, Field
 
@@ -73,8 +73,12 @@ class RedditSearchTool(BaseTool):
             self.logger.exception("reddit_search failed for query=%r", query)
             return self._failure(query, sort, time_filter, str(exc))
 
-    @staticmethod
-    def _format_posts(items: list[Any]) -> list[dict[str, Any]]:
+    # Post bodies can be very long; cap them so a batch of posts cannot overflow
+    # the model context window once they accumulate in the ReAct message history.
+    MAX_SNIPPET_CHARS: ClassVar[int] = 1000
+
+    @classmethod
+    def _format_posts(cls, items: list[Any]) -> list[dict[str, Any]]:
         posts: list[dict[str, Any]] = []
         for post in items:
             data = post.to_dict()
@@ -90,11 +94,16 @@ class RedditSearchTool(BaseTool):
                     "url": url,
                     "created_at": data.get("created_utc"),
                     "author": data.get("author"),
-                    "snippet": data.get("selftext"),
-                    "raw": data,
+                    "snippet": cls._truncate(data.get("selftext")),
                 }
             )
         return posts
+
+    @classmethod
+    def _truncate(cls, text: Any) -> Any:
+        if not isinstance(text, str) or len(text) <= cls.MAX_SNIPPET_CHARS:
+            return text
+        return text[: cls.MAX_SNIPPET_CHARS].rstrip() + " […]"
 
     @staticmethod
     def _failure(
