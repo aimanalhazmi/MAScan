@@ -24,9 +24,13 @@ Your job:
    dimension is genuinely relevant. Skip agents whose dimension doesn't
    apply to this question.
 3. For each selected agent, write:
-   - an objective_context: a short domain-specific brief explaining why this
-     agent was selected and what user intent, constraints, entities,
-     geography, time horizon, or decision context it must preserve.
+   - an objective_context: a robust domain-specific brief for that agent.
+     This is the only user-query context the agent will receive, so preserve
+     every detail that matters for that agent's capabilities: entities,
+     company details, product description, geography, time horizon, decision
+     scope, constraints, assumptions, and what the agent should ignore.
+     Tailor the objective_context to the selected agent's domain rather than
+     copying the whole user question.
    - 1 to 3 short, specific sub-tasks describing exactly what that agent
      should investigate.
 
