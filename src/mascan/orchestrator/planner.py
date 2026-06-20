@@ -4,7 +4,7 @@ from langchain_core.messages import HumanMessage, SystemMessage
 from pydantic import BaseModel, Field
 
 from mascan.agents.registry import agent_registry
-from mascan.contracts.planning import AgentAssignment
+from mascan.contracts.planning import AgentAssignment, InformationRequest
 from mascan.core.llm import get_chat_model
 from mascan.core.logging import get_logger
 from mascan.core.settings import get_settings
@@ -46,8 +46,8 @@ Do not add facts that are not present in the user question or runtime context.
 class PlanModel(BaseModel):
     """Structured output the planner LLM is forced to return."""
 
-    assignments: list[AgentAssignment] = Field(
-        description="List of agent-task assignments.",
+    output: list[AgentAssignment] | InformationRequest = Field(
+        description="List of agent-task assignments or a request for more information.",
     )
 
 
@@ -83,9 +83,13 @@ def planner_node(state: GraphState) -> dict[str, Any]:
         HumanMessage(content=user_prompt),
     ])
 
-    raw_plan = {a.agent_name: a for a in result.assignments}
+    if isinstance(result.output, InformationRequest):
+        logger.info(f"Planner requested more information: {result.output.question}")
+        return {"plan": {}, "info_request": result.output.question}
+
+    raw_plan = {a.agent_name: a for a in result.output if isinstance(a, AgentAssignment)}
     plan = _filter_to_known_agents(raw_plan, available)
-    logger.info("Planner selected %d agent(s): %s", len(plan), sorted(plan.keys()))
+    logger.info(f"Planner selected {len(plan)} agent(s): {sorted(plan.keys())}")
     return {"plan": plan}
 
 
@@ -96,7 +100,7 @@ def _filter_to_known_agents(
     filtered: dict[str, AgentAssignment] = {}
     for name, assignment in plan.items():
         if name not in known:
-            logger.warning("Planner hallucinated unknown agent %r; dropping.", name)
+            logger.warning(f"Planner hallucinated unknown agent {name}; dropping.")
             continue
         if not assignment.tasks:
             continue
