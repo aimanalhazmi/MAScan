@@ -61,7 +61,7 @@ def planner_node(state: GraphState) -> dict[str, Any]:
     settings = get_settings()
     llm = get_chat_model(
         model=settings.openai_model_default,
-        temperature=0.0,  # planning should be deterministic
+        temperature=0.0,  # planning should be deterministic   TODO: How should we handle information requests?
         max_tokens=1000,
     )
     structured_llm = llm.with_structured_output(PlanModel)
