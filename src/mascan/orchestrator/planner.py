@@ -20,10 +20,12 @@ Available agents (each specialises in one PESTEL dimension):
 
 Your job:
 1. Read the user's question.
-2. Decide which agents should investigate it. Only pick agents whose
-   dimension is genuinely relevant. Skip agents whose dimension doesn't
-   apply to this question.
-3. For each selected agent, write:
+2. Decide wheter the user provided enough information to investigate the question.
+   If not, return a clarification request.
+3. Once the user provides sufficient information, decide which agents should investigate it.
+   Only pick agents whose dimension is genuinely relevant.
+   Skip agents whose dimension doesn't apply to this question.
+4. For each selected agent, write:
    - an objective_context: a robust domain-specific brief for that agent.
      This is the only user-query context the agent will receive, so preserve
      every detail that matters for that agent's capabilities: entities,
