@@ -4,7 +4,7 @@ from zoneinfo import ZoneInfo
 
 from pydantic import BaseModel, Field
 
-from mascan.contracts.planning import AgentAssignment
+from mascan.contracts.planning import AgentAssignment, InformationRequest
 from mascan.contracts.reports import AgentReport
 
 
@@ -36,7 +36,7 @@ class GraphState(BaseModel):
         description="Planner output: agent_name -> assignment.",
     )
 
-    info_request: str | None = Field(
+    info_request: InformationRequest | None = Field(
         default=None,
         description="If the planner thinks the user question lacks crucial information, it can ask for clarification here instead of returning any assignments. The orchestrator will then ask the user this question and re-run the planner with the user's answer added to the runtime context.",
     )
