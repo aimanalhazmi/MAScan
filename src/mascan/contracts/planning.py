@@ -1,4 +1,4 @@
-"""Planning contracts shared between orchestrator and report models."""
+"""Contracts for the planner's output."""
 
 from pydantic import BaseModel, Field
 
