@@ -2,6 +2,7 @@ from collections.abc import Iterator
 from typing import Any
 
 from langgraph.graph import END, START, StateGraph
+from langchain.agents.middleware import HumanInTheLoopMiddleware
 
 from mascan.agents.registry import agent_registry
 from mascan.contracts import FinalReport
