@@ -125,13 +125,6 @@ services:
       # Disable Ollama since we don't use it; speeds up startup.
       ENABLE_OLLAMA_API: "false"
       WEBUI_AUTH: "true"
-      # We chat with the MAScan API only; no local RAG/document search.
-      # Setting a non-local embedding engine stops Open WebUI from
-      # downloading the SentenceTransformers model from HuggingFace on
-      # startup (the source of the "unauthenticated requests / set a
-      # HF_TOKEN" warning). The engine is never actually called since
-      # RAG is unused.
-      RAG_EMBEDDING_ENGINE: "openai"
 
 volumes:
   openwebui-data:
