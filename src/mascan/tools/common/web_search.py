@@ -25,13 +25,15 @@ class WebSearchTool(BaseTool):
     # page's body before it is handed to the LLM.
     MAX_MARKDOWN_CHARS: ClassVar[int] = 4000
 
-    def __init__(self, api_key: str | None = None) -> None:
+    def __init__(self, api_key: str | None = None, api_url: str | None = None) -> None:
         """Initialize Firecrawl.
 
-        Accepts api_key explicitly, otherwise falls back to the
-        FIRECRAWL_API_KEY environment variable.
+        Accepts api_key/api_url explicitly, otherwise falls back to the
+        FIRECRAWL_API_KEY / FIRECRAWL_API_URL environment variables.
+        Set api_url to point at a self-hosted Firecrawl instead of the cloud.
         """
         self.api_key = api_key
+        self.api_url = api_url
         self.client: Firecrawl | None = None
         super().__init__()
 
@@ -59,7 +61,11 @@ class WebSearchTool(BaseTool):
         scraped markdown strings tailored for LLM consumption.
         """
         if self.client is None:
-            self.client = Firecrawl(api_key=self.api_key)
+            # Self-hosted Firecrawl needs no key; pass a placeholder so the SDK
+            # doesn't reject the empty value.
+            self.client = Firecrawl(
+                api_key=self.api_key or "self-hosted", api_url=self.api_url
+            )
 
         response = self.client.search(query=query, limit=max_results)
 

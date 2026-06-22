@@ -17,7 +17,12 @@ class Settings(BaseSettings):
     openai_model_default: str = Field("gpt-4o-mini", description="Default model name.")
 
     #  Tools
-    firecrawl_api_key: str = Field(..., description="Firecrawl API key.")
+    firecrawl_api_key: str | None = Field(
+        None, description="Firecrawl API key (not needed for a self-hosted instance)."
+    )
+    firecrawl_api_url: str | None = Field(
+        None, description="Base URL of a self-hosted Firecrawl."
+    )
 
     #  Social agent — X/Twitter cookie secrets (kept in env, not config.yaml)
     twitter_auth_token: str | None = Field(
