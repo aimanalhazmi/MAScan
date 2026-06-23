@@ -10,6 +10,7 @@ from mascan.orchestrator.adapters import make_agent_node
 from mascan.orchestrator.planner import planner_node
 from mascan.orchestrator.state import GraphState
 from mascan.orchestrator.synthesizer import synthesizer_node
+from mascan.orchestrator.validator import validator_node
 
 logger = get_logger("orchestrator.graph")
 
@@ -25,7 +26,7 @@ def build_graph() -> Any:
 
     graph.add_node("planner", planner_node)
     graph.add_node("synthesizer", synthesizer_node)
-
+    graph.add_node("validator", validator_node)
 
     agents = agent_registry.all()
     if not agents:
@@ -37,12 +38,13 @@ def build_graph() -> Any:
     for agent in agents:
         graph.add_node(agent.name, make_agent_node(agent))
 
-    # Edges: planner -> every agent -> synthesizer
+    # Edges: planner -> every agent -> synthesizer -> validator
     graph.add_edge(START, "planner")
     for agent in agents:
         graph.add_edge("planner", agent.name)
         graph.add_edge(agent.name, "synthesizer")
-    graph.add_edge("synthesizer", END)
+    graph.add_edge("synthesizer", "validator")
+    graph.add_edge("validator", END)
 
     compiled_graph = graph.compile()
     logger.info("Graph compiled with %d agent node(s).", len(agents))
@@ -76,4 +78,5 @@ def state_to_report(state_dict: dict[str, Any]) -> FinalReport:
         plan=state_dict.get("plan", {}),
         agent_reports=state_dict.get("reports", {}),
         failures=state_dict.get("failures", {}),
+        metadata={"validation": state_dict.get("validation_payload", {})},
     )

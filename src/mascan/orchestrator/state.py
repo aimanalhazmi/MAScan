@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import Annotated
+from typing import Annotated, Any
 from zoneinfo import ZoneInfo
 
 from pydantic import BaseModel, Field
@@ -47,6 +47,16 @@ class GraphState(BaseModel):
 
     final_summary: str = Field("", description="LLM-synthesized final answer.")
     final_markdown: str = Field("", description="Markdown rendering of the final answer.")
+    validation_status: str = Field("", description="Final report validation status.")
+    validation_issues: list[dict[str, Any]] = Field(
+        default_factory=list,
+        description="Structured validation issues found in the final report.",
+    )
+    validation_markdown: str = Field("", description="Rendered Fact Check section.")
+    validation_payload: dict[str, Any] = Field(
+        default_factory=dict,
+        description="Full structured validation result.",
+    )
 
     iteration: int = 0
     max_iterations: int = 10

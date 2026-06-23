@@ -108,8 +108,8 @@ class Pipe:
     def consume_sse(self, response: httpx.Response) -> Iterator[str]:
         """Parse SSE 'data: ...' lines and yield human-readable progress.
 
-        After the final 'node' event (synthesizer), yields the rendered
-        markdown so the full report appears as the last message chunk.
+        After the final report node events, yields the rendered markdown so the
+        full report appears as the last message chunk.
         """
         final_markdown: str | None = None
 
@@ -132,8 +132,8 @@ class Pipe:
                 comment = self.comment_for_node(node, update)
                 if comment:
                     yield comment + "\n\n"
-                # Capture the synthesizer's markdown for the final yield.
-                if node == "synthesizer":
+                # Capture report markdown as it evolves; validator appends Fact Check.
+                if node in {"synthesizer", "validator"}:
                     final_markdown = update.get("final_markdown") or update.get("final_summary")
 
             elif event_type == "done":
@@ -157,6 +157,8 @@ class Pipe:
             return "📋 Planner ran but selected no agents."
         if node == "synthesizer":
             return "🧩 Synthesizing final report..."
+        if node == "validator":
+            return "🔎 Validating final report..."
         # Otherwise it's an agent node.
         reports = update.get("reports") or {}
         failures = update.get("failures") or {}
