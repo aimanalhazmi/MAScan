@@ -8,6 +8,8 @@ services:
       - .env
     environment:
       PYTHONUNBUFFERED: "1"
+      # the self-hosted Firecrawl
+      FIRECRAWL_API_URL: http://firecrawl:3002
     expose:
       - "8000"
     healthcheck:
@@ -16,6 +18,70 @@ services:
       timeout: 3s
       retries: 5
       start_period: 10s
+    depends_on:
+      firecrawl:
+        condition: service_started
+
+  # Self-hosted Firecrawl (internal only; not exposed to Traefik)
+  firecrawl:
+    image: ghcr.io/firecrawl/firecrawl:latest
+    restart: unless-stopped
+    expose:
+      - "3002"
+    command: node dist/src/harness.js --start-docker
+    environment:
+      REDIS_URL: redis://firecrawl-redis:6379
+      REDIS_RATE_LIMIT_URL: redis://firecrawl-redis:6379
+      PLAYWRIGHT_MICROSERVICE_URL: http://firecrawl-playwright:3000/scrape
+      NUQ_RABBITMQ_URL: amqp://firecrawl-rabbitmq:5672
+      POSTGRES_HOST: firecrawl-postgres
+      POSTGRES_PORT: "5432"
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: postgres
+      USE_DB_AUTHENTICATION: "false"
+      HOST: "0.0.0.0"
+      PORT: "3002"
+      ENV: local
+    depends_on:
+      firecrawl-redis:
+        condition: service_started
+      firecrawl-playwright:
+        condition: service_started
+      firecrawl-rabbitmq:
+        condition: service_healthy
+      firecrawl-postgres:
+        condition: service_started
+
+  firecrawl-playwright:
+    image: ghcr.io/firecrawl/playwright-service:latest
+    restart: unless-stopped
+    environment:
+      PORT: "3000"
+
+  firecrawl-redis:
+    image: redis:alpine
+    restart: unless-stopped
+    command: redis-server --bind 0.0.0.0
+
+  firecrawl-rabbitmq:
+    image: rabbitmq:3-management
+    restart: unless-stopped
+    command: rabbitmq-server
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "check_running"]
+      interval: 5s
+      timeout: 5s
+      retries: 3
+      start_period: 5s
+
+  firecrawl-postgres:
+    image: ghcr.io/firecrawl/nuq-postgres:latest
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: postgres
 
   openwebui:
     image: ghcr.io/open-webui/open-webui:main
