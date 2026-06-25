@@ -15,6 +15,7 @@ from mascan.orchestrator import stream as orchestrator_stream
 
 from mascan.agents import agent_registry
 import mascan.agents.economics  # noqa: F401
+import mascan.agents.legal  # noqa: F401
 import mascan.agents.political  # noqa: F401
 import mascan.agents.social # noqa: F401
 import mascan.agents.environmental  # noqa: F401

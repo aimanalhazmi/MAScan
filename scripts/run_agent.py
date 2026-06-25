@@ -3,6 +3,7 @@
 Usage:
     uv run python scripts/run_agent.py economics "EU manufacturing outlook"
     uv run python scripts/run_agent.py political "US-China trade tensions"
+    uv run python scripts/run_agent.py legal "EU AI Act compliance obligations"
 
 Bypasses the orchestrator. Use it to develop and test a single agent
 """
@@ -13,6 +14,7 @@ from dotenv import load_dotenv
 
 from mascan.agents import agent_registry
 import mascan.agents.economics # noqa: F401
+import mascan.agents.legal # noqa: F401
 import mascan.agents.political # noqa: F401
 import mascan.agents.social # noqa: F401
 import mascan.agents.environmental # noqa: F401

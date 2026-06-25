@@ -1,5 +1,5 @@
 .DEFAULT_GOAL := help
-.PHONY: help install test lint format clean run-economics run-political run-social run-environmental run-orchestrator run-orchestrator-stream run-api openwebui-up openwebui-down openwebui-logs compose-up compose-down compose-logs compose-rebuild
+.PHONY: help install test lint format clean run-economics run-political run-legal run-social run-environmental run-orchestrator run-orchestrator-stream run-api openwebui-up openwebui-down openwebui-logs compose-up compose-down compose-logs compose-rebuild
 help:  ## Show this help message
 	@echo "MAScan — available commands:"
 	@echo ""
@@ -35,6 +35,9 @@ run-economics:
 
 run-political:
 	PYTHONPATH=src uv run python scripts/run_agent.py political "$(Q)"
+
+run-legal:
+	PYTHONPATH=src uv run python scripts/run_agent.py legal "$(Q)"
 
 run-social:
 	PYTHONPATH=src uv run python scripts/run_agent.py social "$(Q)"
