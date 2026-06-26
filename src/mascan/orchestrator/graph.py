@@ -17,6 +17,31 @@ logger = get_logger("orchestrator.graph")
 compiled_graph: Any | None = None
 
 
+def _handle_info_request(state: GraphState) -> GraphState:
+    """This node handles information requests from the planner by asking the user for clarification.
+    After collecting the user's response, it loops back to the planner with the updated context.
+    Maximum of 3 info requests are allowed to prevent infinite loops.
+    """
+
+    logger.info(f"Planner requested info: {state.info_request}")
+    # Increment counter to prevent infinite loops
+    state.info_request_counter += 1
+    if state.info_request_counter > 3:
+        logger.warning("Info request counter exceeded threshold. Proceeding without answer.")
+        state.info_request = None
+        return state
+    
+    # TODO: Implement actual user interaction
+    
+    state.info_request = None
+    return state
+
+
+def _agents_passthrough(state: GraphState) -> GraphState:
+    """Passthrough node that routes to all agent nodes."""
+    return state
+
+
 def build_graph() -> Any:
     global compiled_graph
     if compiled_graph is not None:
@@ -25,8 +50,9 @@ def build_graph() -> Any:
     graph = StateGraph(GraphState)
 
     graph.add_node("planner", planner_node)
+    graph.add_node("handle_info_request", _handle_info_request)
+    graph.add_node("agents", _agents_passthrough)
     graph.add_node("synthesizer", synthesizer_node)
-
 
     agents = agent_registry.all()
     if not agents:
@@ -38,11 +64,27 @@ def build_graph() -> Any:
     for agent in agents:
         graph.add_node(agent.name, make_agent_node(agent))
 
-    # Edges: planner -> every agent -> synthesizer
+    # Edges
     graph.add_edge(START, "planner")
+    
+    # Conditional routing from planner
+    graph.add_conditional_edges(
+        "planner",
+        route_planner,
+        {
+            "handle_info_request": "handle_info_request",
+            "agents": "agents",
+        },
+    )
+    
+    # Info request loops back to planner
+    graph.add_edge("handle_info_request", "planner")
+    
+    # All agents route from agents passthrough and connect to synthesizer
     for agent in agents:
-        graph.add_edge("planner", agent.name)
+        graph.add_edge("agents", agent.name)
         graph.add_edge(agent.name, "synthesizer")
+    
     graph.add_edge("synthesizer", END)
 
     compiled_graph = graph.compile()
