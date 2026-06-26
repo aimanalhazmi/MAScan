@@ -46,7 +46,7 @@ def build_graph() -> Any:
     graph.add_edge("synthesizer", END)
 
     compiled_graph = graph.compile()
-    logger.info("Graph compiled with %d agent node(s).", len(agents))
+    logger.info(f"Graph compiled with {len(agents)} agent node(s).")
     return compiled_graph
 
 
@@ -78,3 +78,9 @@ def state_to_report(state_dict: dict[str, Any]) -> FinalReport:
         agent_reports=state_dict.get("reports", {}),
         failures=state_dict.get("failures", {}),
     )
+
+def route_planner(state: GraphState) -> str:
+    """Route from planner based on whether it needs more info or can proceed to agents."""
+    if state.info_request is not None:
+        return "handle_info_request"
+    return "agents"
