@@ -28,8 +28,6 @@ def _handle_info_request(state: GraphState) -> GraphState:
     if state.info_request is None:
         return state
 
-    logger.info(f"Planner requested info: {state.info_request.question}")
-
     # Increment counter to prevent infinite loops
     state.info_request_counter += 1
     if state.info_request_counter > MAX_INFO_REQUESTS:
