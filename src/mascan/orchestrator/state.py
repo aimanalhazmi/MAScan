@@ -38,7 +38,7 @@ class GraphState(BaseModel):
 
     info_request: InformationRequest | None = Field(
         default=None,
-        description="If the planner thinks the user question lacks crucial information, it can ask for clarification here instead of returning any assignments. The orchestrator will then ask the user this question and re-run the planner with the user's answer added to the runtime context.",
+        description="If the planner thinks the user question lacks crucial information, it can ask for clarification here instead of returning any assignments. The orchestrator will then ask the user this question and re-run the planner with the user's answer appended to user_input.",
     )
 
     info_request_counter: int = Field(

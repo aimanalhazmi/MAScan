@@ -3,7 +3,6 @@ import sys
 from typing import Any
 
 from langgraph.graph import END, START, StateGraph
-from langchain.agents.middleware import HumanInTheLoopMiddleware
 
 from mascan.agents.registry import agent_registry
 from mascan.contracts import FinalReport
@@ -55,8 +54,10 @@ def _handle_info_request(state: GraphState) -> GraphState:
 def _prompt_for_console_input(question: str) -> str | None:
     """Collect a clarification answer from stdin when running in a terminal."""
     if not sys.stdin.isatty():
-        logger.warning("stdin is not interactive; skipping clarification prompt.")
-        return None
+        raise RuntimeError(
+            "Planner requested clarification, but stdin is not interactive. "
+            "Run the orchestrator from a terminal or add a non-console clarification handler."
+        )
 
     print("\n[MAScan needs one clarification before continuing]")
     print(question)

@@ -12,7 +12,10 @@ class AgentAssignment(BaseModel):
     )
     tasks: list[str] = Field(description="Specific sub-tasks assigned to this agent.")
 
+
 class InformationRequest(BaseModel):
     """Planner's request for more information from the user."""
 
-    question: str = Field(description="A request for additional information or clarification from the user.")
+    question: str = Field(
+        description="A request for additional information or clarification from the user."
+    )

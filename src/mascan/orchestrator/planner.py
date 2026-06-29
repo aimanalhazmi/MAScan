@@ -46,7 +46,7 @@ Do not add facts that are not present in the user question or runtime context.
 class PlanModel(BaseModel):
     """Structured output the planner LLM is forced to return."""
 
-    output: list[AgentAssignment] | InformationRequest = Field(
+    assignments: list[AgentAssignment] | InformationRequest = Field(
         description="List of agent-task assignments or a request for more information.",
     )
 
@@ -61,7 +61,7 @@ def planner_node(state: GraphState) -> dict[str, Any]:
     settings = get_settings()
     llm = get_chat_model(
         model=settings.openai_model_default,
-        temperature=0.0,  # planning should be deterministic   TODO: How should we handle information requests?
+        temperature=0.0,
         max_tokens=1000,
     )
     structured_llm = llm.with_structured_output(PlanModel)
@@ -83,11 +83,11 @@ def planner_node(state: GraphState) -> dict[str, Any]:
         HumanMessage(content=user_prompt),
     ])
 
-    if isinstance(result.output, InformationRequest):
-        logger.info(f"Planner requested more information: {result.output.question}")
-        return {"plan": {}, "info_request": result.output}
+    if isinstance(result.assignments, InformationRequest):
+        logger.info(f"Planner requested more information: {result.assignments.question}")
+        return {"plan": {}, "info_request": result.assignments}
 
-    raw_plan = {a.agent_name: a for a in result.output if isinstance(a, AgentAssignment)}
+    raw_plan = {a.agent_name: a for a in result.assignments if isinstance(a, AgentAssignment)}
     plan = _filter_to_known_agents(raw_plan, available)
     logger.info(f"Planner selected {len(plan)} agent(s): {sorted(plan.keys())}")
     return {"plan": plan}
