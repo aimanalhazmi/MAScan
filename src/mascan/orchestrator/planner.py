@@ -84,7 +84,7 @@ def planner_node(state: GraphState) -> dict[str, Any]:
     ])
 
     if isinstance(result.output, InformationRequest):
-        logger.info(f"Planner requested more information: {result.output}")
+        logger.info(f"Planner requested more information: {result.output.question}")
         return {"plan": {}, "info_request": result.output}
 
     raw_plan = {a.agent_name: a for a in result.output if isinstance(a, AgentAssignment)}
