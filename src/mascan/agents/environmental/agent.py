@@ -23,7 +23,7 @@ class EnvironmentalAgent(BaseAgent):
     name = "environmental"  # must match config.yaml `name`
 
     def run(self, tasks: list[str], context: dict[str, Any] | None = None) -> AgentReport:
-        self.logger.info("Running environmental agent with %d task(s)", len(tasks))
+        self.logger.info(f"Running environmental agent with {len(tasks)} task(s)")
 
         llm = get_chat_model(
             model=self.config.model,
