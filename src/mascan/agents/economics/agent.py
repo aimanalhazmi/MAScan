@@ -8,13 +8,14 @@ Pattern:
 
 import ast
 import json
-from typing import Any
+from typing import Any, ClassVar
 
 from langchain.agents import create_agent
 from langchain_core.messages import HumanMessage
 
 from mascan.agents.base import BaseAgent
 from mascan.agents.context import render_tool_outputs
+from mascan.agents.economics.graph import EconomicsAgentState, build_economics_graph
 from mascan.agents.economics.prompts import build_user_prompt
 from mascan.agents.sources import (
     dedupe_sources,
@@ -33,42 +34,25 @@ MAX_LLM_ITERATIONS = 10  # passed to create_react_agent as recursion_limit
 
 class EconomicsAgent(BaseAgent):
     name = "economics"  # must match config.yaml `name`
+    always_call_tools: ClassVar[tuple[str, ...]] = ALWAYS_CALL_TOOLS
 
     def run(self, tasks: list[str], context: dict[str, Any] | None = None) -> AgentReport:
         self.logger.info("Running Mode C (mixed) with %d task(s)", len(tasks))
 
-        # deterministic tools — always called.
-        deterministic_outputs = self.gather_deterministic(tasks)
+        state = EconomicsAgentState(tasks=tasks, context=context)
+        final_state = self.build_graph().invoke(state)
+        report = final_state.get("report") if isinstance(final_state, dict) else None
+        if not isinstance(report, AgentReport):
+            raise RuntimeError("Economics graph completed without an AgentReport.")
+        return report
 
-        # LLM with optional tools — decides what else (if anything) to call.
-        findings, llm_used_tools, llm_sources = self.run_react_agent(
-            tasks,
-            deterministic_outputs,
-            context=context,
-        )
+    def build_graph(self) -> Any:
+        return build_economics_graph(self)
 
-        # assemble the report.
-        sources = self.collect_sources(deterministic_outputs, llm_sources)
-        rendered = self.render_markdown(tasks, findings, sources, llm_used_tools)
-
-        return AgentReport(
-            agent_name=self.name,
-            tasks=tasks,
-            findings=findings,
-            sources=sources,
-            confidence=0.7,
-            rendered_markdown=rendered,
-            metadata={
-                "mode": "mixed",
-                "deterministic_tools": list(ALWAYS_CALL_TOOLS),
-                "llm_chosen_tools": llm_used_tools,
-            },
-        )
-
-    def gather_deterministic(self, tasks: list[str]) -> dict[str, ToolResult]:
+    def gather_deterministic(self, tasks: list[str]) -> dict[str, ToolResult[Any]]:
         """Call the always-call tools regardless of the question."""
         query = " ; ".join(tasks)
-        outputs: dict[str, ToolResult] = {}
+        outputs: dict[str, ToolResult[Any]] = {}
         for tool_name in ALWAYS_CALL_TOOLS:
             if tool_name in self.tools:
                 outputs[tool_name] = self.tools[tool_name].run(query=query)
@@ -76,7 +60,7 @@ class EconomicsAgent(BaseAgent):
                 self.logger.warning("Always-call tool %r not available; skipping.", tool_name)
         return outputs
 
-    def get_optional_tools(self) -> list:
+    def get_optional_tools(self) -> list[Any]:
         """Return LangChain-wrapped tools the LLM is allowed to call."""
         return [
             tool.as_langchain_tool()
@@ -87,7 +71,7 @@ class EconomicsAgent(BaseAgent):
     def run_react_agent(
         self,
         tasks: list[str],
-        deterministic_outputs: dict[str, ToolResult],
+        deterministic_outputs: dict[str, ToolResult[Any]],
         context: dict[str, Any] | None = None,
     ) -> tuple[str, list[str], list[Source]]:
         """Run a ReAct agent with the optional tools bound.
@@ -209,7 +193,7 @@ class EconomicsAgent(BaseAgent):
 
     def collect_sources(
         self,
-        deterministic_outputs: dict[str, ToolResult],
+        deterministic_outputs: dict[str, ToolResult[Any]],
         llm_sources: list[Source],
     ) -> list[Source]:
         """Merge real article links from both the deterministic and LLM paths."""

@@ -1,0 +1,88 @@
+"""Private LangGraph workflow for EconomicsAgent."""
+
+from typing import Any
+
+from langgraph.graph import END, START, StateGraph
+from pydantic import BaseModel, Field
+
+from mascan.contracts.reports import AgentReport, Source
+from mascan.contracts.tools import ToolResult
+
+
+class EconomicsAgentState(BaseModel):
+    """State internal to the Economics agent's private graph."""
+
+    tasks: list[str]
+    context: dict[str, Any] | None = None
+    deterministic_outputs: dict[str, ToolResult[Any]] = Field(default_factory=dict)
+    findings: str = ""
+    llm_used_tools: list[str] = Field(default_factory=list)
+    llm_sources: list[Source] = Field(default_factory=list)
+    sources: list[Source] = Field(default_factory=list)
+    report: AgentReport | None = None
+
+    model_config = {"arbitrary_types_allowed": True}
+
+
+def build_economics_graph(agent: Any) -> Any:
+    """Build the behavior-preserving private graph for EconomicsAgent."""
+
+    def gather_deterministic(state: EconomicsAgentState) -> dict[str, Any]:
+        return {"deterministic_outputs": agent.gather_deterministic(state.tasks)}
+
+    def run_react_agent(state: EconomicsAgentState) -> dict[str, Any]:
+        findings, llm_used_tools, llm_sources = agent.run_react_agent(
+            state.tasks,
+            state.deterministic_outputs,
+            context=state.context,
+        )
+        return {
+            "findings": findings,
+            "llm_used_tools": llm_used_tools,
+            "llm_sources": llm_sources,
+        }
+
+    def collect_sources(state: EconomicsAgentState) -> dict[str, Any]:
+        return {
+            "sources": agent.collect_sources(
+                state.deterministic_outputs,
+                state.llm_sources,
+            )
+        }
+
+    def build_report(state: EconomicsAgentState) -> dict[str, Any]:
+        rendered = agent.render_markdown(
+            state.tasks,
+            state.findings,
+            state.sources,
+            state.llm_used_tools,
+        )
+        return {
+            "report": AgentReport(
+                agent_name=agent.name,
+                tasks=state.tasks,
+                findings=state.findings,
+                sources=state.sources,
+                confidence=0.7,
+                rendered_markdown=rendered,
+                metadata={
+                    "mode": "mixed",
+                    "deterministic_tools": list(agent.always_call_tools),
+                    "llm_chosen_tools": state.llm_used_tools,
+                },
+            )
+        }
+
+    graph = StateGraph(EconomicsAgentState)
+    graph.add_node("gather_deterministic", gather_deterministic)
+    graph.add_node("run_react_agent", run_react_agent)
+    graph.add_node("collect_sources", collect_sources)
+    graph.add_node("build_report", build_report)
+
+    graph.add_edge(START, "gather_deterministic")
+    graph.add_edge("gather_deterministic", "run_react_agent")
+    graph.add_edge("run_react_agent", "collect_sources")
+    graph.add_edge("collect_sources", "build_report")
+    graph.add_edge("build_report", END)
+
+    return graph.compile()
