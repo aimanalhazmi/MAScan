@@ -89,17 +89,19 @@ class SocialAgent(BaseAgent):
         self._last_evidence_plan = plan.model_dump()
         outputs: dict[str, ToolResult[Any]] = {}
 
-        if "web_search" in self.tools:
-            outputs.update(
-                self.run_query_batch(
-                    tool_name="web_search",
-                    queries=plan.web_queries or [query],
-                    limit_kwarg="max_results",
-                    limit=WEB_RESULTS_PER_QUERY,
-                )
-            )
-        else:
-            self.logger.warning("Always-call tool %r not available; skipping.", "web_search")
+        self.tools = {**self.always_call_tools, **self.optional_tools}  # merge for this method only TODO: fix this hack
+
+        # if "web_search" in self.tools:
+        #     outputs.update(
+        #         self.run_query_batch(
+        #             tool_name="web_search",
+        #             queries=plan.web_queries or [query],
+        #             limit_kwarg="max_results",
+        #             limit=WEB_RESULTS_PER_QUERY,
+        #         )
+        #     )
+        # else:
+        #     self.logger.warning("Always-call tool %r not available; skipping.", "web_search")
 
         if "world_bank_social_indicators" in self.tools:
             outputs["world_bank_social_indicators"] = self.tools[

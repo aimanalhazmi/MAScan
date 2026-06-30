@@ -26,7 +26,7 @@ class EnvironmentalAgent(BaseAgent):
             temperature=self.config.temperature,
             max_tokens=self.config.max_tokens,
         )
-        tools = [tool.as_langchain_tool() for name, tool in self.tools.items()]
+        tools = [tool.as_langchain_tool() for name, tool in self.optional_tools.items()]
         agent = create_agent(model=llm, tools=tools, system_prompt=self.config.system_prompt)
 
         user_prompt = build_user_prompt(
@@ -65,7 +65,7 @@ class EnvironmentalAgent(BaseAgent):
         """Return LangChain-wrapped tools the LLM is allowed to call."""
         return [
             tool.as_langchain_tool()
-            for name, tool in self.tools.items()
+            for name, tool in self.optional_tools.items()
             if name in self.config.optional_tools
         ]
     @staticmethod

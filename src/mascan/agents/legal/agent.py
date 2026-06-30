@@ -48,7 +48,7 @@ class LegalAgent(BaseAgent):
         """Return LangChain-wrapped tools the LLM is allowed to call."""
         return [
             tool.as_langchain_tool()
-            for name, tool in self.tools.items()
+            for name, tool in self.optional_tools.items()
             if name in self.config.optional_tools
         ]
 

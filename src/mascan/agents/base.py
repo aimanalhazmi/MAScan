@@ -51,6 +51,7 @@ class BaseAgent(ABC):
 
         self.always_call_tools: dict[str, BaseTool] = tool_registry.get_many(self.config.always_call_tools)
         self.optional_tools: dict[str, BaseTool] = tool_registry.get_many(self.config.optional_tools)
+        # self.tools: dict[str, BaseTool] = {**self.always_call_tools, **self.optional_tools}
         self.logger = get_logger(f"agents.{self.name}")
 
     @classmethod
