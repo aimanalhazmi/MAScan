@@ -19,9 +19,6 @@ from mascan.contracts.reports import AgentReport, Source
 from mascan.contracts.tools import ToolResult
 from mascan.core.llm import get_chat_model
 
-ALWAYS_CALL_TOOLS: tuple[str, ...] = ("web_search", "world_bank_social_indicators")
-OPTIONAL_TOOLS: tuple[str, ...] = ("reddit_search", "x_search")
-MAX_LLM_ITERATIONS = 10
 MAX_SEARCH_QUERIES = 3
 WEB_RESULTS_PER_QUERY = 5
 
@@ -56,10 +53,9 @@ class SocialEvidencePlan(BaseModel):
 class SocialAgent(BaseAgent):
     name = "social"
 
-    def run(self, tasks: list[str], context: dict[str, Any] | None = None) -> AgentReport:
-        self.logger.info("Running Mode C (mixed) with %d task(s)", len(tasks))
+    def _run(self, tasks: list[str], context: dict[str, Any] | None = None, deterministic_outputs: dict[str, ToolResult[Any]] | None = None) -> AgentReport:
+        self.logger.info(f"Running Mode C (mixed) with {len(tasks)} task(s)")
 
-        deterministic_outputs = self.gather_deterministic(tasks, context=context)
         findings, llm_used_tools, llm_sources = self.run_react_agent(
             tasks,
             deterministic_outputs,
@@ -77,7 +73,7 @@ class SocialAgent(BaseAgent):
             rendered_markdown=rendered,
             metadata={
                 "mode": "mixed",
-                "deterministic_tools": list(ALWAYS_CALL_TOOLS),
+                "deterministic_tools": list(self.config.always_call_tools),
                 "llm_chosen_tools": llm_used_tools,
                 "evidence_plan": getattr(self, "_last_evidence_plan", None),
             },
@@ -193,7 +189,7 @@ class SocialAgent(BaseAgent):
         return [
             tool.as_langchain_tool()
             for name, tool in self.tools.items()
-            if name in OPTIONAL_TOOLS and enabled.get(name, True)
+            if name in self.config.optional_tools and enabled.get(name, True)
         ]
 
     def run_react_agent(
@@ -220,7 +216,7 @@ class SocialAgent(BaseAgent):
         )
         result = agent.invoke(
             {"messages": [HumanMessage(content=user_prompt)]},
-            config={"recursion_limit": MAX_LLM_ITERATIONS},
+            config={"recursion_limit": self.config.max_llm_iterations},
         )
         return (
             self.extract_final_answer(result),
@@ -265,7 +261,7 @@ class SocialAgent(BaseAgent):
     ) -> str:
         task_lines = "\n".join(f"- {t}" for t in tasks)
         src_lines = render_source_lines(sources)
-        always_lines = "\n".join(f"- {t}" for t in ALWAYS_CALL_TOOLS)
+        always_lines = "\n".join(f"- {t}" for t in self.config.always_call_tools)
         llm_lines = "\n".join(f"- {t}" for t in llm_used_tools) or "- (none)"
         return (
             "## Social Analysis\n\n"
