@@ -5,6 +5,7 @@ from typing import Any, ClassVar
 
 from mascan.agents.config import AgentConfig
 from mascan.contracts.reports import AgentReport
+from mascan.contracts.tools import ToolResult
 from mascan.core.llm import get_chat_model
 from mascan.core.logging import get_logger
 from mascan.tools.base import BaseTool
@@ -48,7 +49,8 @@ class BaseAgent(ABC):
                 f"Config name {self.config.name!r} does not match agent class name {self.name!r}."
             )
 
-        self.tools: dict[str, BaseTool] = tool_registry.get_many(self.config.tools)
+        self.always_call_tools: dict[str, BaseTool] = tool_registry.get_many(self.config.always_call_tools)
+        self.optional_tools: dict[str, BaseTool] = tool_registry.get_many(self.config.optional_tools)
         self.logger = get_logger(f"agents.{self.name}")
 
     @classmethod
@@ -78,16 +80,43 @@ class BaseAgent(ABC):
             temperature=self.config.temperature,
             max_tokens=self.config.max_tokens,
         )
-        lc_tools = [t.as_langchain_tool() for t in self.tools.values()]
+        lc_tools = [t.as_langchain_tool() for t in self.optional_tools.values()]
         return llm.bind_tools(lc_tools)
+    
+    def run(self, tasks: list[str], context: dict[str, Any] | None = None) -> AgentReport:
+        """Wraps the subclass's `_run()` method with execution of mandatory tool calls.
+
+        Args:
+            tasks: Specific subtasks the orchestrator has assigned.
+            context: Optional shared state from the orchestrator.
+
+        Returns:
+            AgentReport with structured fields AND rendered markdown.
+        """
+
+        # Execute always-call tools first, if any.
+        deterministic_outputs = self.gather_deterministic(tasks)
+        return self._run(tasks, context=context, deterministic_outputs=deterministic_outputs)
+    
+    def gather_deterministic(self, tasks: list[str]) -> dict[str, ToolResult[Any]]:
+        """Call the always-call tools regardless of the question."""
+        query = " ; ".join(tasks)
+        outputs: dict[str, ToolResult[Any]] = {}
+        for tool_name in self.always_call_tools:
+            if tool_name in self.tools:
+                outputs[tool_name] = self.tools[tool_name].run(query=query)
+            else:
+                self.logger.warning("Always-call tool %r not available; skipping.", tool_name)
+        return outputs
 
     @abstractmethod
-    def run(self, tasks: list[str], context: dict[str, Any] | None = None) -> AgentReport:
+    def _run(self, tasks: list[str], context: dict[str, Any] | None = None, deterministic_outputs: dict[str, ToolResult[Any]] | None = None) -> AgentReport:
         """Execute the agent's analysis.
 
         Args:
             tasks: Specific subtasks the orchestrator has assigned.
             context: Optional shared state from the orchestrator.
+            deterministic_outputs: Results from always-call tools.
 
         Returns:
             AgentReport with structured fields AND rendered markdown.
