@@ -15,14 +15,10 @@ from mascan.contracts.reports import AgentReport, Source
 from mascan.contracts.tools import ToolResult
 from mascan.core.llm import get_chat_model
 
-ALWAYS_CALL_TOOLS: tuple[str, ...] = ()  # called every run
-OPTIONAL_TOOLS: tuple[str, ...] = ()  # LLM may call
-MAX_LLM_ITERATIONS = 10  # passed to create_react_agent as recursion_limit
-
 class EnvironmentalAgent(BaseAgent):
     name = "environmental"  # must match config.yaml `name`
 
-    def run(self, tasks: list[str], context: dict[str, Any] | None = None) -> AgentReport:
+    def _run(self, tasks: list[str], context: dict[str, Any] | None = None, deterministic_outputs: dict[str, ToolResult] | None = None) -> AgentReport:
         self.logger.info(f"Running environmental agent with {len(tasks)} task(s)")
 
         llm = get_chat_model(
@@ -39,7 +35,7 @@ class EnvironmentalAgent(BaseAgent):
         )
         result = agent.invoke(
             {"messages": [HumanMessage(content=user_prompt)]},
-            config={"recursion_limit": MAX_LLM_ITERATIONS},
+            config={"recursion_limit": self.config.max_llm_iterations},
         )
 
         findings = self.extract_final_answer(result)
@@ -70,7 +66,7 @@ class EnvironmentalAgent(BaseAgent):
         return [
             tool.as_langchain_tool()
             for name, tool in self.tools.items()
-            if name in OPTIONAL_TOOLS
+            if name in self.config.optional_tools
         ]
     @staticmethod
     def extract_final_answer(result: dict[str, Any]) -> str:
@@ -116,7 +112,7 @@ class EnvironmentalAgent(BaseAgent):
         task_lines = "\n".join(f"- {t}" for t in tasks)
         src_lines = render_source_lines(sources)
         llm_lines = "\n".join(f"- {t}" for t in llm_used_tools) or "- (none)"
-        always_lines = "\n".join(f"- {t}" for t in ALWAYS_CALL_TOOLS)
+        always_lines = "\n".join(f"- {t}" for t in self.config.always_call_tools)
         return (
             "## Environmental Analysis\n\n"
             f"**Tasks:**\n{task_lines}\n\n"

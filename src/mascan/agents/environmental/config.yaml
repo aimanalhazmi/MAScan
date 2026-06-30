@@ -30,6 +30,8 @@ system_prompt: |
   source by name and indicate its coverage period and geographic scope.
   Focus on business implications over general environmental commentary.
 
-tools:
+always_call_tools:
+
+optional_tools:
   - web_search
   - world_bank_environmental_indicators
