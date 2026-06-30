@@ -106,11 +106,16 @@ class BaseAgent(ABC):
             if tool_name in self.tools:
                 outputs[tool_name] = self.tools[tool_name].run(query=query)
             else:
-                self.logger.warning("Always-call tool %r not available; skipping.", tool_name)
+                self.logger.warning(f"Always-call tool {tool_name!r} not available; skipping.")
         return outputs
 
     @abstractmethod
-    def _run(self, tasks: list[str], context: dict[str, Any] | None = None, deterministic_outputs: dict[str, ToolResult[Any]] | None = None) -> AgentReport:
+    def _run(
+        self,
+        tasks: list[str],
+        context: dict[str, Any] | None = None,
+        deterministic_outputs: dict[str, ToolResult[Any]] | None = None
+        ) -> AgentReport:
         """Execute the agent's analysis.
 
         Args:

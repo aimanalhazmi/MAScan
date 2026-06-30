@@ -17,7 +17,10 @@ system_prompt: |
   flag effective dates and comment deadlines where known. Cite sources by name.
   Focus on concrete business and compliance implications over general legal
   commentary.
-tools:
+
+always_call_tools:
+
+optional_tools:
   - web_search
   - federal_register
   - eur_lex
