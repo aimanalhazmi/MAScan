@@ -23,19 +23,11 @@ from mascan.contracts.reports import AgentReport, Source
 from mascan.contracts.tools import ToolResult
 from mascan.core.llm import get_chat_model
 
-ALWAYS_CALL_TOOLS: tuple[str, ...] = ("web_search", "news_api")  # called every run
-OPTIONAL_TOOLS: tuple[str, ...] = ()  # LLM may call
-MAX_LLM_ITERATIONS = 10  # passed to create_react_agent as recursion_limit
-
-
 class PoliticalAgent(BaseAgent):
     name = "political"  # must match config.yaml `name`
 
-    def run(self, tasks: list[str], context: dict[str, Any] | None = None) -> AgentReport:
-        self.logger.info("Running Mode C (mixed) with %d task(s)", len(tasks))
-
-        # deterministic tools — always called.
-        deterministic_outputs = self.gather_deterministic(tasks)
+    def _run(self, tasks: list[str], context: dict[str, Any] | None = None, deterministic_outputs: dict[str, ToolResult[Any]] | None = None) -> AgentReport:
+        self.logger.info(f"Running Mode C (mixed) with {len(tasks)} task(s)")
 
         # LLM with optional tools — decides what else (if anything) to call.
         findings, llm_used_tools = self.run_react_agent(
@@ -57,28 +49,17 @@ class PoliticalAgent(BaseAgent):
             rendered_markdown=rendered,
             metadata={
                 "mode": "mixed",
-                "deterministic_tools": list(ALWAYS_CALL_TOOLS),
+                "deterministic_tools": list(self.config.always_call_tools),
                 "llm_chosen_tools": llm_used_tools,
             },
         )
-
-    def gather_deterministic(self, tasks: list[str]) -> dict[str, ToolResult[Any]]:
-        """Call the always-call tools regardless of the question."""
-        query = " ; ".join(tasks)
-        outputs: dict[str, ToolResult[Any]] = {}
-        for tool_name in ALWAYS_CALL_TOOLS:
-            if tool_name in self.tools:
-                outputs[tool_name] = self.tools[tool_name].run(query=query)
-            else:
-                self.logger.warning("Always-call tool %r not available; skipping.", tool_name)
-        return outputs
 
     def get_optional_tools(self) -> list[Any]:
         """Return LangChain-wrapped tools the LLM is allowed to call."""
         return [
             tool.as_langchain_tool()
             for name, tool in self.tools.items()
-            if name in OPTIONAL_TOOLS
+            if name in self.config.optional_tools
         ]
 
     def run_react_agent(
@@ -111,7 +92,7 @@ class PoliticalAgent(BaseAgent):
         )
         result = agent.invoke(
             {"messages": [HumanMessage(content=user_prompt)]},
-            config={"recursion_limit": MAX_LLM_ITERATIONS},
+            config={"recursion_limit": self.config.max_llm_iterations},
         )
         return self.extract_final_answer(result), self.extract_used_tools(result)
 
@@ -153,7 +134,7 @@ class PoliticalAgent(BaseAgent):
         task_lines = "\n".join(f"- {t}" for t in tasks)
         src_lines = render_source_lines(sources)
         llm_lines = "\n".join(f"- {t}" for t in llm_used_tools) or "- (none)"
-        always_lines = "\n".join(f"- {t}" for t in ALWAYS_CALL_TOOLS)
+        always_lines = "\n".join(f"- {t}" for t in self.config.always_call_tools)
         return (
             "## Political Analysis\n\n"
             f"**Tasks:**\n{task_lines}\n\n"
