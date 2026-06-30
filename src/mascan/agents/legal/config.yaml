@@ -18,8 +18,6 @@ system_prompt: |
   Focus on concrete business and compliance implications over general legal
   commentary.
 
-always_call_tools:
-
 optional_tools:
   - web_search
   - federal_register

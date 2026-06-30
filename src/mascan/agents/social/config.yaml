@@ -16,8 +16,6 @@ system_prompt: |
   commentary. Be explicit about data lag, platform bias, missing credentials, sparse
   results, or other uncertainty in the evidence.
 
-always_call_tools:
-
 optional_tools:
   - web_search
   - world_bank_social_indicators
