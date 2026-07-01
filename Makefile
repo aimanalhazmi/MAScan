@@ -1,5 +1,5 @@
 .DEFAULT_GOAL := help
-.PHONY: help install test lint format clean run-economics run-political run-legal run-social run-environmental run-orchestrator run-orchestrator-stream run-api openwebui-up openwebui-down openwebui-logs compose-up compose-down compose-logs compose-rebuild
+.PHONY: help install test lint format clean run-economics run-political run-legal run-social run-environmental run-orchestrator run-orchestrator-docker run-orchestrator-stream run-api openwebui-up openwebui-down openwebui-logs compose-up compose-down compose-logs compose-rebuild
 help:  ## Show this help message
 	@echo "MAScan — available commands:"
 	@echo ""
@@ -47,6 +47,9 @@ run-environmental:
 
 run-orchestrator:
 	PYTHONPATH=src uv run python scripts/run_orchestrator.py "$(Q)"
+
+run-orchestrator-docker:  ## Run the orchestrator inside the running mascan-api container
+	docker exec -e PYTHONPATH=/app/src mascan-api python /app/scripts/run_orchestrator.py "$(Q)"
 
 run-orchestrator-stream:
 	PYTHONPATH=src uv run python scripts/run_orchestrator.py --stream "$(Q)"
