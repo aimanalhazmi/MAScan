@@ -178,9 +178,27 @@ See `.env.example`. Required:
 | `OPENAI_API_KEY` | OpenAI API key |
 | `OPENAI_MODEL_DEFAULT` | Default model (`gpt-4o-mini`) |
 | `LOG_LEVEL` | Logging verbosity (`INFO`, `DEBUG`, ...) |
+| `RAG_MAX_RETRIES` | Self-correction (CRAG) rewrite-retries on the full retrieval path (default `1`) |
+| `RAG_VISION_MODEL` | Vision model for reading/captioning PDF figures (default `gpt-4o`) |
+| `VISION_BASE_URL` | OpenAI-compatible endpoint for the vision model. Unset → OpenAI |
+| `VISION_API_KEY` | Key for `VISION_BASE_URL`. Unset → reuse `OPENAI_API_KEY` |
 
 Agent-specific API keys (e.g., `FRED_API_KEY`) go in `.env` and should be
 read via `mascan.core.settings`. **Document any new env var in `.env.example`.**
+
+---
+
+## Retrieval (RAG)
+
+MAScan can ingest documents (text and PDFs) and answer questions grounded in
+them with source citations. It is optional — without `DATABASE_URL` it stays
+disabled. See [`src/mascan/rag/README.md`](src/mascan/rag/README.md) for the
+architecture, configuration, and usage.
+
+PDF figures are captioned at ingest and read at answer time by a vision model
+(defaults to OpenAI `gpt-4o`). To use a self-hosted OpenAI-compatible
+model instead, set `VISION_BASE_URL`, `VISION_API_KEY`, and `RAG_VISION_MODEL`
+(e.g. Qwen2.5-VL via [Ollama](https://ollama.com)).
 
 ---
 
