@@ -28,6 +28,10 @@ dependencies = [
     "newsdataapi>=0.2.0",
     "fastapi>=0.136.3",
     "uvicorn>=0.48.0",
+    "langchain-text-splitters>=1.1.2",
+    "langchain-postgres>=0.0.17",
+    "pymupdf>=1.28.0",
+    "python-multipart>=0.0.32",
 ]
 
 [project.optional-dependencies]
