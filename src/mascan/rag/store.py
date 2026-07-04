@@ -24,8 +24,13 @@ def chunk_to_document(chunk: Chunk) -> Document:
     )
 
 
-def document_to_retrieved_chunk(doc: Document, score: float) -> RetrievedChunk:
-    """Inverse of chunk_to_document, attaching the retriever's relevance score."""
+def document_to_retrieved_chunk(doc: Document, distance: float) -> RetrievedChunk:
+    """Inverse of chunk_to_document, attaching the retriever's relevance score.
+
+    PGVector returns a cosine *distance* (lower = closer). We expose it as a
+    similarity in [0, 1] where higher = more relevant, so callers (and `merge`,
+    which keeps the highest score) sort the intuitive way.
+    """
     meta = dict(doc.metadata)
     source = meta.pop("source", "")
     citation = Citation(**meta.pop("citation", {"document": source}))
@@ -34,7 +39,7 @@ def document_to_retrieved_chunk(doc: Document, score: float) -> RetrievedChunk:
         source=source,
         citation=citation,
         metadata=meta,
-        score=score,
+        score=1.0 - distance,
     )
 
 

@@ -7,13 +7,20 @@ the query so the caller can retry..
 from mascan.contracts.retrieval import RetrievedChunk
 from mascan.core.llm import get_chat_model
 from mascan.core.logging import get_logger
+from mascan.core.settings import get_settings
 
 logger = get_logger("rag.correction")
 
-SNIPPET_CHARS = 500
+# Grade on the full chunk; a half-chunk snippet made the grader miss facts in
+# the back half and pass irrelevant chunks instead.
+SNIPPET_CHARS = get_settings().chunk_size
 
 GRADE_PROMPT = """\
 Do the passages below contain enough information to answer the question?
+Answer YES only if the passages are about the specific subject the question asks
+about (e.g. the named company/product/entity) AND state the facts needed to
+answer it. Passages about a different entity, or that are merely on the same
+topic, are NOT enough — answer NO so retrieval can try again.
 Answer with a single word: YES or NO.
 
 Question: {question}

@@ -36,8 +36,9 @@ class PGVectorRetriever:
         return [document_to_retrieved_chunk(doc, score) for doc, score in results]
 
 
-# How many candidates to fetch per query before reranking.
-DENSE_FETCH_K = 5
+# How many candidates to fetch per query before reranking. Over-fetch wide so
+# the reranker actually has the right chunk to promote; it trims back to query.k.
+DENSE_FETCH_K = 10
 
 
 def merge(chunks: list[RetrievedChunk]) -> list[RetrievedChunk]:

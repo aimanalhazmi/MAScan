@@ -9,10 +9,13 @@ import re
 from mascan.contracts.retrieval import RetrievedChunk
 from mascan.core.llm import get_chat_model
 from mascan.core.logging import get_logger
+from mascan.core.settings import get_settings
 
 logger = get_logger("rag.rerank")
 
-SNIPPET_CHARS = 500  # truncate candidates to keep the rerank prompt cheap
+# Show the ranker a full chunk, not half of one — truncating below chunk_size
+# hid answers living in the back half of a chunk from the LLM.
+SNIPPET_CHARS = get_settings().chunk_size
 
 PROMPT = """\
 Rank the documents by how well they help answer the question. Return only the \
