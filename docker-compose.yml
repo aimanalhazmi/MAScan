@@ -42,6 +42,27 @@ services:
     depends_on:
       firecrawl:
         condition: service_started
+      postgres:
+        condition: service_healthy
+
+  # Postgres + pgvector for the RAG store
+  postgres:
+    image: pgvector/pgvector:pg16
+    container_name: mascan-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: mascan
+      POSTGRES_PASSWORD: mascan
+      POSTGRES_DB: mascan
+    ports:
+      - "5432:5432"
+    volumes:
+      - mascan-pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U mascan"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
 
   # Self-hosted Firecrawl
   firecrawl:
@@ -129,3 +150,5 @@ services:
 volumes:
   openwebui-data:
     name: mascan-openwebui-data
+  mascan-pgdata:
+    name: mascan-pgdata
