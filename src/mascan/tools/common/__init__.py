@@ -1,5 +1,6 @@
 """Cross-agent tools usable by ANY agent.."""
 
+from mascan.tools.common.rag_search import RagSearchTool
 from mascan.tools.common.web_search import WebSearchTool
 from mascan.tools.registry import tool_registry
 from mascan.core.settings import get_settings
@@ -9,5 +10,6 @@ _settings = get_settings()
 tool_registry.register(
     WebSearchTool(api_key=_settings.firecrawl_api_key, api_url=_settings.firecrawl_api_url)
 )
+tool_registry.register(RagSearchTool())
 
-__all__ = ["WebSearchTool"]
+__all__ = ["WebSearchTool", "RagSearchTool"]

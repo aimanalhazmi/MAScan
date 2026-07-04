@@ -233,7 +233,7 @@ def test_social_get_optional_tools_respects_flags() -> None:
     agent.config.options = {"enable_reddit": True, "enable_x": False}
     optional = agent.get_optional_tools()
 
-    assert {tool.name for tool in optional} == {"reddit_search"}
+    assert {tool.name for tool in optional} == {"reddit_search", "rag_search"}
 
 
 def test_x_search_without_tokens_returns_failure(mocker: Any) -> None:

@@ -14,3 +14,4 @@ system_prompt: |
 tools:
   - web_search
   - news_api
+  - rag_search

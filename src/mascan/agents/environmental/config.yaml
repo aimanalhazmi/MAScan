@@ -33,3 +33,4 @@ system_prompt: |
 tools:
   - web_search
   - world_bank_environmental_indicators
+  - rag_search

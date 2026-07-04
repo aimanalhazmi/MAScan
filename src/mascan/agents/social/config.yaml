@@ -20,6 +20,7 @@ tools:
   - world_bank_social_indicators
   - reddit_search
   - x_search
+  - rag_search
 options:
   # Whether the LLM is offered the optional qualitative-evidence tools.
   enable_reddit: true

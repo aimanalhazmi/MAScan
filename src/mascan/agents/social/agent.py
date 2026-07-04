@@ -20,7 +20,7 @@ from mascan.contracts.tools import ToolResult
 from mascan.core.llm import get_chat_model
 
 ALWAYS_CALL_TOOLS: tuple[str, ...] = ("web_search", "world_bank_social_indicators")
-OPTIONAL_TOOLS: tuple[str, ...] = ("reddit_search", "x_search")
+OPTIONAL_TOOLS: tuple[str, ...] = ("reddit_search", "x_search", "rag_search")
 MAX_LLM_ITERATIONS = 10
 MAX_SEARCH_QUERIES = 3
 WEB_RESULTS_PER_QUERY = 5

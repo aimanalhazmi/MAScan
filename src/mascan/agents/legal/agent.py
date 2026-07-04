@@ -18,7 +18,7 @@ from mascan.contracts.tools import ToolResult
 from mascan.core.llm import get_chat_model
 
 ALWAYS_CALL_TOOLS: tuple[str, ...] = ("web_search", "federal_register")  # called every run
-OPTIONAL_TOOLS: tuple[str, ...] = ("eur_lex",)  # LLM may call
+OPTIONAL_TOOLS: tuple[str, ...] = ("eur_lex", "rag_search")  # LLM may call
 MAX_LLM_ITERATIONS = 10  # passed to create_agent as recursion_limit
 
 

@@ -21,3 +21,4 @@ tools:
   - web_search
   - federal_register
   - eur_lex
+  - rag_search
