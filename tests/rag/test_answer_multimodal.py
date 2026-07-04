@@ -1,5 +1,5 @@
 from mascan.contracts.retrieval import Citation, RetrievedChunk
-from mascan.rag.answer import collect_image_blocks, select_cited
+from mascan.rag.answer import select_cited
 
 
 def _chunk(images: list[str], page: int = 1) -> RetrievedChunk:
@@ -26,21 +26,3 @@ def testselect_cited_no_markers_gives_no_citations():
     answer, citations = select_cited("I don't have enough information.", chunks)
     assert citations == []
     assert answer == "I don't have enough information."
-
-
-def testcollect_image_blocks_dedups_and_skips_missing(tmp_path):
-    img = tmp_path / "fig.png"
-    img.write_bytes(b"\x89PNG\r\n\x1a\n")  # bytes are enough; not decoded here
-    missing = tmp_path / "gone.png"
-
-    blocks = collect_image_blocks(
-        [_chunk([str(img), str(img)]), _chunk([str(missing)])]
-    )
-
-    assert len(blocks) == 1  # deduped, missing skipped
-    assert blocks[0]["type"] == "image_url"
-    assert blocks[0]["image_url"]["url"].startswith("data:image/png;base64,")
-
-
-def testcollect_image_blocks_empty_when_no_images():
-    assert collect_image_blocks([_chunk([])]) == []

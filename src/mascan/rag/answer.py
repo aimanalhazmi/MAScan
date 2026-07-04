@@ -4,52 +4,25 @@ The model answers only from the numbered documents and cites them as [n]. Each
 cited document's `Citation` is returned alongside the text.
 """
 
-import base64
 import re
-from pathlib import Path
-from typing import Any
 
 from langchain_core.messages import HumanMessage, SystemMessage
 
 from mascan.contracts.retrieval import Citation, RagAnswer, RetrievalQuery, RetrievedChunk
-from mascan.core.llm import get_chat_model, get_vision_model
+from mascan.core.llm import get_chat_model
 from mascan.core.logging import get_logger
 from mascan.rag.retriever import get_retriever
 
 logger = get_logger("rag.answer")
 
-# Cap attached images so figure-heavy chunks can't blow up the request size.
-MAX_IMAGES = 4
-
 SYSTEM_PROMPT = """\
 You answer questions using only the numbered documents provided.
 - Use only facts found in the documents. Do not invent or use outside knowledge.
-- Some documents include figures attached as images; use them when relevant.
+- Figures are represented by their captions; treat those as document text.
 - Cite the documents you rely on inline as [1], [2], matching their numbers.
 - If the documents do not contain the answer, say so plainly. Do not guess.
 - Be concise. No filler, no restating the question.
 """
-
-
-def collect_image_blocks(chunks: list[RetrievedChunk]) -> list[dict[str, Any]]:
-    """Build de-duplicated image_url content blocks from chunks' figure images."""
-    seen: set[str] = set()
-    blocks: list[dict[str, Any]] = []
-    for chunk in chunks:
-        for path in chunk.metadata.get("images", []):
-            if path in seen:
-                continue
-            seen.add(path)
-            p = Path(path)
-            if not p.exists():
-                continue
-            b64 = base64.b64encode(p.read_bytes()).decode()
-            blocks.append(
-                {"type": "image_url", "image_url": {"url": f"data:image/png;base64,{b64}"}}
-            )
-            if len(blocks) >= MAX_IMAGES:
-                return blocks
-    return blocks
 
 
 CITE_RE = re.compile(r"\[(\d+)\]")
@@ -103,17 +76,10 @@ async def answer_question(query: RetrievalQuery) -> RagAnswer:
 
     prompt = f"Documents:\n{format_context(chunks)}\n\nQuestion: {query.query}\n\nAnswer:"
 
-    # Multimodal only when a retrieved chunk actually carries a figure image.
-    image_blocks = collect_image_blocks(chunks)
-    if image_blocks:
-        llm = get_vision_model(temperature=0.2)
-        content: str | list[dict[str, Any]] = [{"type": "text", "text": prompt}, *image_blocks]
-    else:
-        llm = get_chat_model(temperature=0.2)  # default text model
-        content = prompt
-
+    # Figures are grounded via their captions in the chunk text
+    llm = get_chat_model(temperature=0.2)
     response = await llm.ainvoke(
-        [SystemMessage(content=SYSTEM_PROMPT), HumanMessage(content=content)]
+        [SystemMessage(content=SYSTEM_PROMPT), HumanMessage(content=prompt)]
     )
     # Keep only the citations the model used; the full set stays in `chunks`.
     answer, citations = select_cited(str(response.content), chunks)
