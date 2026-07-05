@@ -1,5 +1,6 @@
 """PGVector store backed by OpenAI embeddings."""
 
+import hashlib
 from functools import lru_cache
 
 from langchain_core.documents import Document
@@ -11,6 +12,24 @@ from mascan.contracts.retrieval import Chunk, Citation, RetrievedChunk
 from mascan.core.exceptions import ConfigError
 from mascan.core.settings import get_settings
 
+
+def content_hash(content: str | bytes) -> str:
+    """Stable key for a document's content, so identical content dedupes
+    regardless of filename."""
+    data = content.encode() if isinstance(content, str) else content
+    return hashlib.sha256(data).hexdigest()
+
+
+def chunk_id(key: str, index: int) -> str:
+    """Deterministic chunk id from content key + position, so re-ingesting the
+    same content upserts instead of creating duplicate rows."""
+    return hashlib.sha256(f"{key}\x00{index}".encode()).hexdigest()
+
+
+async def content_exists(key: str) -> bool:
+    """True if content with this key is already stored (checks its first chunk)."""
+    got = await get_vector_store().aget_by_ids([chunk_id(key, 0)])
+    return bool(got)
 
 def chunk_to_document(chunk: Chunk) -> Document:
     """Map a Chunk to a langchain Document; citation and source go into metadata."""
