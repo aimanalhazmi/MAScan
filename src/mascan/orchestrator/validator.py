@@ -1,3 +1,4 @@
+import re
 from typing import Any, Literal
 
 from pydantic import BaseModel, Field
@@ -7,6 +8,9 @@ from mascan.core.logging import get_logger
 from mascan.orchestrator.state import GraphState
 
 logger = get_logger("orchestrator.validator")
+
+HTML_SOURCE_REF_PATTERN = re.compile(r'href=["\']#source-(\d+)["\']')
+MARKDOWN_SOURCE_REF_PATTERN = re.compile(r"\[(\d+)\]\(([^)]+)\)")
 
 ValidationStatus = Literal["passed", "warnings", "failed to validate"]
 ValidationCategory = Literal[
@@ -31,6 +35,12 @@ that can be identified from the provided evidence. Focus on:
 - missing citations for important factual claims,
 - stale, sparse, or uncertain data presented too confidently.
 
+When flagging a claim that has a numbered citation, copy the exact final-report
+passage into the claim field including its citation marker, for example:
+[1](https://source-url)
+When the issue is a citation gap, copy the uncited passage and explain that no
+source number is attached.
+
 Return concise validation findings. If no obvious issues are present, return an
 empty issues list and a brief overall note.
 """
@@ -41,7 +51,12 @@ class ValidationIssue(BaseModel):
 
     category: ValidationCategory
     severity: ValidationSeverity
-    claim: str = Field(description="The final-report claim or passage being reviewed.")
+    claim: str = Field(
+        description=(
+            "The exact final-report claim or passage being reviewed, including any "
+            "numbered citation marker copied from the report."
+        )
+    )
     explanation: str = Field(description="Why this claim may be unsupported or disputed.")
     relevant_agents: list[str] = Field(
         default_factory=list,
@@ -152,10 +167,12 @@ def render_validation_markdown(result: ValidationResult) -> str:
     lines.extend(["", "### Issues"])
     for index, issue in enumerate(result.issues, start=1):
         agents = ", ".join(issue.relevant_agents) or "not specified"
+        citations = render_issue_citations(issue)
         lines.extend(
             [
                 f"{index}. **{issue.severity} / {issue.category}**",
                 f"   - Claim: {issue.claim}",
+                f"   - Citation(s): {citations}",
                 f"   - Why it matters: {issue.explanation}",
                 f"   - Relevant evidence: {agents}",
             ]
@@ -184,3 +201,37 @@ def validation_payload_from_result(result: ValidationResult) -> dict[str, Any]:
 
 def validation_status_from_result(result: ValidationResult) -> ValidationStatus:
     return "warnings" if result.issues else "passed"
+
+
+def render_issue_citations(issue: ValidationIssue) -> str:
+    links = extract_source_links(f"{issue.claim}\n{issue.explanation}")
+    if links:
+        return " ".join(f"[{number}]({url})" for number, url in links)
+    numbers = extract_html_source_numbers(f"{issue.claim}\n{issue.explanation}")
+    if numbers:
+        return " ".join(f"[{number}]" for number in numbers)
+    if issue.category == "citation_gap":
+        return "missing"
+    return "not specified"
+
+
+def extract_source_links(text: str) -> list[tuple[int, str]]:
+    links: list[tuple[int, str]] = []
+    seen: set[int] = set()
+    for match in MARKDOWN_SOURCE_REF_PATTERN.finditer(text):
+        number = int(match.group(1))
+        if number not in seen:
+            seen.add(number)
+            links.append((number, match.group(2)))
+    return links
+
+
+def extract_html_source_numbers(text: str) -> list[int]:
+    numbers: list[int] = []
+    seen: set[int] = set()
+    for match in HTML_SOURCE_REF_PATTERN.finditer(text):
+        number = int(match.group(1))
+        if number not in seen:
+            seen.add(number)
+            numbers.append(number)
+    return numbers
