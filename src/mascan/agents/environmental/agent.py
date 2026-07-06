@@ -60,14 +60,6 @@ class EnvironmentalAgent(BaseAgent):
             },
         )
 
-
-    def get_optional_tools(self) -> list[Any]:
-        """Return LangChain-wrapped tools the LLM is allowed to call."""
-        return [
-            tool.as_langchain_tool()
-            for name, tool in self.optional_tools.items()
-            if name in self.config.optional_tools
-        ]
     @staticmethod
     def extract_final_answer(result: dict[str, Any]) -> str:
         """Last message in the ReAct result is the LLM's final answer."""
