@@ -1,17 +1,24 @@
 import json
+import os
+import tempfile
 from collections.abc import Iterator
+from pathlib import Path
 from typing import Any
 
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, File, HTTPException, UploadFile
 from pydantic import BaseModel, Field
 from fastapi.responses import StreamingResponse
 
 from mascan.contracts import FinalReport
-from mascan.core.exceptions import MAScanError
+from mascan.contracts.retrieval import Citation, RagAnswer, RetrievalQuery, RetrievedChunk
+from mascan.core.exceptions import ConfigError, MAScanError
 from mascan.core.logging import get_logger, configure_logging
 from mascan.orchestrator import run as orchestrator_run
 from mascan.orchestrator import stream as orchestrator_stream
+from mascan.rag.answer import answer_question
+from mascan.rag.ingest import ingest_file, ingest_text
+from mascan.rag.retriever import get_retriever
 
 from mascan.agents import agent_registry
 import mascan.agents.economics  # noqa: F401
@@ -98,6 +105,61 @@ def analyze_stream(request: AnalyzeRequest) -> StreamingResponse:
             "X-Accel-Buffering": "no",
         },
     )
+class IngestRequest(BaseModel):
+    """Payload for POST /rag/ingest: plain text → chunked, embedded, stored."""
+    text: str = Field(..., min_length=1, description="Raw text to ingest.")
+    source: str = Field("api", description="Where the text entered from.")
+    document: str = Field(..., min_length=1, description="Citation document id (e.g. filename/url).")
+
+
+@app.post("/rag/ingest")
+async def rag_ingest(request: IngestRequest) -> dict[str, int]:
+    """Ingest plain text into the RAG store. Returns the number of chunks stored."""
+    try:
+        stored = await ingest_text(
+            request.text, source=request.source, citation=Citation(document=request.document)
+        )
+    except ConfigError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+    return {"stored": stored}
+
+
+@app.post("/rag/upload")
+async def rag_upload(file: UploadFile = File(...)) -> dict[str, Any]:
+    """Upload a .pdf, .md, or .txt file and ingest it. Returns chunks stored.
+
+    PDFs are parsed page-by-page (text + figure images); md/txt go through the
+    plain-text path. source is 'upload' so the generation step knows these
+    chunks may carry visual elements.
+    """
+    document = file.filename or "upload"
+    suffix = Path(document).suffix.lower()
+    with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
+        tmp.write(await file.read())
+        tmp_path = tmp.name
+    try:
+        stored = await ingest_file(tmp_path, document=document, source="upload")
+    except ValueError as exc:
+        raise HTTPException(status_code=415, detail=str(exc)) from exc
+    except ConfigError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+    finally:
+        os.unlink(tmp_path)
+    return {"document": document, "stored": stored}
+
+
+@app.post("/rag/search", response_model=list[RetrievedChunk])
+async def rag_search(query: RetrievalQuery) -> list[RetrievedChunk]:
+    """Dense similarity search over the RAG store. Empty list if RAG is disabled."""
+    return await get_retriever().retrieve(query)
+
+
+@app.post("/rag/answer", response_model=RagAnswer)
+async def rag_answer(query: RetrievalQuery) -> RagAnswer:
+    """Retrieve + generate a grounded answer with structured citations."""
+    return await answer_question(query)
+
+
 @app.get("/health", response_model=HealthResponse)
 async def health() -> HealthResponse:
     return HealthResponse()

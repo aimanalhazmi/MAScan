@@ -48,6 +48,9 @@ run-environmental:
 run-orchestrator:
 	PYTHONPATH=src uv run python scripts/run_orchestrator.py "$(Q)"
 
+
+
+
 run-orchestrator-docker:  ## Run the orchestrator inside the running mascan-api container
 	docker exec -e PYTHONPATH=/app/src mascan-api python /app/scripts/run_orchestrator.py "$(Q)"
 
