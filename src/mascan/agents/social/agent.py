@@ -221,6 +221,7 @@ class SocialAgent(BaseAgent):
             config={"recursion_limit": self.config.max_llm_iterations},
         )
         return (
+            result,
             self.extract_final_answer(result),
             self.extract_used_tools(result),
             sources_from_react(result),
