@@ -54,6 +54,25 @@ class BaseAgent(ABC):
         # self.tools: dict[str, BaseTool] = {**self.always_call_tools, **self.optional_tools}
         self.logger = get_logger(f"agents.{self.name}")
 
+    @abstractmethod
+    def _run(
+        self,
+        tasks: list[str],
+        context: dict[str, Any] | None = None,
+        deterministic_outputs: dict[str, ToolResult[Any]] | None = None
+        ) -> AgentReport:
+        """Execute the agent's analysis.
+
+        Args:
+            tasks: Specific subtasks the orchestrator has assigned.
+            context: Optional shared state from the orchestrator.
+            deterministic_outputs: Results from always-call tools.
+
+        Returns:
+            AgentReport with structured fields AND rendered markdown.
+        """
+        ...
+
     @classmethod
     def load_default_config(cls) -> AgentConfig:
         """Load this agent's `config.yaml` from its own folder."""
@@ -63,6 +82,26 @@ class BaseAgent(ABC):
         module_file = inspect.getfile(cls)
         config_path = Path(module_file).parent / "config.yaml"
         return AgentConfig.from_yaml(config_path)
+    
+    @staticmethod
+    def extract_final_answer(result: dict[str, Any]) -> str:
+        """Last message in the ReAct result is the LLM's final answer."""
+        messages = result.get("messages", [])
+        if not messages:
+            return "(no response)"
+        return str(messages[-1].content)
+
+    @staticmethod
+    def extract_used_tools(result: dict[str, Any]) -> list[str]:
+        """Walk the message history and collect every tool the LLM invoked."""
+        used: list[str] = []
+        for msg in result.get("messages", []):
+            tool_calls = getattr(msg, "tool_calls", None) or []
+            for call in tool_calls:
+                name = call.get("name") if isinstance(call, dict) else getattr(call, "name", None)
+                if name and name not in used:
+                    used.append(name)
+        return used
 
     def llm_with_tools(self) -> BaseChatModel:
         """Return an LLM bound to this agent's tools for LLM-driven calling.
@@ -117,45 +156,6 @@ class BaseAgent(ABC):
             for name, tool in self.optional_tools.items()
             if name in self.config.optional_tools
         ]
-    
-    @staticmethod
-    def extract_final_answer(result: dict[str, Any]) -> str:
-        """Last message in the ReAct result is the LLM's final answer."""
-        messages = result.get("messages", [])
-        if not messages:
-            return "(no response)"
-        return str(messages[-1].content)
-
-    @staticmethod
-    def extract_used_tools(result: dict[str, Any]) -> list[str]:
-        """Walk the message history and collect every tool the LLM invoked."""
-        used: list[str] = []
-        for msg in result.get("messages", []):
-            tool_calls = getattr(msg, "tool_calls", None) or []
-            for call in tool_calls:
-                name = call.get("name") if isinstance(call, dict) else getattr(call, "name", None)
-                if name and name not in used:
-                    used.append(name)
-        return used
-
-    @abstractmethod
-    def _run(
-        self,
-        tasks: list[str],
-        context: dict[str, Any] | None = None,
-        deterministic_outputs: dict[str, ToolResult[Any]] | None = None
-        ) -> AgentReport:
-        """Execute the agent's analysis.
-
-        Args:
-            tasks: Specific subtasks the orchestrator has assigned.
-            context: Optional shared state from the orchestrator.
-            deterministic_outputs: Results from always-call tools.
-
-        Returns:
-            AgentReport with structured fields AND rendered markdown.
-        """
-        ...
 
     def __repr__(self) -> str:
         return f"<Agent name={self.name!r} tools={self.config.tools}>"
