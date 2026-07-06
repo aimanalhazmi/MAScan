@@ -24,10 +24,10 @@ class LegalAgent(BaseAgent):
         self.logger.info(f"Running Mode C (mixed) with {len(tasks)} task(s)")
 
         # LLM with optional tools — decides what else (if anything) to call.
-        findings, llm_used_tools = self.run_react_agent(tasks, deterministic_outputs)
+        result,findings, llm_used_tools = self.run_react_agent(tasks, deterministic_outputs)
 
         # assemble the report.
-        sources = self.collect_sources(deterministic_outputs, llm_used_tools)
+        sources = self.collect_sources(deterministic_outputs=deterministic_outputs, react_result=result)
         rendered = self.render_markdown(tasks, findings, sources, llm_used_tools)
 
         return AgentReport(
@@ -70,37 +70,4 @@ class LegalAgent(BaseAgent):
             {"messages": [HumanMessage(content=user_prompt)]},
             config={"recursion_limit": self.config.max_llm_iterations},
         )
-        return self.extract_final_answer(result), self.extract_used_tools(result)
-
-    def collect_sources(
-        self,
-        deterministic_outputs: dict[str, ToolResult[Any]],
-        llm_used_tools: list[str],
-    ) -> list[Source]:
-        sources: list[Source] = []
-        for result in deterministic_outputs.values():
-            if result.success:
-                sources.append(Source(name=result.source, url=None, metadata=result.metadata))
-        for name in llm_used_tools:
-            sources.append(Source(name=name, url=None, metadata={"used_by": "llm_decision"}))
-        return sources
-
-    def render_markdown(
-        self,
-        tasks: list[str],
-        findings: str,
-        sources: list[Source],
-        llm_used_tools: list[str],
-    ) -> str:
-        task_lines = "\n".join(f"- {t}" for t in tasks)
-        src_lines = "\n".join(f"- {s.name}" for s in sources) or "- (none)"
-        llm_lines = "\n".join(f"- {t}" for t in llm_used_tools) or "- (none)"
-        always_lines = "\n".join(f"- {t}" for t in self.config.always_call_tools)
-        return (
-            "## Legal Analysis\n\n"
-            f"**Tasks:**\n{task_lines}\n\n"
-            f"**Findings:**\n\n{findings}\n\n"
-            f"**Tools always called:**\n{always_lines}\n\n"
-            f"**Tools the LLM chose to call:**\n{llm_lines}\n\n"
-            f"**Sources:**\n{src_lines}\n"
-        )
+        return result, self.extract_final_answer(result), self.extract_used_tools(result)

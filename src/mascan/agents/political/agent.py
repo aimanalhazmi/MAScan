@@ -30,14 +30,14 @@ class PoliticalAgent(BaseAgent):
         self.logger.info(f"Running Mode C (mixed) with {len(tasks)} task(s)")
 
         # LLM with optional tools — decides what else (if anything) to call.
-        findings, llm_used_tools = self.run_react_agent(
+        result, findings, llm_used_tools = self.run_react_agent(
             tasks,
             deterministic_outputs,
             context=context,
         )
 
         # assemble the report.
-        sources = self.collect_sources(deterministic_outputs, llm_used_tools)
+        sources = self.collect_sources(deterministic_outputs=deterministic_outputs, react_result=result)
         rendered = self.render_markdown(tasks, findings, sources, llm_used_tools)
 
         return AgentReport(
@@ -86,32 +86,4 @@ class PoliticalAgent(BaseAgent):
             {"messages": [HumanMessage(content=user_prompt)]},
             config={"recursion_limit": self.config.max_llm_iterations},
         )
-        return self.extract_final_answer(result), self.extract_used_tools(result)
-
-    def collect_sources(
-        self,
-        deterministic_outputs: dict[str, ToolResult[Any]],
-        llm_used_tools: list[str],
-    ) -> list[Source]:
-        """Real article links from the always-called tools (web + news)."""
-        return dedupe_sources(sources_from_tool_results(deterministic_outputs))
-
-    def render_markdown(
-        self,
-        tasks: list[str],
-        findings: str,
-        sources: list[Source],
-        llm_used_tools: list[str],
-    ) -> str:
-        task_lines = "\n".join(f"- {t}" for t in tasks)
-        src_lines = render_source_lines(sources)
-        llm_lines = "\n".join(f"- {t}" for t in llm_used_tools) or "- (none)"
-        always_lines = "\n".join(f"- {t}" for t in self.config.always_call_tools)
-        return (
-            "## Political Analysis\n\n"
-            f"**Tasks:**\n{task_lines}\n\n"
-            f"**Findings:**\n\n{findings}\n\n"
-            f"**Tools always called:**\n{always_lines}\n\n"
-            f"**Tools the LLM chose to call:**\n{llm_lines}\n\n"
-            f"**Sources:**\n{src_lines}\n"
-        )
+        return result,self.extract_final_answer(result), self.extract_used_tools(result)

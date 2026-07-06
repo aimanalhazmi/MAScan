@@ -56,12 +56,12 @@ class SocialAgent(BaseAgent):
     def _run(self, tasks: list[str], context: dict[str, Any] | None = None, deterministic_outputs: dict[str, ToolResult[Any]] | None = None) -> AgentReport:
         self.logger.info(f"Running Mode C (mixed) with {len(tasks)} task(s)")
 
-        findings, llm_used_tools, llm_sources = self.run_react_agent(
+        result, findings, llm_used_tools, llm_sources = self.run_react_agent(
             tasks,
             deterministic_outputs,
             context=context,
         )
-        sources = self.collect_sources(deterministic_outputs, llm_sources)
+        sources = self.collect_sources(deterministic_outputs=deterministic_outputs, react_result=result)
         rendered = self.render_markdown(tasks, findings, sources, llm_used_tools)
 
         return AgentReport(
@@ -243,33 +243,3 @@ class SocialAgent(BaseAgent):
                 if name and name not in used:
                     used.append(name)
         return used
-
-    def collect_sources(
-        self,
-        deterministic_outputs: dict[str, ToolResult[Any]],
-        llm_sources: list[Source],
-    ) -> list[Source]:
-        """Merge real article links from both the deterministic and LLM paths."""
-        return dedupe_sources(
-            sources_from_tool_results(deterministic_outputs) + llm_sources
-        )
-
-    def render_markdown(
-        self,
-        tasks: list[str],
-        findings: str,
-        sources: list[Source],
-        llm_used_tools: list[str],
-    ) -> str:
-        task_lines = "\n".join(f"- {t}" for t in tasks)
-        src_lines = render_source_lines(sources)
-        always_lines = "\n".join(f"- {t}" for t in self.config.always_call_tools)
-        llm_lines = "\n".join(f"- {t}" for t in llm_used_tools) or "- (none)"
-        return (
-            "## Social Analysis\n\n"
-            f"**Tasks:**\n{task_lines}\n\n"
-            f"**Findings:**\n\n{findings}\n\n"
-            f"**Tools always called:**\n{always_lines}\n\n"
-            f"**Tools the LLM chose to call:**\n{llm_lines}\n\n"
-            f"**Sources:**\n{src_lines}\n"
-        )

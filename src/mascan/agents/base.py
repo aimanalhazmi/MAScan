@@ -4,12 +4,18 @@ from abc import ABC, abstractmethod
 from typing import Any, ClassVar
 
 from mascan.agents.config import AgentConfig
-from mascan.contracts.reports import AgentReport
+from mascan.contracts.reports import AgentReport, Source
 from mascan.contracts.tools import ToolResult
 from mascan.core.llm import get_chat_model
 from mascan.core.logging import get_logger
 from mascan.tools.base import BaseTool
 from mascan.tools.registry import tool_registry
+from mascan.agents.sources import (
+    dedupe_sources,
+    render_source_lines,
+    sources_from_react,
+    sources_from_tool_results,
+)
 
 from langchain_core.language_models import BaseChatModel
 
@@ -102,6 +108,21 @@ class BaseAgent(ABC):
                 if name and name not in used:
                     used.append(name)
         return used
+    
+    def run(self, tasks: list[str], context: dict[str, Any] | None = None) -> AgentReport:
+        """Wraps the subclass's `_run()` method with execution of mandatory tool calls.
+
+        Args:
+            tasks: Specific subtasks the orchestrator has assigned.
+            context: Optional shared state from the orchestrator.
+
+        Returns:
+            AgentReport with structured fields AND rendered markdown.
+        """
+
+        # Execute always-call tools first, if any.
+        deterministic_outputs = self.gather_deterministic(tasks)
+        return self._run(tasks, context=context, deterministic_outputs=deterministic_outputs)
 
     def llm_with_tools(self) -> BaseChatModel:
         """Return an LLM bound to this agent's tools for LLM-driven calling.
@@ -123,21 +144,6 @@ class BaseAgent(ABC):
         lc_tools = [t.as_langchain_tool() for t in self.optional_tools.values()]
         return llm.bind_tools(lc_tools)
     
-    def run(self, tasks: list[str], context: dict[str, Any] | None = None) -> AgentReport:
-        """Wraps the subclass's `_run()` method with execution of mandatory tool calls.
-
-        Args:
-            tasks: Specific subtasks the orchestrator has assigned.
-            context: Optional shared state from the orchestrator.
-
-        Returns:
-            AgentReport with structured fields AND rendered markdown.
-        """
-
-        # Execute always-call tools first, if any.
-        deterministic_outputs = self.gather_deterministic(tasks)
-        return self._run(tasks, context=context, deterministic_outputs=deterministic_outputs)
-    
     def gather_deterministic(self, tasks: list[str]) -> dict[str, ToolResult[Any]]:
         """Call the always-call tools regardless of the question."""
         query = " ; ".join(tasks)
@@ -156,6 +162,39 @@ class BaseAgent(ABC):
             for name, tool in self.optional_tools.items()
             if name in self.config.optional_tools
         ]
+    
+    def collect_sources(
+        self,
+        react_result: dict[str, ToolResult[Any]] | None = None,
+        deterministic_outputs: dict[str, ToolResult[Any]] | None = None,
+    ) -> list[Source]:
+        """Real reference links harvested from the agent's tool calls."""
+        sources: list[Source] = []
+        if deterministic_outputs:
+            sources.extend(sources_from_tool_results(deterministic_outputs))
+        if react_result:
+            sources.extend(sources_from_react(react_result))
+        return dedupe_sources(sources)
+
+    def render_markdown(
+        self,
+        tasks: list[str],
+        findings: str,
+        sources: list[Source],
+        llm_used_tools: list[str],
+    ) -> str:
+        task_lines = "\n".join(f"- {t}" for t in tasks)
+        src_lines = render_source_lines(sources)
+        llm_lines = "\n".join(f"- {t}" for t in llm_used_tools) or "- (none)"
+        always_lines = "\n".join(f"- {t}" for t in self.config.always_call_tools)
+        return (
+            f"## {self.name.title()} Analysis\n\n"
+            f"**Tasks:**\n{task_lines}\n\n"
+            f"**Findings:**\n\n{findings}\n\n"
+            f"**Tools always called:**\n{always_lines}\n\n"
+            f"**Tools the LLM chose to call:**\n{llm_lines}\n\n"
+            f"**Sources:**\n{src_lines}\n"
+        )
 
     def __repr__(self) -> str:
         return f"<Agent name={self.name!r} tools={self.config.tools}>"

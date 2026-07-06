@@ -43,7 +43,7 @@ class EnvironmentalAgent(BaseAgent):
 
 
         # assemble the report.
-        sources = self.collect_sources(llm_used_tools, react_result=result)
+        sources = self.collect_sources(deterministic_outputs=deterministic_outputs, react_result=result)
         rendered = self.render_markdown(tasks, findings, sources, llm_used_tools)
 
         return AgentReport(
@@ -58,38 +58,4 @@ class EnvironmentalAgent(BaseAgent):
                 "deterministic_tools": [],
                 "llm_chosen_tools": llm_used_tools,
             },
-        )
-
-    def collect_sources(
-        self,
-        llm_used_tools: list[str],
-        react_result: dict[str, Any] | None = None,
-        deterministic_outputs: dict[str, ToolResult[Any]] | None = None,
-    ) -> list[Source]:
-        """Real reference links harvested from the agent's tool calls."""
-        sources: list[Source] = []
-        if deterministic_outputs:
-            sources.extend(sources_from_tool_results(deterministic_outputs))
-        if react_result:
-            sources.extend(sources_from_react(react_result))
-        return dedupe_sources(sources)
-
-    def render_markdown(
-        self,
-        tasks: list[str],
-        findings: str,
-        sources: list[Source],
-        llm_used_tools: list[str],
-    ) -> str:
-        task_lines = "\n".join(f"- {t}" for t in tasks)
-        src_lines = render_source_lines(sources)
-        llm_lines = "\n".join(f"- {t}" for t in llm_used_tools) or "- (none)"
-        always_lines = "\n".join(f"- {t}" for t in self.config.always_call_tools)
-        return (
-            "## Environmental Analysis\n\n"
-            f"**Tasks:**\n{task_lines}\n\n"
-            f"**Findings:**\n\n{findings}\n\n"
-            f"**Tools always called:**\n{always_lines}\n\n"
-            f"**Tools the LLM chose to call:**\n{llm_lines}\n\n"
-            f"**Sources:**\n{src_lines}\n"
         )

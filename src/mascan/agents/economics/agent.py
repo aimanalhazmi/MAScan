@@ -40,7 +40,7 @@ class EconomicsAgent(BaseAgent):
         )
 
         # assemble the report.
-        sources = self.collect_sources(deterministic_outputs, llm_sources)
+        sources = self.collect_sources(deterministic_outputs=deterministic_outputs, react_result=llm_sources)
         rendered = self.render_markdown(tasks, findings, sources, llm_used_tools)
 
         return AgentReport(
@@ -159,33 +159,3 @@ class EconomicsAgent(BaseAgent):
             return ast.literal_eval(text)
         except (ValueError, SyntaxError):
             return None
-
-    def collect_sources(
-        self,
-        deterministic_outputs: dict[str, ToolResult],
-        llm_sources: list[Source],
-    ) -> list[Source]:
-        """Merge real article links from both the deterministic and LLM paths."""
-        return dedupe_sources(
-            sources_from_tool_results(deterministic_outputs) + llm_sources
-        )
-
-    def render_markdown(
-        self,
-        tasks: list[str],
-        findings: str,
-        sources: list[Source],
-        llm_used_tools: list[str],
-    ) -> str:
-        task_lines = "\n".join(f"- {t}" for t in tasks)
-        src_lines = render_source_lines(sources)
-        llm_lines = "\n".join(f"- {t}" for t in llm_used_tools) or "- (none)"
-        always_lines = "\n".join(f"- {t}" for t in self.config.always_call_tools)
-        return (
-            f"## {self.name.title()} Analysis\n\n"
-            f"**Tasks:**\n{task_lines}\n\n"
-            f"**Findings:**\n\n{findings}\n\n"
-            f"**Tools always called:**\n{always_lines}\n\n"
-            f"**Tools the LLM chose to call:**\n{llm_lines}\n\n"
-            f"**Sources:**\n{src_lines}\n"
-        )
