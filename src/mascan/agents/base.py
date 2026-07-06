@@ -117,6 +117,26 @@ class BaseAgent(ABC):
             for name, tool in self.optional_tools.items()
             if name in self.config.optional_tools
         ]
+    
+    @staticmethod
+    def extract_final_answer(result: dict[str, Any]) -> str:
+        """Last message in the ReAct result is the LLM's final answer."""
+        messages = result.get("messages", [])
+        if not messages:
+            return "(no response)"
+        return str(messages[-1].content)
+
+    @staticmethod
+    def extract_used_tools(result: dict[str, Any]) -> list[str]:
+        """Walk the message history and collect every tool the LLM invoked."""
+        used: list[str] = []
+        for msg in result.get("messages", []):
+            tool_calls = getattr(msg, "tool_calls", None) or []
+            for call in tool_calls:
+                name = call.get("name") if isinstance(call, dict) else getattr(call, "name", None)
+                if name and name not in used:
+                    used.append(name)
+        return used
 
     @abstractmethod
     def _run(
