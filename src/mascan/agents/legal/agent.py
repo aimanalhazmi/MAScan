@@ -13,7 +13,7 @@ from langchain_core.messages import HumanMessage
 
 from mascan.agents.base import BaseAgent
 from mascan.agents.legal.prompts import build_user_prompt, render_tool_outputs
-from mascan.contracts.reports import AgentReport, Source
+from mascan.contracts.reports import AgentReport
 from mascan.contracts.tools import ToolResult
 from mascan.core.llm import get_chat_model
 

@@ -16,12 +16,6 @@ from langchain_core.messages import HumanMessage
 from mascan.agents.base import BaseAgent
 from mascan.agents.context import render_tool_outputs
 from mascan.agents.economics.prompts import build_user_prompt
-from mascan.agents.sources import (
-    dedupe_sources,
-    render_source_lines,
-    sources_from_react,
-    sources_from_tool_results,
-)
 from mascan.contracts.reports import AgentReport, Source
 from mascan.contracts.tools import ToolResult
 from mascan.core.llm import get_chat_model
