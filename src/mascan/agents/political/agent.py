@@ -14,38 +14,25 @@ from langchain_core.messages import HumanMessage
 from mascan.agents.base import BaseAgent
 from mascan.agents.context import render_tool_outputs
 from mascan.agents.political.prompts import build_user_prompt
-from mascan.agents.sources import (
-    dedupe_sources,
-    render_source_lines,
-    sources_from_tool_results,
-)
-from mascan.contracts.reports import AgentReport, Source
+from mascan.contracts.reports import AgentReport
 from mascan.contracts.tools import ToolResult
 from mascan.core.llm import get_chat_model
-
-ALWAYS_CALL_TOOLS: tuple[str, ...] = ("web_search", "news_api")  # called every run
-OPTIONAL_TOOLS: tuple[str, ...] = ()  # LLM may call
-MAX_LLM_ITERATIONS = 10  # passed to create_react_agent as recursion_limit
-
 
 class PoliticalAgent(BaseAgent):
     name = "political"  # must match config.yaml `name`
 
-    def run(self, tasks: list[str], context: dict[str, Any] | None = None) -> AgentReport:
-        self.logger.info("Running Mode C (mixed) with %d task(s)", len(tasks))
-
-        # deterministic tools — always called.
-        deterministic_outputs = self.gather_deterministic(tasks)
+    def _run(self, tasks: list[str], context: dict[str, Any] | None = None, deterministic_outputs: dict[str, ToolResult[Any]] | None = None) -> AgentReport:
+        self.logger.info(f"Running Mode C (mixed) with {len(tasks)} task(s)")
 
         # LLM with optional tools — decides what else (if anything) to call.
-        findings, llm_used_tools = self.run_react_agent(
+        result, findings, llm_used_tools = self.run_react_agent(
             tasks,
             deterministic_outputs,
             context=context,
         )
 
         # assemble the report.
-        sources = self.collect_sources(deterministic_outputs, llm_used_tools)
+        sources = self.collect_sources(deterministic_outputs=deterministic_outputs, react_result=result)
         rendered = self.render_markdown(tasks, findings, sources, llm_used_tools)
 
         return AgentReport(
@@ -57,29 +44,10 @@ class PoliticalAgent(BaseAgent):
             rendered_markdown=rendered,
             metadata={
                 "mode": "mixed",
-                "deterministic_tools": list(ALWAYS_CALL_TOOLS),
+                "deterministic_tools": list(self.config.always_call_tools),
                 "llm_chosen_tools": llm_used_tools,
             },
         )
-
-    def gather_deterministic(self, tasks: list[str]) -> dict[str, ToolResult[Any]]:
-        """Call the always-call tools regardless of the question."""
-        query = " ; ".join(tasks)
-        outputs: dict[str, ToolResult[Any]] = {}
-        for tool_name in ALWAYS_CALL_TOOLS:
-            if tool_name in self.tools:
-                outputs[tool_name] = self.tools[tool_name].run(query=query)
-            else:
-                self.logger.warning("Always-call tool %r not available; skipping.", tool_name)
-        return outputs
-
-    def get_optional_tools(self) -> list[Any]:
-        """Return LangChain-wrapped tools the LLM is allowed to call."""
-        return [
-            tool.as_langchain_tool()
-            for name, tool in self.tools.items()
-            if name in OPTIONAL_TOOLS
-        ]
 
     def run_react_agent(
         self,
@@ -111,54 +79,6 @@ class PoliticalAgent(BaseAgent):
         )
         result = agent.invoke(
             {"messages": [HumanMessage(content=user_prompt)]},
-            config={"recursion_limit": MAX_LLM_ITERATIONS},
+            config={"recursion_limit": self.config.max_llm_iterations},
         )
-        return self.extract_final_answer(result), self.extract_used_tools(result)
-
-    @staticmethod
-    def extract_final_answer(result: dict[str, Any]) -> str:
-        """Last message in the ReAct result is the LLM's final answer."""
-        messages = result.get("messages", [])
-        if not messages:
-            return "(no response)"
-        return str(messages[-1].content)
-
-    @staticmethod
-    def extract_used_tools(result: dict[str, Any]) -> list[str]:
-        """Walk the message history and collect every tool the LLM invoked."""
-        used: list[str] = []
-        for msg in result.get("messages", []):
-            tool_calls = getattr(msg, "tool_calls", None) or []
-            for call in tool_calls:
-                name = call.get("name") if isinstance(call, dict) else getattr(call, "name", None)
-                if name and name not in used:
-                    used.append(name)
-        return used
-
-    def collect_sources(
-        self,
-        deterministic_outputs: dict[str, ToolResult[Any]],
-        llm_used_tools: list[str],
-    ) -> list[Source]:
-        """Real article links from the always-called tools (web + news)."""
-        return dedupe_sources(sources_from_tool_results(deterministic_outputs))
-
-    def render_markdown(
-        self,
-        tasks: list[str],
-        findings: str,
-        sources: list[Source],
-        llm_used_tools: list[str],
-    ) -> str:
-        task_lines = "\n".join(f"- {t}" for t in tasks)
-        src_lines = render_source_lines(sources)
-        llm_lines = "\n".join(f"- {t}" for t in llm_used_tools) or "- (none)"
-        always_lines = "\n".join(f"- {t}" for t in ALWAYS_CALL_TOOLS)
-        return (
-            "## Political Analysis\n\n"
-            f"**Tasks:**\n{task_lines}\n\n"
-            f"**Findings:**\n\n{findings}\n\n"
-            f"**Tools always called:**\n{always_lines}\n\n"
-            f"**Tools the LLM chose to call:**\n{llm_lines}\n\n"
-            f"**Sources:**\n{src_lines}\n"
-        )
+        return result,self.extract_final_answer(result), self.extract_used_tools(result)

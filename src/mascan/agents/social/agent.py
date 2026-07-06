@@ -9,19 +9,11 @@ from pydantic import BaseModel, Field
 from mascan.agents.base import BaseAgent
 from mascan.agents.context import render_agent_context, render_runtime_context, render_tool_outputs
 from mascan.agents.social.prompts import build_user_prompt
-from mascan.agents.sources import (
-    dedupe_sources,
-    render_source_lines,
-    sources_from_react,
-    sources_from_tool_results,
-)
+from mascan.agents.sources import sources_from_react
 from mascan.contracts.reports import AgentReport, Source
 from mascan.contracts.tools import ToolResult
 from mascan.core.llm import get_chat_model
 
-ALWAYS_CALL_TOOLS: tuple[str, ...] = ("web_search", "world_bank_social_indicators")
-OPTIONAL_TOOLS: tuple[str, ...] = ("reddit_search", "x_search")
-MAX_LLM_ITERATIONS = 10
 MAX_SEARCH_QUERIES = 3
 WEB_RESULTS_PER_QUERY = 5
 
@@ -56,16 +48,15 @@ class SocialEvidencePlan(BaseModel):
 class SocialAgent(BaseAgent):
     name = "social"
 
-    def run(self, tasks: list[str], context: dict[str, Any] | None = None) -> AgentReport:
-        self.logger.info("Running Mode C (mixed) with %d task(s)", len(tasks))
+    def _run(self, tasks: list[str], context: dict[str, Any] | None = None, deterministic_outputs: dict[str, ToolResult[Any]] | None = None) -> AgentReport:
+        self.logger.info(f"Running Mode C (mixed) with {len(tasks)} task(s)")
 
-        deterministic_outputs = self.gather_deterministic(tasks, context=context)
-        findings, llm_used_tools, llm_sources = self.run_react_agent(
+        result, findings, llm_used_tools, llm_sources = self.run_react_agent(
             tasks,
             deterministic_outputs,
             context=context,
         )
-        sources = self.collect_sources(deterministic_outputs, llm_sources)
+        sources = self.collect_sources(deterministic_outputs=deterministic_outputs, react_result=result)
         rendered = self.render_markdown(tasks, findings, sources, llm_used_tools)
 
         return AgentReport(
@@ -77,7 +68,7 @@ class SocialAgent(BaseAgent):
             rendered_markdown=rendered,
             metadata={
                 "mode": "mixed",
-                "deterministic_tools": list(ALWAYS_CALL_TOOLS),
+                "deterministic_tools": list(self.config.always_call_tools),
                 "llm_chosen_tools": llm_used_tools,
                 "evidence_plan": getattr(self, "_last_evidence_plan", None),
             },
@@ -93,17 +84,19 @@ class SocialAgent(BaseAgent):
         self._last_evidence_plan = plan.model_dump()
         outputs: dict[str, ToolResult[Any]] = {}
 
-        if "web_search" in self.tools:
-            outputs.update(
-                self.run_query_batch(
-                    tool_name="web_search",
-                    queries=plan.web_queries or [query],
-                    limit_kwarg="max_results",
-                    limit=WEB_RESULTS_PER_QUERY,
-                )
-            )
-        else:
-            self.logger.warning("Always-call tool %r not available; skipping.", "web_search")
+        self.tools = {**self.always_call_tools, **self.optional_tools}  # merge for this method only TODO: fix this hack
+
+        # if "web_search" in self.tools:
+        #     outputs.update(
+        #         self.run_query_batch(
+        #             tool_name="web_search",
+        #             queries=plan.web_queries or [query],
+        #             limit_kwarg="max_results",
+        #             limit=WEB_RESULTS_PER_QUERY,
+        #         )
+        #     )
+        # else:
+        #     self.logger.warning("Always-call tool %r not available; skipping.", "web_search")
 
         if "world_bank_social_indicators" in self.tools:
             outputs["world_bank_social_indicators"] = self.tools[
@@ -193,7 +186,7 @@ class SocialAgent(BaseAgent):
         return [
             tool.as_langchain_tool()
             for name, tool in self.tools.items()
-            if name in OPTIONAL_TOOLS and enabled.get(name, True)
+            if name in self.config.optional_tools and enabled.get(name, True)
         ]
 
     def run_react_agent(
@@ -220,9 +213,10 @@ class SocialAgent(BaseAgent):
         )
         result = agent.invoke(
             {"messages": [HumanMessage(content=user_prompt)]},
-            config={"recursion_limit": MAX_LLM_ITERATIONS},
+            config={"recursion_limit": self.config.max_llm_iterations},
         )
         return (
+            result,
             self.extract_final_answer(result),
             self.extract_used_tools(result),
             sources_from_react(result),
@@ -245,33 +239,3 @@ class SocialAgent(BaseAgent):
                 if name and name not in used:
                     used.append(name)
         return used
-
-    def collect_sources(
-        self,
-        deterministic_outputs: dict[str, ToolResult[Any]],
-        llm_sources: list[Source],
-    ) -> list[Source]:
-        """Merge real article links from both the deterministic and LLM paths."""
-        return dedupe_sources(
-            sources_from_tool_results(deterministic_outputs) + llm_sources
-        )
-
-    def render_markdown(
-        self,
-        tasks: list[str],
-        findings: str,
-        sources: list[Source],
-        llm_used_tools: list[str],
-    ) -> str:
-        task_lines = "\n".join(f"- {t}" for t in tasks)
-        src_lines = render_source_lines(sources)
-        always_lines = "\n".join(f"- {t}" for t in ALWAYS_CALL_TOOLS)
-        llm_lines = "\n".join(f"- {t}" for t in llm_used_tools) or "- (none)"
-        return (
-            "## Social Analysis\n\n"
-            f"**Tasks:**\n{task_lines}\n\n"
-            f"**Findings:**\n\n{findings}\n\n"
-            f"**Tools always called:**\n{always_lines}\n\n"
-            f"**Tools the LLM chose to call:**\n{llm_lines}\n\n"
-            f"**Sources:**\n{src_lines}\n"
-        )

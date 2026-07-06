@@ -11,6 +11,7 @@ system_prompt: |
 
   Always distinguish confirmed facts from uncertainty. Cite sources by name.
   Focus on business implications over general political commentary.
-tools:
+
+optional_tools:
   - web_search
   - news_api
