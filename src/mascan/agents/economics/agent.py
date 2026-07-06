@@ -33,14 +33,14 @@ class EconomicsAgent(BaseAgent):
         self.logger.info(f"Running Mode C (mixed) with {len(tasks)} task(s)")
 
         # LLM with optional tools — decides what else (if anything) to call.
-        findings, llm_used_tools, llm_sources = self.run_react_agent(
+        result,findings, llm_used_tools = self.run_react_agent(
             tasks,
             deterministic_outputs,
             context=context,
         )
 
         # assemble the report.
-        sources = self.collect_sources(deterministic_outputs=deterministic_outputs, react_result=llm_sources)
+        sources = self.collect_sources(deterministic_outputs=deterministic_outputs, react_result=result)
         rendered = self.render_markdown(tasks, findings, sources, llm_used_tools)
 
         return AgentReport(
@@ -89,15 +89,11 @@ class EconomicsAgent(BaseAgent):
             {"messages": [HumanMessage(content=user_prompt)]},
             config={"recursion_limit": self.config.max_llm_iterations},
         )
-        # yfinance calls expose no URL in their payload, so reconstruct a Yahoo
-        # Finance link from the ticker; other tools yield real article links.
-        llm_sources = dedupe_sources(
-            self.extract_llm_sources(result) + sources_from_react(result)
-        )
+
         return (
+            result,
             self.extract_final_answer(result),
             self.extract_used_tools(result),
-            llm_sources,
         )
 
     @classmethod
