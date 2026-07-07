@@ -45,6 +45,9 @@ run-social:
 run-environmental:
 	PYTHONPATH=src uv run python scripts/run_agent.py environmental "$(Q)"
 
+run-technological:
+	PYTHONPATH=src uv run python scripts/run_agent.py technological "$(Q)"
+
 run-orchestrator:
 	PYTHONPATH=src uv run python scripts/run_orchestrator.py "$(Q)"
 
