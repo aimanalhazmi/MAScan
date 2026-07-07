@@ -1,4 +1,4 @@
-""""Tools used ONLY by the technological agent."""
+"""Tools used ONLY by the technological agent."""
 
 from mascan.agents.technological.tools.scholar import ScholarSearchTool
 from mascan.tools.registry import tool_registry
