@@ -14,6 +14,8 @@ from mascan.tools.base import BaseTool
 class ScholarSearchInput(BaseModel):
     query: str = Field(..., description="Search query for academic papers and scholarly articles.")
     max_results: int = Field(5, description="Maximum number of results to return.")
+    year_from: int | None = Field(None, description="Filter for the start of the publication year range.")
+    year_to: int | None = Field(None, description="Filter for the end of the publication year range.")
 
 class ScholarSearchTool(BaseTool):
     name = "scholar_search"
@@ -23,6 +25,7 @@ class ScholarSearchTool(BaseTool):
     )
 
     input_schema: ClassVar[type[BaseModel] | None] = ScholarSearchInput
+    DEFAULT_API_URL: ClassVar[str] = "https://api.semanticscholar.org/graph/v1"
 
     DEFAULT_FIELDS = [
         "title",
@@ -44,15 +47,53 @@ class ScholarSearchTool(BaseTool):
         super().__init__()
 
 
-    def run(self, query: str, max_results: int = 5, **_: Any) -> ToolResult[list[dict[str, Any]]]:
-        pass
+    def run(self, query: str, max_results: int = 5, year_from: int | None = None, year_to: int | None = None) -> ToolResult[list[dict[str, Any]]]:
+        try:
+            results = self.search_literature(query=query, max_results=max_results, year_from=year_from, year_to=year_to)
+            return ToolResult(
+                success=True,
+                data=results,
+                source="scholar_search:semantic_scholar",
+                metadata={"query": query, "count": len(results)},
+            )
+        except Exception as exc:
+            self.logger.exception("scholar_search failed for query=%r", query)
+            return ToolResult(
+                success=False,
+                source="scholar_search:semantic_scholar",
+                error=str(exc),
+            )
 
-    def search_literature(self, query: str, max_results: int) -> list[dict[str, Any]]:
-        """Executes the live search against the Semantic Scholar API.
-
-        Returns a structured list containing titles, authors, year, venue, abstracts, and URLs.
+    def search_literature(self, query: str, max_results: int, year_from: int | None = None, year_to: int | None = None) -> list[dict[str, Any]]:
         """
-        pass
+        Relevance-ranked search for academic papers and scholarly articles using the Semantic Scholar API.
+
+        Args:
+            query (str): The search query.
+            max_results (int): Maximum number of results to return.
+            year_from (int | None): Optional filter for the start of the publication year range.
+            year_to (int | None): Optional filter for the end of the publication year range.
+
+        Returns:
+            list[dict[str, Any]]: A list of dictionaries containing paper metadata and abstracts.
+        """
+        params = {
+            "query": query,
+            "limit": max_results,
+            "fields": ",".join(self.DEFAULT_FIELDS),
+        }
+
+        if year_from is not None and year_to is not None:
+            params["year"] = f"{year_from}-{year_to}"
+        elif year_from is not None:
+            params["year"] = f"{year_from}-"
+        elif year_to is not None:
+            params["year"] = f"-{year_to}"
+
+        base_url = self.api_url or self.DEFAULT_API_URL
+        response = self._request(url=f"{base_url}/paper/search", params=params)
+        return response.json().get("data", [])
+
 
     # Interaction with the Semantic Scholar API is rate-limited, so we need to ensure we don't exceed the allowed request rate.
 
@@ -83,11 +124,13 @@ class ScholarSearchTool(BaseTool):
     def _request(
         self,
         url: str,
-        headers: dict[str, str] | None = _headers(),
+        headers: dict[str, str] | None = None,
         params: dict[str, Any] | None = None,
         max_retries: int = 3,
     ) -> requests.Response:
         """Makes a GET request to the Semantic Scholar API with retry logic."""
+
+        headers = headers or self._headers()
 
         for attempt in range(max_retries):
             self._wait_for_slot()
