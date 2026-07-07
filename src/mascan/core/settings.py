@@ -62,6 +62,14 @@ class Settings(BaseSettings):
         None, description="X/Twitter ct0 (CSRF) cookie for twitter-cli in-process auth."
     )
 
+    # Technological agent — Semantic Scholar API key and URL (optional, but recommended)
+    semantic_scholar_api_key: str | None = Field(
+        None, description="Semantic Scholar API key (optional, but recommended for better rate limits)."
+    )
+    semantic_scholar_api_url: str | None = Field(
+        None, description="Semantic Scholar API URL."
+    )
+
     #  App
     log_level: str = Field("INFO", description="Logging level.")
     environment: str = Field("development", description="dev | prod.")
