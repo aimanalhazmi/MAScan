@@ -1,19 +1,16 @@
-"""Open WebUI Pipe: MAScan Analyst.
+"""Open WebUI Pipe: MAScan RAG.
 
 Install: Admin Settings -> Functions -> Add New Function -> paste, save, enable.
-Adds the model "MAScan", which runs the full analyze flow.
+Adds the model "MAScan RAG", which talks only to the RAG endpoints.
 
 Workflow (per message):
     1. Attached files are ingested into the RAG store (/rag/upload or /rag/ingest).
-    2. The message text is analyzed by the orchestrator.
-       - stream_progress = False: /analyze (blocking), returns the full report.
-       - stream_progress = True:  /analyze/stream (SSE), yields progress then report.
+    2. If the message has text, it is answered from the store (/rag/answer).
+    3. The reply combines the ingest summary and the grounded answer + sources.
 """
 
 import asyncio
 import inspect
-import json
-from collections.abc import Iterator
 from concurrent.futures import ThreadPoolExecutor
 from typing import Any
 
@@ -43,10 +40,7 @@ class Pipe:
                 "and MAScan runs on the host."
             ),
         )
-        stream_progress: bool = Field(
-            default=False,
-            description="Stream per-agent progress instead of waiting for the full report.",
-        )
+        k: int = Field(default=5, description="Number of chunks to retrieve.")
         request_timeout_seconds: float = Field(default=180.0)
 
     def __init__(self) -> None:
@@ -57,94 +51,40 @@ class Pipe:
         body: dict[str, Any],
         __files__: list[dict[str, Any]] | None = None,
         __request__: Any = None,
-    ) -> str | Iterator[str]:
+    ) -> str:
         prefix = ""
         if __files__:
             try:
                 stored, names = self.ingest(__files__)
             except Exception as exc:  # noqa: BLE001
                 return self.error(exc)
-            prefix = f"Ingested {stored} chunks from {len(names)} file(s).\n\n"
+            prefix = f"Ingested {stored} chunks from: {', '.join(names)}\n\n"
 
         query = self.query(body)
         if not query:
             return prefix or "_(No query provided.)_"
-
-        if self.valves.stream_progress:
-            return self.streaming(query, prefix)
-        return prefix + self.blocking(query)
-
-    def blocking(self, query: str) -> str:
-        url = f"{self.valves.mascan_api_url.rstrip('/')}/analyze"
         try:
-            with httpx.Client(timeout=self.valves.request_timeout_seconds) as client:
-                resp = client.post(url, json={"query": query})
-                resp.raise_for_status()
-                report = resp.json()
+            return prefix + self.answer(query)
         except Exception as exc:  # noqa: BLE001
             return self.error(exc)
-        return self.report(report)
 
-    def streaming(self, query: str, prefix: str = "") -> Iterator[str]:
-        if prefix:
-            yield prefix
-        url = f"{self.valves.mascan_api_url.rstrip('/')}/analyze/stream"
-        try:
-            with httpx.Client(timeout=self.valves.request_timeout_seconds) as client:
-                with client.stream("POST", url, json={"query": query}) as resp:
-                    resp.raise_for_status()
-                    yield from self.consume(resp)
-        except Exception as exc:  # noqa: BLE001
-            yield self.error(exc)
+    def answer(self, query: str) -> str:
+        api = self.valves.mascan_api_url.rstrip("/")
+        with httpx.Client(timeout=self.valves.request_timeout_seconds) as client:
+            resp = client.post(f"{api}/rag/answer", json={"query": query, "k": self.valves.k})
+            resp.raise_for_status()
+            data = resp.json()
 
-    def consume(self, resp: httpx.Response) -> Iterator[str]:
-        """Turn SSE events into progress lines, then the final report."""
-        final = None
-        for line in resp.iter_lines():
-            if not line or not line.startswith("data: "):
-                continue
-            try:
-                event = json.loads(line[len("data: ") :])
-            except json.JSONDecodeError:
-                continue
+        answer = data.get("answer") or "_(No answer produced.)_"
+        citations = data.get("citations") or []
+        if not citations:
+            return answer
 
-            kind = event.get("event")
-            if kind == "start":
-                yield "Starting analysis...\n\n"
-            elif kind == "node":
-                update = event.get("update") or {}
-                if event.get("node") == "synthesizer":
-                    final = update.get("final_markdown") or update.get("final_summary")
-                status = self.status(event.get("node", "?"), update)
-                if status:
-                    yield status + "\n\n"
-            elif kind == "done":
-                yield f"---\n\n{final}" if final else "_(No final report produced.)_"
-            elif kind == "error":
-                yield f"\n\nError: {event.get('message', 'Unknown error')}"
-
-    @staticmethod
-    def status(node: str, update: dict[str, Any]) -> str:
-        if node == "planner":
-            plan = update.get("plan") or {}
-            if plan:
-                return f"Planner selected: {', '.join(sorted(plan.keys()))}"
-            return "Planner ran but selected no agents."
-        if node == "synthesizer":
-            return "Synthesizing final report..."
-
-        reports = update.get("reports") or {}
-        if node in reports:
-            report = reports[node]
-            markdown = report.get("rendered_markdown") or report.get("findings") or ""
-            return (
-                f"<details>\n<summary>{node} finished — click to expand</summary>\n\n"
-                f"{markdown}\n\n</details>"
-            )
-        failures = update.get("failures") or {}
-        if node in failures:
-            return f"**{node}** failed: `{failures.get(node)}`"
-        return ""
+        sources = []
+        for c in citations:
+            page = c.get("page")
+            sources.append(f"- {c.get('document', '?')}" + (f", p. {page}" if page else ""))
+        return answer + "\n\n**Sources**\n" + "\n".join(sources)
 
     def ingest(self, files: list[dict[str, Any]]) -> tuple[int, list[str]]:
         """Push attached files into the RAG store.
@@ -200,23 +140,12 @@ class Pipe:
                 return " ".join(parts).strip()
         return ""
 
-    @staticmethod
-    def report(report: dict[str, Any]) -> str:
-        markdown = report.get("rendered_markdown") or report.get("summary") or ""
-        if not markdown:
-            return "_(MAScan returned an empty report.)_"
-        failures = report.get("failures") or {}
-        if failures:
-            lines = "\n".join(f"- **{name}**: {err}" for name, err in failures.items())
-            markdown += f"\n\n---\n\nSome agents failed:\n{lines}"
-        return markdown
-
     def error(self, exc: Exception) -> str:
         if isinstance(exc, httpx.HTTPError):
             return (
                 f"Could not reach the MAScan API at `{self.valves.mascan_api_url}`.\n\n"
                 f"Error: `{exc}`\n\n"
-                "Check the API is running (`make run-api`) and the URL in this Pipe's "
-                "settings is correct. From inside Docker, use `http://host.docker.internal:8000`."
+                "Check the API is running and the URL in this Pipe's settings is "
+                "correct. From inside Docker, use `http://host.docker.internal:8000`."
             )
         return f"Unexpected error talking to MAScan: `{exc}`"

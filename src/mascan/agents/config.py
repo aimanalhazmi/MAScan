@@ -15,7 +15,9 @@ class AgentConfig(BaseModel):
     temperature: float = Field(0.2, ge=0.0, le=2.0)
     max_tokens: int = Field(2000, gt=0)
     system_prompt: str = Field(..., description="System prompt for the agent.")
-    tools: list[str] = Field(default_factory=list, description="Tool names this agent uses.")
+    always_call_tools: list[str] = Field(default_factory=list, description="Tool names this agent always calls.")
+    optional_tools: list[str] = Field(default_factory=list, description="Tool names this agent may call.")
+    max_llm_iterations: int = Field(10, gt=0, description="Maximum number of LLM iterations.")
     options: dict[str, Any] = Field(
         default_factory=dict,
         description="Agent-specific options (e.g. feature toggles) read by that agent.",

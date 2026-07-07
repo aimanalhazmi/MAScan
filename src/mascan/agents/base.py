@@ -4,11 +4,18 @@ from abc import ABC, abstractmethod
 from typing import Any, ClassVar
 
 from mascan.agents.config import AgentConfig
-from mascan.contracts.reports import AgentReport
+from mascan.contracts.reports import AgentReport, Source
+from mascan.contracts.tools import ToolResult
 from mascan.core.llm import get_chat_model
 from mascan.core.logging import get_logger
 from mascan.tools.base import BaseTool
 from mascan.tools.registry import tool_registry
+from mascan.agents.sources import (
+    dedupe_sources,
+    render_source_lines,
+    sources_from_react,
+    sources_from_tool_results,
+)
 
 from langchain_core.language_models import BaseChatModel
 
@@ -48,8 +55,29 @@ class BaseAgent(ABC):
                 f"Config name {self.config.name!r} does not match agent class name {self.name!r}."
             )
 
-        self.tools: dict[str, BaseTool] = tool_registry.get_many(self.config.tools)
+        self.always_call_tools: dict[str, BaseTool] = tool_registry.get_many(self.config.always_call_tools)
+        self.optional_tools: dict[str, BaseTool] = tool_registry.get_many(self.config.optional_tools)
+        # self.tools: dict[str, BaseTool] = {**self.always_call_tools, **self.optional_tools}
         self.logger = get_logger(f"agents.{self.name}")
+
+    @abstractmethod
+    def _run(
+        self,
+        tasks: list[str],
+        context: dict[str, Any] | None = None,
+        deterministic_outputs: dict[str, ToolResult[Any]] | None = None
+        ) -> AgentReport:
+        """Execute the agent's analysis.
+
+        Args:
+            tasks: Specific subtasks the orchestrator has assigned.
+            context: Optional shared state from the orchestrator.
+            deterministic_outputs: Results from always-call tools.
+
+        Returns:
+            AgentReport with structured fields AND rendered markdown.
+        """
+        ...
 
     @classmethod
     def load_default_config(cls) -> AgentConfig:
@@ -60,6 +88,41 @@ class BaseAgent(ABC):
         module_file = inspect.getfile(cls)
         config_path = Path(module_file).parent / "config.yaml"
         return AgentConfig.from_yaml(config_path)
+    
+    @staticmethod
+    def extract_final_answer(result: dict[str, Any]) -> str:
+        """Last message in the ReAct result is the LLM's final answer."""
+        messages = result.get("messages", [])
+        if not messages:
+            return "(no response)"
+        return str(messages[-1].content)
+
+    @staticmethod
+    def extract_used_tools(result: dict[str, Any]) -> list[str]:
+        """Walk the message history and collect every tool the LLM invoked."""
+        used: list[str] = []
+        for msg in result.get("messages", []):
+            tool_calls = getattr(msg, "tool_calls", None) or []
+            for call in tool_calls:
+                name = call.get("name") if isinstance(call, dict) else getattr(call, "name", None)
+                if name and name not in used:
+                    used.append(name)
+        return used
+    
+    def run(self, tasks: list[str], context: dict[str, Any] | None = None) -> AgentReport:
+        """Wraps the subclass's `_run()` method with execution of mandatory tool calls.
+
+        Args:
+            tasks: Specific subtasks the orchestrator has assigned.
+            context: Optional shared state from the orchestrator.
+
+        Returns:
+            AgentReport with structured fields AND rendered markdown.
+        """
+
+        # Execute always-call tools first, if any.
+        deterministic_outputs = self.gather_deterministic(tasks)
+        return self._run(tasks, context=context, deterministic_outputs=deterministic_outputs)
 
     def llm_with_tools(self) -> BaseChatModel:
         """Return an LLM bound to this agent's tools for LLM-driven calling.
@@ -78,21 +141,60 @@ class BaseAgent(ABC):
             temperature=self.config.temperature,
             max_tokens=self.config.max_tokens,
         )
-        lc_tools = [t.as_langchain_tool() for t in self.tools.values()]
+        lc_tools = [t.as_langchain_tool() for t in self.optional_tools.values()]
         return llm.bind_tools(lc_tools)
+    
+    def gather_deterministic(self, tasks: list[str]) -> dict[str, ToolResult[Any]]:
+        """Call the always-call tools regardless of the question."""
+        query = " ; ".join(tasks)
+        outputs: dict[str, ToolResult[Any]] = {}
+        for tool_name in self.always_call_tools:
+            if tool_name in self.tools:
+                outputs[tool_name] = self.tools[tool_name].run(query=query)
+            else:
+                self.logger.warning(f"Always-call tool {tool_name!r} not available; skipping.")
+        return outputs
+    
+    def get_optional_tools(self) -> list:
+        """Return LangChain-wrapped tools the LLM is allowed to call."""
+        return [
+            tool.as_langchain_tool()
+            for name, tool in self.optional_tools.items()
+            if name in self.config.optional_tools
+        ]
+    
+    def collect_sources(
+        self,
+        react_result: dict[str, ToolResult[Any]] | None = None,
+        deterministic_outputs: dict[str, ToolResult[Any]] | None = None,
+    ) -> list[Source]:
+        """Real reference links harvested from the agent's tool calls."""
+        sources: list[Source] = []
+        if deterministic_outputs:
+            sources.extend(sources_from_tool_results(deterministic_outputs))
+        if react_result:
+            sources.extend(sources_from_react(react_result))
+        return dedupe_sources(sources)
 
-    @abstractmethod
-    def run(self, tasks: list[str], context: dict[str, Any] | None = None) -> AgentReport:
-        """Execute the agent's analysis.
-
-        Args:
-            tasks: Specific subtasks the orchestrator has assigned.
-            context: Optional shared state from the orchestrator.
-
-        Returns:
-            AgentReport with structured fields AND rendered markdown.
-        """
-        ...
+    def render_markdown(
+        self,
+        tasks: list[str],
+        findings: str,
+        sources: list[Source],
+        llm_used_tools: list[str],
+    ) -> str:
+        task_lines = "\n".join(f"- {t}" for t in tasks)
+        src_lines = render_source_lines(sources)
+        llm_lines = "\n".join(f"- {t}" for t in llm_used_tools) or "- (none)"
+        always_lines = "\n".join(f"- {t}" for t in self.config.always_call_tools)
+        return (
+            f"## {self.name.title()} Analysis\n\n"
+            f"**Tasks:**\n{task_lines}\n\n"
+            f"**Findings:**\n\n{findings}\n\n"
+            f"**Tools always called:**\n{always_lines}\n\n"
+            f"**Tools the LLM chose to call:**\n{llm_lines}\n\n"
+            f"**Sources:**\n{src_lines}\n"
+        )
 
     def __repr__(self) -> str:
         return f"<Agent name={self.name!r} tools={self.config.tools}>"

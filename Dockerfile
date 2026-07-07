@@ -38,6 +38,9 @@ COPY --from=builder --chown=app:app /app/.venv /app/.venv
 COPY --chown=app:app src/ ./src/
 COPY --chown=app:app scripts/ ./scripts/
 
+# Writable dir for figures extracted from uploaded PDFs (RAG_IMAGE_DIR default).
+RUN mkdir -p /app/rag_images && chown app:app /app/rag_images
+
 ENV PYTHONPATH=/app/src
 
 USER app
