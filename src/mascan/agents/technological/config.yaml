@@ -42,3 +42,4 @@ system_prompt: |
 
 optional_tools:
   - web_search
+  - scholar_search
