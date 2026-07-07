@@ -15,9 +15,9 @@ class EconomicsAgentState(BaseModel):
     tasks: list[str]
     context: dict[str, Any] | None = None
     deterministic_outputs: dict[str, ToolResult[Any]] = Field(default_factory=dict)
+    react_result: dict[str, Any] | None = None
     findings: str = ""
     llm_used_tools: list[str] = Field(default_factory=list)
-    llm_sources: list[Source] = Field(default_factory=list)
     sources: list[Source] = Field(default_factory=list)
     report: AgentReport | None = None
 
@@ -27,26 +27,23 @@ class EconomicsAgentState(BaseModel):
 def build_economics_graph(agent: Any) -> Any:
     """Build the behavior-preserving private graph for EconomicsAgent."""
 
-    def gather_deterministic(state: EconomicsAgentState) -> dict[str, Any]:
-        return {"deterministic_outputs": agent.gather_deterministic(state.tasks)}
-
     def run_react_agent(state: EconomicsAgentState) -> dict[str, Any]:
-        findings, llm_used_tools, llm_sources = agent.run_react_agent(
+        react_result, findings, llm_used_tools = agent.run_react_agent(
             state.tasks,
             state.deterministic_outputs,
             context=state.context,
         )
         return {
+            "react_result": react_result,
             "findings": findings,
             "llm_used_tools": llm_used_tools,
-            "llm_sources": llm_sources,
         }
 
     def collect_sources(state: EconomicsAgentState) -> dict[str, Any]:
         return {
             "sources": agent.collect_sources(
-                state.deterministic_outputs,
-                state.llm_sources,
+                deterministic_outputs=state.deterministic_outputs,
+                react_result=state.react_result,
             )
         }
 
@@ -67,20 +64,18 @@ def build_economics_graph(agent: Any) -> Any:
                 rendered_markdown=rendered,
                 metadata={
                     "mode": "mixed",
-                    "deterministic_tools": list(agent.always_call_tools),
+                    "deterministic_tools": list(agent.config.always_call_tools),
                     "llm_chosen_tools": state.llm_used_tools,
                 },
             )
         }
 
     graph = StateGraph(EconomicsAgentState)
-    graph.add_node("gather_deterministic", gather_deterministic)
     graph.add_node("run_react_agent", run_react_agent)
     graph.add_node("collect_sources", collect_sources)
     graph.add_node("build_report", build_report)
 
-    graph.add_edge(START, "gather_deterministic")
-    graph.add_edge("gather_deterministic", "run_react_agent")
+    graph.add_edge(START, "run_react_agent")
     graph.add_edge("run_react_agent", "collect_sources")
     graph.add_edge("collect_sources", "build_report")
     graph.add_edge("build_report", END)

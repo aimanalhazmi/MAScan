@@ -17,8 +17,8 @@ def test_economics_agent_is_registered() -> None:
 def test_economics_agent_loads_finance_and_web_tools() -> None:
     agent = EconomicsAgent()
 
-    assert "web_search" in agent.tools
-    assert "get_weekly_stock_prices" in agent.tools
+    assert "web_search" in agent.optional_tools
+    assert "get_weekly_stock_prices" in agent.optional_tools
 
 
 def test_economics_prompt_guides_stock_tool_usage() -> None:
@@ -65,7 +65,7 @@ def test_economics_agent_run_returns_report(mocker: Any) -> None:
     mocker.patch.object(
         agent,
         "run_react_agent",
-        return_value=("Economic outlook findings", [], []),
+        return_value=({}, "Economic outlook findings", []),
     )
 
     report = agent.run(tasks=["EU manufacturing outlook"])
@@ -75,7 +75,7 @@ def test_economics_agent_run_returns_report(mocker: Any) -> None:
     assert report.tasks == ["EU manufacturing outlook"]
     assert report.findings == "Economic outlook findings"
     assert report.metadata["mode"] == "mixed"
-    assert report.metadata["deterministic_tools"] == ["web_search"]
+    assert report.metadata["deterministic_tools"] == []
     assert "## Economics Analysis" in report.rendered_markdown
     # Sources are real article links labelled by title, not tool names.
     assert [source.url for source in report.sources] == ["https://example.com/eu-pmi"]

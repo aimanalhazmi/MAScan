@@ -31,7 +31,7 @@ def test_political_agent_run_returns_report(mocker: Any) -> None:
     mocker.patch.object(
         agent,
         "run_react_agent",
-        return_value=("Political risk findings", []),
+        return_value=({}, "Political risk findings", []),
     )
 
     report = agent.run(tasks=["EU battery regulation"])
@@ -41,7 +41,7 @@ def test_political_agent_run_returns_report(mocker: Any) -> None:
     assert report.tasks == ["EU battery regulation"]
     assert report.findings == "Political risk findings"
     assert report.metadata["mode"] == "mixed"
-    assert report.metadata["deterministic_tools"] == ["web_search", "news_api"]
+    assert report.metadata["deterministic_tools"] == []
     assert "## Political Analysis" in report.rendered_markdown
     # Sources are real article links labelled by title, not tool names.
     assert [source.url for source in report.sources] == ["https://example.com"]
