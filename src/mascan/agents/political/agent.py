@@ -6,13 +6,14 @@ Pattern:
      also call optional tools, then writes the final answer.
 """
 
-from typing import Any
+from typing import Any, ClassVar
 
 from langchain.agents import create_agent
 from langchain_core.messages import HumanMessage
 
 from mascan.agents.base import BaseAgent
 from mascan.agents.context import render_tool_outputs
+from mascan.agents.political.graph import PoliticalAgentState, build_political_graph
 from mascan.agents.political.prompts import build_user_prompt
 from mascan.agents.sources import (
     dedupe_sources,
@@ -30,37 +31,20 @@ MAX_LLM_ITERATIONS = 10  # passed to create_react_agent as recursion_limit
 
 class PoliticalAgent(BaseAgent):
     name = "political"  # must match config.yaml `name`
+    always_call_tools: ClassVar[tuple[str, ...]] = ALWAYS_CALL_TOOLS
 
     def run(self, tasks: list[str], context: dict[str, Any] | None = None) -> AgentReport:
         self.logger.info("Running Mode C (mixed) with %d task(s)", len(tasks))
 
-        # deterministic tools — always called.
-        deterministic_outputs = self.gather_deterministic(tasks)
+        state = PoliticalAgentState(tasks=tasks, context=context)
+        final_state = self.build_graph().invoke(state)
+        report = final_state.get("report") if isinstance(final_state, dict) else None
+        if not isinstance(report, AgentReport):
+            raise RuntimeError("Political graph completed without an AgentReport.")
+        return report
 
-        # LLM with optional tools — decides what else (if anything) to call.
-        findings, llm_used_tools = self.run_react_agent(
-            tasks,
-            deterministic_outputs,
-            context=context,
-        )
-
-        # assemble the report.
-        sources = self.collect_sources(deterministic_outputs, llm_used_tools)
-        rendered = self.render_markdown(tasks, findings, sources, llm_used_tools)
-
-        return AgentReport(
-            agent_name=self.name,
-            tasks=tasks,
-            findings=findings,
-            sources=sources,
-            confidence=0.7,
-            rendered_markdown=rendered,
-            metadata={
-                "mode": "mixed",
-                "deterministic_tools": list(ALWAYS_CALL_TOOLS),
-                "llm_chosen_tools": llm_used_tools,
-            },
-        )
+    def build_graph(self) -> Any:
+        return build_political_graph(self)
 
     def gather_deterministic(self, tasks: list[str]) -> dict[str, ToolResult[Any]]:
         """Call the always-call tools regardless of the question."""
