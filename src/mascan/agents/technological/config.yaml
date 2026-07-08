@@ -40,6 +40,9 @@ system_prompt: |
   anecdotal evidence, and clearly separate established technologies from emerging
   or experimental ones.
 
+  Hard constraints:
+  - Limit the uses of the scholar_search tool to 3.
+
 optional_tools:
   - web_search
   - scholar_search
