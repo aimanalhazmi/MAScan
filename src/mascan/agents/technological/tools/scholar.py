@@ -100,7 +100,7 @@ class ScholarSearchTool(BaseTool):
     _lock = threading.Lock()
     _last_request = 0.0
 
-    REQUEST_INTERVAL = 1.1  # Minimum interval between requests in seconds
+    REQUEST_INTERVAL = 1.2  # Minimum interval between requests (Semantic Scholar allows 1/sec cumulative)
 
     def _wait_for_slot(self):
         """Waits for the next available request slot based on the rate limit."""
@@ -144,4 +144,6 @@ class ScholarSearchTool(BaseTool):
                 )
                 if attempt == max_retries - 1:
                     raise
-                time.sleep(2 ** attempt)  # Exponential backoff
+                # Retry-After on 429, else exponential backoff
+                retry_after = getattr(e.response, "headers", {}).get("Retry-After") if e.response is not None else None
+                time.sleep(float(retry_after) if retry_after else 2 ** attempt)
