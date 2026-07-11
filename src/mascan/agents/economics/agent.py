@@ -7,36 +7,30 @@ from typing import Any
 from langchain.agents import create_agent
 from langchain_core.messages import HumanMessage
 
-from mascan.agents.base import BaseAgent
+from mascan.agents.base import GraphBackedAgent
 from mascan.agents.context import render_tool_outputs
 from mascan.agents.economics.graph import EconomicsAgentState, build_economics_graph
 from mascan.agents.economics.prompts import build_user_prompt
-from mascan.contracts.reports import AgentReport, Source
+from mascan.contracts.reports import Source
 from mascan.contracts.tools import ToolResult
 from mascan.core.llm import get_chat_model
 
 
-class EconomicsAgent(BaseAgent):
+class EconomicsAgent(GraphBackedAgent):
     name = "economics"
 
-    def _run(
+    def build_initial_state(
         self,
         tasks: list[str],
         context: dict[str, Any] | None = None,
         deterministic_outputs: dict[str, ToolResult[Any]] | None = None,
-    ) -> AgentReport:
+    ) -> EconomicsAgentState:
         self.logger.info(f"Running Mode C (mixed) with {len(tasks)} task(s)")
-
-        state = EconomicsAgentState(
+        return EconomicsAgentState(
             tasks=tasks,
             context=context,
             deterministic_outputs=deterministic_outputs or {},
         )
-        final_state = self.build_graph().invoke(state)
-        report = final_state.get("report") if isinstance(final_state, dict) else None
-        if not isinstance(report, AgentReport):
-            raise RuntimeError("Economics graph completed without an AgentReport.")
-        return report
 
     def build_graph(self) -> Any:
         return build_economics_graph(self)

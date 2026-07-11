@@ -6,12 +6,12 @@ from langchain.agents import create_agent
 from langchain_core.messages import HumanMessage, SystemMessage
 from pydantic import BaseModel, Field
 
-from mascan.agents.base import BaseAgent
+from mascan.agents.base import GraphBackedAgent
 from mascan.agents.context import render_agent_context, render_runtime_context, render_tool_outputs
 from mascan.agents.social.graph import SocialAgentState, build_social_graph
 from mascan.agents.social.prompts import build_user_prompt
 from mascan.agents.sources import sources_from_react
-from mascan.contracts.reports import AgentReport, Source
+from mascan.contracts.reports import Source
 from mascan.contracts.tools import ToolResult
 from mascan.core.llm import get_chat_model
 
@@ -46,27 +46,21 @@ class SocialEvidencePlan(BaseModel):
     )
 
 
-class SocialAgent(BaseAgent):
+class SocialAgent(GraphBackedAgent):
     name = "social"
 
-    def _run(
+    def build_initial_state(
         self,
         tasks: list[str],
         context: dict[str, Any] | None = None,
         deterministic_outputs: dict[str, ToolResult[Any]] | None = None,
-    ) -> AgentReport:
+    ) -> SocialAgentState:
         self.logger.info(f"Running Mode C (mixed) with {len(tasks)} task(s)")
-
-        state = SocialAgentState(
+        return SocialAgentState(
             tasks=tasks,
             context=context,
             deterministic_outputs=deterministic_outputs or {},
         )
-        final_state = self.build_graph().invoke(state)
-        report = final_state.get("report") if isinstance(final_state, dict) else None
-        if not isinstance(report, AgentReport):
-            raise RuntimeError("Social graph completed without an AgentReport.")
-        return report
 
     def build_graph(self) -> Any:
         return build_social_graph(self)
