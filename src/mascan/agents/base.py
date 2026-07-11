@@ -1,23 +1,21 @@
 """BaseAgent — the contract every agent must implement."""
 
 from abc import ABC, abstractmethod
-from typing import Any, ClassVar
+from typing import Any, ClassVar, cast
 
 from mascan.agents.config import AgentConfig
-from mascan.contracts.reports import AgentReport, Source
-from mascan.contracts.tools import ToolResult
-from mascan.core.llm import get_chat_model
-from mascan.core.logging import get_logger
-from mascan.tools.base import BaseTool
-from mascan.tools.registry import tool_registry
 from mascan.agents.sources import (
     dedupe_sources,
     render_source_lines,
     sources_from_react,
     sources_from_tool_results,
 )
-
-from langchain_core.language_models import BaseChatModel
+from mascan.contracts.reports import AgentReport, Source
+from mascan.contracts.tools import ToolResult
+from mascan.core.llm import get_chat_model
+from mascan.core.logging import get_logger
+from mascan.tools.base import BaseTool
+from mascan.tools.registry import tool_registry
 
 
 class BaseAgent(ABC):
@@ -87,8 +85,8 @@ class BaseAgent(ABC):
 
         module_file = inspect.getfile(cls)
         config_path = Path(module_file).parent / "config.yaml"
-        return AgentConfig.from_yaml(config_path)
-    
+        return cast(AgentConfig, AgentConfig.from_yaml(config_path))
+
     @staticmethod
     def extract_final_answer(result: dict[str, Any]) -> str:
         """Last message in the ReAct result is the LLM's final answer."""
@@ -108,7 +106,7 @@ class BaseAgent(ABC):
                 if name and name not in used:
                     used.append(name)
         return used
-    
+
     def run(self, tasks: list[str], context: dict[str, Any] | None = None) -> AgentReport:
         """Wraps the subclass's `_run()` method with execution of mandatory tool calls.
 
@@ -124,7 +122,7 @@ class BaseAgent(ABC):
         deterministic_outputs = self.gather_deterministic(tasks)
         return self._run(tasks, context=context, deterministic_outputs=deterministic_outputs)
 
-    def llm_with_tools(self) -> BaseChatModel:
+    def llm_with_tools(self) -> Any:
         """Return an LLM bound to this agent's tools for LLM-driven calling.
 
         Usage inside `run()`:
@@ -143,7 +141,7 @@ class BaseAgent(ABC):
         )
         lc_tools = [t.as_langchain_tool() for t in self.optional_tools.values()]
         return llm.bind_tools(lc_tools)
-    
+
     def gather_deterministic(self, tasks: list[str]) -> dict[str, ToolResult[Any]]:
         """Call the always-call tools regardless of the question."""
         query = " ; ".join(tasks)
@@ -154,15 +152,15 @@ class BaseAgent(ABC):
             else:
                 self.logger.warning(f"Always-call tool {tool_name!r} not available; skipping.")
         return outputs
-    
-    def get_optional_tools(self) -> list:
+
+    def get_optional_tools(self) -> list[Any]:
         """Return LangChain-wrapped tools the LLM is allowed to call."""
         return [
             tool.as_langchain_tool()
             for name, tool in self.optional_tools.items()
             if name in self.config.optional_tools
         ]
-    
+
     def collect_sources(
         self,
         react_result: dict[str, ToolResult[Any]] | None = None,
@@ -197,4 +195,46 @@ class BaseAgent(ABC):
         )
 
     def __repr__(self) -> str:
-        return f"<Agent name={self.name!r} tools={self.config.tools}>"
+        return f"<Agent name={self.name!r} tools={list(self.tools)}>"
+
+
+class GraphBackedAgent(BaseAgent):
+    """Base class for agents whose `_run()` delegates to a private graph."""
+
+    def _run(
+        self,
+        tasks: list[str],
+        context: dict[str, Any] | None = None,
+        deterministic_outputs: dict[str, ToolResult[Any]] | None = None,
+    ) -> AgentReport:
+        state = self.build_initial_state(
+            tasks,
+            context=context,
+            deterministic_outputs=deterministic_outputs,
+        )
+        final_state = self.build_graph().invoke(state)
+        return self.extract_report(final_state)
+
+    @abstractmethod
+    def build_initial_state(
+        self,
+        tasks: list[str],
+        context: dict[str, Any] | None = None,
+        deterministic_outputs: dict[str, ToolResult[Any]] | None = None,
+    ) -> Any:
+        """Build the initial state for this agent's private graph."""
+        ...
+
+    @abstractmethod
+    def build_graph(self) -> Any:
+        """Build this agent's private graph."""
+        ...
+
+    def extract_report(self, final_state: Any) -> AgentReport:
+        """Extract the standard agent report from a completed graph state."""
+        report = final_state.get("report") if isinstance(final_state, dict) else None
+        if not isinstance(report, AgentReport):
+            raise RuntimeError(
+                f"{type(self).__name__} graph completed without an AgentReport."
+            )
+        return report
