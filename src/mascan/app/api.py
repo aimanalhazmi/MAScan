@@ -4,30 +4,29 @@ import tempfile
 from collections.abc import Iterator
 from pathlib import Path
 from typing import Any
-
+from uuid import uuid4
 
 from fastapi import FastAPI, File, HTTPException, UploadFile
 from pydantic import BaseModel, Field
 from fastapi.responses import StreamingResponse
 from fastapi.staticfiles import StaticFiles
 
+import mascan.agents.economics  # noqa: F401
+import mascan.agents.environmental  # noqa: F401
+import mascan.agents.legal  # noqa: F401
+import mascan.agents.political  # noqa: F401
+import mascan.agents.social  # noqa: F401
+import mascan.agents.technological  # noqa: F401
 from mascan.contracts import FinalReport
 from mascan.contracts.retrieval import Citation, RagAnswer, RetrievalQuery, RetrievedChunk
 from mascan.core.exceptions import ConfigError, MAScanError
-from mascan.core.logging import get_logger, configure_logging
+from mascan.core.logging import configure_logging, get_logger
+from mascan.orchestrator import resume as orchestrator_resume
 from mascan.orchestrator import run as orchestrator_run
 from mascan.orchestrator import stream as orchestrator_stream
 from mascan.rag.answer import answer_question
 from mascan.rag.ingest import ingest_file, ingest_text
 from mascan.rag.retriever import get_retriever
-
-from mascan.agents import agent_registry
-import mascan.agents.economics  # noqa: F401
-import mascan.agents.legal  # noqa: F401
-import mascan.agents.political  # noqa: F401
-import mascan.agents.social # noqa: F401
-import mascan.agents.environmental  # noqa: F401
-import mascan.agents.technological  # noqa: F401
 
 configure_logging()
 logger = get_logger("app.api")
@@ -53,6 +52,21 @@ def pydantic_safe_default(obj: Any) -> Any:
         return obj.model_dump(mode="json")
     raise TypeError(f"Object of type {type(obj).__name__} is not JSON serializable")
 
+
+SSE_HEADERS = {"Cache-Control": "no-cache", "Connection": "keep-alive", "X-Accel-Buffering": "no"}
+
+
+def sse_from_events(events: Iterator[dict[str, Any]], thread_id: str) -> Iterator[str]:
+    """Turn orchestrator node events into SSE lines. A clarification interrupt
+    ends the stream so the client can collect an answer and POST /analyze/resume.
+    """
+    for ev in events:
+        if ev["node"] == "__interrupt__":
+            yield sse_event({"event": "clarification", "question": ev["question"], "thread_id": thread_id})
+            return
+        yield sse_event({"event": "node", **ev})
+    yield sse_event({"event": "done"})
+
 app = FastAPI(title="MAScan API", description="HTTP interface to the MAScan multi-agent orchestrator.", version="0.1.0")
 
 @app.post("/analyze", response_model=FinalReport)
@@ -76,37 +90,46 @@ async def analyze(request: AnalyzeRequest) -> FinalReport:
 def analyze_stream(request: AnalyzeRequest) -> StreamingResponse:
     """Run the orchestrator with progressive Server-Sent Events output.
 
-    Each orchestrator node emits an SSE event when it completes. The
-    final event contains the synthesized markdown.
-
-    Useful for UIs that want to show progress (planning → agents → done)
-    instead of waiting silently for the full result.
+    Each orchestrator node emits an SSE event when it completes. If the planner
+    needs clarification the stream ends with a `clarification` event carrying the
+    question and thread_id; answer it via POST /analyze/resume. The final event
+    is `done`.
     """
     logger.info("Stream request: query=%r", request.query)
+    thread_id = str(uuid4())
 
     def event_generator() -> Iterator[str]:
         try:
-            yield sse_event({"event": "start", "query": request.query})
-
-            # Stream orchestrator updates one node at a time.
-            for chunk in orchestrator_stream(request.query):
-                yield sse_event({"event": "node", **chunk})
-
-            # Final event: explicit "done" so the client knows it's safe to close.
-            yield sse_event({"event": "done"})
-        except MAScanError as exc:
+            yield sse_event({"event": "start", "query": request.query, "thread_id": thread_id})
+            yield from sse_from_events(orchestrator_stream(request.query, thread_id), thread_id)
+        except Exception as exc:  # noqa: BLE001 - always close the stream with a reason
             logger.exception("Streaming failed")
             yield sse_event({"event": "error", "message": f"{type(exc).__name__}: {exc}"})
 
-    return StreamingResponse(
-        event_generator(),
-        media_type="text/event-stream",
-        headers={
-            "Cache-Control": "no-cache",
-            "Connection": "keep-alive",
-            "X-Accel-Buffering": "no",
-        },
-    )
+    return StreamingResponse(event_generator(), media_type="text/event-stream", headers=SSE_HEADERS)
+
+
+class ResumeRequest(BaseModel):
+    """Payload for POST /analyze/resume: answer a pending clarification."""
+    thread_id: str = Field(..., min_length=1, description="thread_id from the clarification event.")
+    answer: str = Field(..., min_length=1, description="The user's clarification answer.")
+
+
+@app.post("/analyze/resume")
+def analyze_resume(request: ResumeRequest) -> StreamingResponse:
+    """Resume a run paused by a clarification interrupt, streaming the rest."""
+    logger.info("Resume request: thread=%s", request.thread_id)
+
+    def event_generator() -> Iterator[str]:
+        try:
+            yield from sse_from_events(
+                orchestrator_resume(request.thread_id, request.answer), request.thread_id
+            )
+        except Exception as exc:  # always close the stream with a reason
+            logger.exception("Resume failed")
+            yield sse_event({"event": "error", "message": f"{type(exc).__name__}: {exc}"})
+
+    return StreamingResponse(event_generator(), media_type="text/event-stream", headers=SSE_HEADERS)
 class IngestRequest(BaseModel):
     """Payload for POST /rag/ingest: plain text → chunked, embedded, stored."""
     text: str = Field(..., min_length=1, description="Raw text to ingest.")

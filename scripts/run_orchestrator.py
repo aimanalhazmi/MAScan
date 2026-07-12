@@ -1,15 +1,26 @@
 import argparse
 import sys
+from uuid import uuid4
 
-import mascan.agents.economics # noqa: F401
-import mascan.agents.environmental # noqa: F401
-import mascan.agents.legal # noqa: F401
-import mascan.agents.political # noqa: F401
-import mascan.agents.social # noqa: F401
-import mascan.agents.technological # noqa: F401
-
+import mascan.agents.economics  # noqa: F401
+import mascan.agents.environmental  # noqa: F401
+import mascan.agents.legal  # noqa: F401
+import mascan.agents.political  # noqa: F401
+import mascan.agents.social  # noqa: F401
+import mascan.agents.technological  # noqa: F401
 from mascan.core.logging import configure_logging, get_logger
-from mascan.orchestrator.graph import run, stream
+from mascan.orchestrator.graph import resume, run, stream
+
+
+def prompt_clarification(question: str) -> str:
+    """Ask the planner's clarification question in the terminal."""
+    print("\n[MAScan needs a clarification]")
+    print(question)
+    try:
+        return input("> ").strip()
+    except (EOFError, KeyboardInterrupt):
+        print("\nSkipping clarification.")
+        return ""
 
 
 def main() -> int:
@@ -23,18 +34,25 @@ def main() -> int:
     logger.info("Query: %r (stream=%s)", args.query, args.stream)
 
     if args.stream:
-        for event in stream(args.query):
-            node = event["node"]
-            update = event["update"]
-            print(f"\n--- node: {node} ---")
-            for key, value in update.items():
-                preview = str(value)
-                if len(preview) > 300:
-                    preview = preview[:300] + "..."
-                print(f"  {key}: {preview}")
+        thread_id = str(uuid4())
+        events = stream(args.query, thread_id)
+        while True:
+            for event in events:
+                if event["node"] == "__interrupt__":
+                    answer = prompt_clarification(event["question"])
+                    events = resume(thread_id, answer)
+                    break
+                print(f"\n--- node: {event['node']} ---")
+                for key, value in event["update"].items():
+                    preview = str(value)
+                    if len(preview) > 300:
+                        preview = preview[:300] + "..."
+                    print(f"  {key}: {preview}")
+            else:
+                break
         return 0
 
-    report = run(args.query)
+    report = run(args.query, on_clarify=prompt_clarification)
     print("\n" + "=" * 70)
     print(report.rendered_markdown)
     print("=" * 70)

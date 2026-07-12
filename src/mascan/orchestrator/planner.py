@@ -42,12 +42,40 @@ Agents you do NOT pick must NOT appear in the output.
 Do not add facts that are not present in the user question or runtime context.
 """
 
+CLARIFY_SYSTEM_PROMPT = """\
+You are the planner of a PESTEL multi-agent market-analysis system.
+
+Before any analysis begins, decide whether you understand the user's intent
+well enough to plan confidently. A request is clear when the goal, the market
+or entity, and the scope are all evident.
+
+- If the request is clear, set needs_clarification to false.
+- Otherwise set needs_clarification to true and ask exactly one concise
+  clarifying question that resolves the most important ambiguity, such as the
+  goal, the scope, the market or entity, the geography, or the time horizon.
+
+Lean towards confirming intent, but do not ask when the request is already
+specific enough to act on.
+"""
+
 
 class PlanModel(BaseModel):
     """Structured output the planner LLM is forced to return."""
 
     assignments: list[AgentAssignment] | InformationRequest = Field(
         description="List of agent-task assignments or a request for more information.",
+    )
+
+
+class IntentCheck(BaseModel):
+    """Structured output of the pre-planning intent confirmation step."""
+
+    needs_clarification: bool = Field(
+        description="True if the request is too ambiguous to plan confidently.",
+    )
+    question: str = Field(
+        default="",
+        description="The clarifying question to ask, when needs_clarification is true.",
     )
 
 
@@ -59,23 +87,25 @@ def planner_node(state: GraphState) -> dict[str, Any]:
         return {"plan": {}}
 
     settings = get_settings()
+    runtime = state.runtime_context.model_dump()
+    user_prompt = build_user_prompt(state, runtime)
+
+    # Confirm the user's intent once before planning, unless the request is
+    # already specific enough to act on.
+    if state.info_request_counter == 0:
+        question = clarify_intent(user_prompt, settings)
+        if question:
+            logger.info(f"Planner requesting intent clarification: {question}")
+            return {"plan": {}, "info_request": InformationRequest(question=question)}
+
     llm = get_chat_model(
         model=settings.openai_model_default,
         temperature=0.0,
         max_tokens=1000,
     )
     structured_llm = llm.with_structured_output(PlanModel)
-
     system_prompt = PLANNER_SYSTEM_PROMPT.format(
         available_agents="\n".join(f"- {name}" for name in available)
-    )
-    # Adding runtime context to planner agent
-    runtime = state.runtime_context.model_dump()
-    user_prompt = (
-        "Runtime context:\n"
-        f"- Current date: {runtime['current_date']}\n"
-        f"- Timezone: {runtime['timezone']}\n\n"
-        f"User question:\n{state.user_input}"
     )
 
     result: PlanModel = structured_llm.invoke([
@@ -91,6 +121,32 @@ def planner_node(state: GraphState) -> dict[str, Any]:
     plan = _filter_to_known_agents(raw_plan, available)
     logger.info(f"Planner selected {len(plan)} agent(s): {sorted(plan.keys())}")
     return {"plan": plan}
+
+
+def build_user_prompt(state: GraphState, runtime: dict[str, Any]) -> str:
+    """Compose the planner's user message from runtime context and the question."""
+    return (
+        "Runtime context:\n"
+        f"- Current date: {runtime['current_date']}\n"
+        f"- Timezone: {runtime['timezone']}\n\n"
+        f"User question:\n{state.user_input}"
+    )
+
+
+def clarify_intent(user_prompt: str, settings: Any) -> str | None:
+    """Return one clarifying question, or None if the request is clear enough."""
+    llm = get_chat_model(
+        model=settings.openai_model_default,
+        temperature=0.0,
+        max_tokens=200,
+    )
+    structured_llm = llm.with_structured_output(IntentCheck)
+    result: IntentCheck = structured_llm.invoke([
+        SystemMessage(content=CLARIFY_SYSTEM_PROMPT),
+        HumanMessage(content=user_prompt),
+    ])
+    question = result.question.strip()
+    return question if result.needs_clarification and question else None
 
 
 def _filter_to_known_agents(
