@@ -9,6 +9,7 @@ from typing import Any
 from fastapi import FastAPI, File, HTTPException, UploadFile
 from pydantic import BaseModel, Field
 from fastapi.responses import StreamingResponse
+from fastapi.staticfiles import StaticFiles
 
 from mascan.contracts import FinalReport
 from mascan.contracts.retrieval import Citation, RagAnswer, RetrievalQuery, RetrievedChunk
@@ -164,3 +165,8 @@ async def rag_answer(query: RetrievalQuery) -> RagAnswer:
 @app.get("/health", response_model=HealthResponse)
 async def health() -> HealthResponse:
     return HealthResponse()
+
+
+static_dir = Path(os.environ.get("MASCAN_STATIC_DIR", Path(__file__).parent / "static"))
+if static_dir.is_dir():
+    app.mount("/", StaticFiles(directory=static_dir, html=True), name="ui")

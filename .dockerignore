@@ -14,6 +14,11 @@ build/
 venv/
 env/
 
+# Web UI
+frontend/node_modules/
+frontend/dist/
+src/mascan/app/static/
+
 # uv
 .uv/
 

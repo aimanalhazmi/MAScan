@@ -22,6 +22,15 @@ RUN --mount=type=cache,target=/root/.cache/uv \
     uv sync --frozen --no-dev
 
 
+# Build the web UI into static assets served by the API.
+FROM node:20-slim AS ui-builder
+WORKDIR /ui/frontend
+COPY frontend/package.json frontend/package-lock.json ./
+RUN npm ci
+COPY frontend/ ./
+RUN npm run build
+
+
 FROM python:3.12-slim AS runtime
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
@@ -37,6 +46,10 @@ COPY --from=builder --chown=app:app /app/.venv /app/.venv
 # Copy the source code
 COPY --chown=app:app src/ ./src/
 COPY --chown=app:app scripts/ ./scripts/
+
+# Built web UI, served same-origin at :8000.
+COPY --from=ui-builder --chown=app:app /ui/src/mascan/app/static /app/static
+ENV MASCAN_STATIC_DIR=/app/static
 
 # Writable dir for figures extracted from uploaded PDFs (RAG_IMAGE_DIR default).
 RUN mkdir -p /app/rag_images && chown app:app /app/rag_images

@@ -1,0 +1,75 @@
+import Markdown from "react-markdown";
+import { LABELS } from "../graph";
+
+// Inspector for a clicked graph node: the plan for the planner, the agent's
+// report for an agent, the final markdown for the synthesizer.
+export default function NodeDetail({ run, nodeId, onClose }) {
+  if (!nodeId) return null;
+
+  return (
+    <div className="detail">
+      <div className="detail-head">
+        <span>{LABELS[nodeId] || nodeId}</span>
+        <button className="icon-btn" onClick={onClose} aria-label="Close">
+          ✕
+        </button>
+      </div>
+      <div className="detail-body">{renderBody(run, nodeId)}</div>
+    </div>
+  );
+}
+
+function renderBody(run, nodeId) {
+  if (run.failures[nodeId]) {
+    return <p className="detail-fail">{run.failures[nodeId]}</p>;
+  }
+
+  if (nodeId === "planner") {
+    const entries = Object.entries(run.plan);
+    if (!entries.length) return <Empty status={run.nodeStatus.planner} />;
+    return entries.map(([name, a]) => (
+      <div key={name} className="plan-item">
+        <h4>{LABELS[name] || name}</h4>
+        {a.objective_context && <p className="muted">{a.objective_context}</p>}
+        <ul>{(a.tasks || []).map((t, i) => <li key={i}>{t}</li>)}</ul>
+      </div>
+    ));
+  }
+
+  if (nodeId === "synthesizer") {
+    if (!run.finalMarkdown) return <Empty status={run.nodeStatus.synthesizer} />;
+    return <Markdown>{run.finalMarkdown}</Markdown>;
+  }
+
+  const report = run.reports[nodeId];
+  if (!report) return <Empty status={run.nodeStatus[nodeId]} />;
+  return (
+    <>
+      <div className="confidence">
+        Confidence: {Math.round((report.confidence ?? 0) * 100)}%
+      </div>
+      <Markdown>{report.rendered_markdown || report.findings || ""}</Markdown>
+      {report.sources?.length > 0 && (
+        <div className="sources">
+          <h4>Sources</h4>
+          <ul>
+            {report.sources.map((s, i) => (
+              <li key={i}>
+                {s.url ? <a href={s.url} target="_blank" rel="noreferrer">{s.name}</a> : s.name}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+    </>
+  );
+}
+
+function Empty({ status }) {
+  const msg =
+    status === "active" ? "Working…"
+    : status === "skipped" ? "Not selected for this query."
+    : status === "idle" ? "Waiting."
+    : "No output.";
+  return <p className="muted">{msg}</p>;
+}

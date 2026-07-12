@@ -1,5 +1,5 @@
 .DEFAULT_GOAL := help
-.PHONY: help install test lint format clean run-economics run-political run-legal run-social run-environmental run-orchestrator run-orchestrator-docker run-orchestrator-stream run-api openwebui-up openwebui-down openwebui-logs compose-up compose-down compose-logs compose-rebuild
+.PHONY: help install test lint format clean run-economics run-political run-legal run-social run-environmental run-orchestrator run-orchestrator-docker run-orchestrator-stream run-api dev-ui build-ui openwebui-up openwebui-down openwebui-logs compose-up compose-down compose-logs compose-rebuild
 help:  ## Show this help message
 	@echo "MAScan — available commands:"
 	@echo ""
@@ -62,6 +62,12 @@ run-orchestrator-stream:
 
 run-api:  ## Run the MAScan FastAPI server on http://localhost:8000
 	uv run uvicorn mascan.app.api:app --reload --host 0.0.0.0 --port 8000
+
+dev-ui:  ## Run the web UI dev server (proxies to the API on :8000)
+	cd frontend && npm install && npm run dev
+
+build-ui:  ## Build the web UI into the API's static dir (served at :8000)
+	cd frontend && npm install && npm run build
 
 openwebui-up:  ## Start Open WebUI in Docker on http://localhost:3000
 	@docker ps -a --format '{{.Names}}' | grep -q '^mascan-openwebui$$' && \
