@@ -54,6 +54,22 @@ class WebSearchTool(BaseTool):
                 error=str(exc),
             )
 
+    def _build_firecrawl_client(self) -> Firecrawl:
+        """Create a Firecrawl client for cloud or self-hosted mode."""
+        if self.api_url:
+            # Self-hosted Firecrawl needs no key; pass a placeholder so the SDK
+            # doesn't reject the empty value.
+            return Firecrawl(
+                api_key=self.api_key or "self-hosted",
+                api_url=self.api_url,
+            )
+        if not self.api_key:
+            raise ValueError(
+                "FIRECRAWL_API_KEY is required when FIRECRAWL_API_URL is not set."
+            )
+        # Cloud mode: omit api_url entirely. Passing api_url=None crashes the SDK.
+        return Firecrawl(api_key=self.api_key)
+
     def search_impl(self, query: str, max_results: int) -> list[dict[str, Any]]:
         """Executes the live search against Firecrawl's API endpoint.
 
@@ -61,11 +77,7 @@ class WebSearchTool(BaseTool):
         scraped markdown strings tailored for LLM consumption.
         """
         if self.client is None:
-            # Self-hosted Firecrawl needs no key; pass a placeholder so the SDK
-            # doesn't reject the empty value.
-            self.client = Firecrawl(
-                api_key=self.api_key or "self-hosted", api_url=self.api_url
-            )
+            self.client = self._build_firecrawl_client()
 
         response = self.client.search(query=query, limit=max_results)
 

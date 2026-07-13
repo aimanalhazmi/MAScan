@@ -26,6 +26,25 @@ def test_truncate_markdown_leaves_short_pages_untouched() -> None:
     assert WebSearchTool._truncate_markdown(body) == body
 
 
+def test_build_firecrawl_client_cloud_omits_api_url(mocker: Any) -> None:
+    firecrawl_cls = mocker.patch("mascan.tools.common.web_search.Firecrawl")
+
+    WebSearchTool(api_key="fc-test")._build_firecrawl_client()
+
+    firecrawl_cls.assert_called_once_with(api_key="fc-test")
+
+
+def test_build_firecrawl_client_self_hosted_uses_api_url(mocker: Any) -> None:
+    firecrawl_cls = mocker.patch("mascan.tools.common.web_search.Firecrawl")
+
+    WebSearchTool(api_url="http://localhost:3002")._build_firecrawl_client()
+
+    firecrawl_cls.assert_called_once_with(
+        api_key="self-hosted",
+        api_url="http://localhost:3002",
+    )
+
+
 def test_search_impl_truncates_each_result(mocker: Any) -> None:
     tool = WebSearchTool(api_key="test")
     long_body = "y" * (WebSearchTool.MAX_MARKDOWN_CHARS + 1000)

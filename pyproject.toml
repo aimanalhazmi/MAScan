@@ -28,6 +28,7 @@ dependencies = [
     "newsdataapi>=0.2.0",
     "fastapi>=0.136.3",
     "uvicorn>=0.48.0",
+    "pypdf>=5.0.0",
 ]
 
 [project.optional-dependencies]
@@ -48,7 +49,7 @@ packages = ["src/mascan"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-pythonpath = ["src"]
+pythonpath = ["src", "."]
 asyncio_mode = "auto"
 
 [tool.ruff]

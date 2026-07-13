@@ -1,5 +1,5 @@
 .DEFAULT_GOAL := help
-.PHONY: help install test lint format clean run-economics run-political run-legal run-social run-environmental run-orchestrator run-orchestrator-stream run-api openwebui-up openwebui-down openwebui-logs compose-up compose-down compose-logs compose-rebuild
+.PHONY: help install test lint format clean run-economics run-political run-legal run-social run-environmental run-orchestrator run-orchestrator-stream run-api gold-eval-pre gold-eval gold-eval-post openwebui-up openwebui-down openwebui-logs compose-up compose-down compose-logs compose-rebuild
 help:  ## Show this help message
 	@echo "MAScan — available commands:"
 	@echo ""
@@ -53,6 +53,15 @@ run-orchestrator-stream:
 
 run-api:  ## Run the MAScan FastAPI server on http://localhost:8000
 	uv run uvicorn mascan.app.api:app --reload --host 0.0.0.0 --port 8000
+
+gold-eval-pre:  ## Preview gold-standard eval commands (no API calls)
+	PYTHONPATH=src uv run python scripts/run_gold_pre_human.py --manifest eval_papers/gold_experiment_manifest.example.json --reviewer-out-dir eval_results/human_reviewers --trace-csv-out eval_results/case_trace.csv --preflight-out eval_results/pre_human_preflight.json --preflight-markdown-out eval_results/pre_human_preflight.md
+
+gold-eval:  ## Run the paid gold-standard pre-human phase (responses, judge, human packet)
+	PYTHONPATH=src uv run python scripts/run_gold_pre_human.py --manifest eval_papers/gold_experiment_manifest.example.json --reviewer-out-dir eval_results/human_reviewers --trace-csv-out eval_results/case_trace.csv --preflight-out eval_results/pre_human_preflight.json --preflight-markdown-out eval_results/pre_human_preflight.md --execute
+
+gold-eval-post:  ## Run post-human phase after raters return CSV files
+	PYTHONPATH=src uv run python scripts/run_gold_post_human.py --manifest eval_papers/gold_experiment_manifest.example.json --ratings-csv eval_results/human_reviewers/rater_1_ratings.csv eval_results/human_reviewers/rater_2_ratings.csv eval_results/human_reviewers/rater_3_ratings.csv eval_results/human_reviewers/rater_4_ratings.csv eval_results/human_reviewers/rater_5_ratings.csv --preflight-out eval_results/post_human_preflight.json --preflight-markdown-out eval_results/post_human_preflight.md --execute
 
 openwebui-up:  ## Start Open WebUI in Docker on http://localhost:3000
 	@docker ps -a --format '{{.Names}}' | grep -q '^mascan-openwebui$$' && \

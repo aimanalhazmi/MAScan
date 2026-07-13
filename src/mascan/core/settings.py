@@ -16,6 +16,11 @@ class Settings(BaseSettings):
     openai_api_key: str = Field(..., description="OpenAI API key.")
     openai_model_default: str = Field("gpt-4o-mini", description="Default model name.")
 
+    #  Gold-standard evaluation judge. Stronger than the system-under-test.
+    eval_judge_model: str = Field(
+        "gpt-4o", description="Model used by the gold-standard LLM judge."
+    )
+
     #  Tools
     firecrawl_api_key: str | None = Field(
         None, description="Firecrawl API key (not needed for a self-hosted instance)."
