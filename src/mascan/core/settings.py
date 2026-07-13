@@ -42,6 +42,12 @@ class Settings(BaseSettings):
     rag_max_retries: int = Field(
         1, description="Max self-correction (CRAG) rewrite-retries on the full retrieval path."
     )
+    rag_min_score: float = Field(
+        0.5,
+        description="Minimum similarity a passage needs to reach the planner. Dense search "
+        "always returns its nearest neighbour, so this keeps unrelated documents out of the "
+        "plan.",
+    )
     chunk_size: int = 1000
     chunk_overlap: int = 150
 

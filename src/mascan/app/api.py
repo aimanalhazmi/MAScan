@@ -18,7 +18,13 @@ import mascan.agents.political  # noqa: F401
 import mascan.agents.social  # noqa: F401
 import mascan.agents.technological  # noqa: F401
 from mascan.contracts import FinalReport
-from mascan.contracts.retrieval import Citation, RagAnswer, RetrievalQuery, RetrievedChunk
+from mascan.contracts.retrieval import (
+    Citation,
+    RagAnswer,
+    RetrievalQuery,
+    RetrievedChunk,
+    StoredDocument,
+)
 from mascan.core.exceptions import ConfigError, MAScanError
 from mascan.core.logging import configure_logging, get_logger
 from mascan.orchestrator import resume as orchestrator_resume
@@ -27,6 +33,7 @@ from mascan.orchestrator import stream as orchestrator_stream
 from mascan.rag.answer import answer_question
 from mascan.rag.ingest import ingest_file, ingest_text
 from mascan.rag.retriever import get_retriever
+from mascan.rag.store import list_documents, on_rag_loop
 
 configure_logging()
 logger = get_logger("app.api")
@@ -141,8 +148,10 @@ class IngestRequest(BaseModel):
 async def rag_ingest(request: IngestRequest) -> dict[str, int]:
     """Ingest plain text into the RAG store. Returns the number of chunks stored."""
     try:
-        stored = await ingest_text(
-            request.text, source=request.source, citation=Citation(document=request.document)
+        stored = await on_rag_loop(
+            ingest_text(
+                request.text, source=request.source, citation=Citation(document=request.document)
+            )
         )
     except ConfigError as exc:
         raise HTTPException(status_code=503, detail=str(exc)) from exc
@@ -163,7 +172,7 @@ async def rag_upload(file: UploadFile = File(...)) -> dict[str, Any]:
         tmp.write(await file.read())
         tmp_path = tmp.name
     try:
-        stored = await ingest_file(tmp_path, document=document, source="upload")
+        stored = await on_rag_loop(ingest_file(tmp_path, document=document, source="upload"))
     except ValueError as exc:
         raise HTTPException(status_code=415, detail=str(exc)) from exc
     except ConfigError as exc:
@@ -173,16 +182,28 @@ async def rag_upload(file: UploadFile = File(...)) -> dict[str, Any]:
     return {"document": document, "stored": stored}
 
 
+@app.get("/rag/documents", response_model=list[StoredDocument])
+async def rag_documents(source: str | None = "upload") -> list[StoredDocument]:
+    """List the documents held in the RAG store, newest ingest included.
+
+    Defaults to uploads only; pass an empty source to see every ingested document.
+    """
+    try:
+        return await on_rag_loop(list_documents(source or None))
+    except ConfigError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+
+
 @app.post("/rag/search", response_model=list[RetrievedChunk])
 async def rag_search(query: RetrievalQuery) -> list[RetrievedChunk]:
     """Dense similarity search over the RAG store. Empty list if RAG is disabled."""
-    return await get_retriever().retrieve(query)
+    return await on_rag_loop(get_retriever().retrieve(query))
 
 
 @app.post("/rag/answer", response_model=RagAnswer)
 async def rag_answer(query: RetrievalQuery) -> RagAnswer:
     """Retrieve + generate a grounded answer with structured citations."""
-    return await answer_question(query)
+    return await on_rag_loop(answer_question(query))
 
 
 @app.get("/health", response_model=HealthResponse)

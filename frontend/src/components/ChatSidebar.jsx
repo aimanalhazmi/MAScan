@@ -1,14 +1,20 @@
 // Conversation history list, ChatGPT/OpenWebUI style.
-export default function ChatSidebar({ conversations, activeId, onNew, onSelect, onDelete, theme, onToggleTheme }) {
+export default function ChatSidebar({ conversations, activeId, view, onNew, onSelect, onDelete, onOpenDocuments, theme, onToggleTheme }) {
   return (
     <aside className="sidebar">
       <div className="brand">MA<span>Scan</span></div>
       <button className="new-chat" onClick={onNew}>+ New chat</button>
+      <button
+        className={`nav-item${view === "documents" ? " active" : ""}`}
+        onClick={onOpenDocuments}
+      >
+        ▤ Documents
+      </button>
       <div className="chat-list">
         {conversations.map((c) => (
           <div
             key={c.id}
-            className={`chat-item${c.id === activeId ? " active" : ""}`}
+            className={`chat-item${view === "chat" && c.id === activeId ? " active" : ""}`}
             onClick={() => onSelect(c.id)}
           >
             <span className="chat-title">{c.title}</span>

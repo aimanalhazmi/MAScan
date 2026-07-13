@@ -1,14 +1,17 @@
+import json
 from typing import Any
 
-from langchain_core.messages import HumanMessage, SystemMessage
+from langchain_core.language_models import BaseChatModel
+from langchain_core.messages import HumanMessage, SystemMessage, ToolMessage
 from pydantic import BaseModel, Field
 
 from mascan.agents.registry import agent_registry
-from mascan.contracts.planning import AgentAssignment, InformationRequest
+from mascan.contracts.planning import PlanModel, IntentCheck, AgentAssignment, InformationRequest
 from mascan.core.llm import get_chat_model
 from mascan.core.logging import get_logger
 from mascan.core.settings import get_settings
 from mascan.orchestrator.state import GraphState
+from mascan.tools.registry import tool_registry
 
 logger = get_logger("orchestrator.planner")
 
@@ -17,6 +20,10 @@ You are the planner of a PESTEL multi-agent market-analysis system.
 
 Available agents (each specialises in one PESTEL dimension):
 {available_agents}
+
+You may already have searched MAScan's knowledge base, which holds the documents the
+user uploaded, such as company filings and product briefs. Any passages it returned
+are in this conversation as rag_search results.
 
 Your job:
 1. Read the user's question.
@@ -39,7 +46,27 @@ Your job:
 Return a JSON object with an "assignments" array. Each element has
 "agent_name" (string), "objective_context" (string), and "tasks" (list of strings).
 Agents you do NOT pick must NOT appear in the output.
-Do not add facts that are not present in the user question or runtime context.
+Do not add facts that are not present in the user question, the runtime context,
+or what rag_search returned.
+
+Treat what rag_search returns as the ground truth about the user's company,
+product, or market, and carry the parts that matter into the objective_context
+of every agent that needs them. Agents cannot search the knowledge base
+themselves, so anything you leave out is lost to them.
+"""
+
+LOOKUP_SYSTEM_PROMPT = """\
+You are the planner of a PESTEL multi-agent market-analysis system.
+
+Before planning, decide whether MAScan's knowledge base is worth searching. It holds
+only the documents the user uploaded, such as company filings, product briefs, and
+strategy papers. It holds no market news, regulations, or external research: the
+agents gather all of that themselves.
+
+- Call rag_search when the request names a company, product, or market the user is
+  likely to have documented, using a short query naming that entity, once per entity.
+- Call nothing when the request is self-contained, or when it asks about the wider
+  world rather than about the user's own business.
 """
 
 CLARIFY_SYSTEM_PROMPT = """\
@@ -58,25 +85,6 @@ Lean towards confirming intent, but do not ask when the request is already
 specific enough to act on.
 """
 
-
-class PlanModel(BaseModel):
-    """Structured output the planner LLM is forced to return."""
-
-    assignments: list[AgentAssignment] | InformationRequest = Field(
-        description="List of agent-task assignments or a request for more information.",
-    )
-
-
-class IntentCheck(BaseModel):
-    """Structured output of the pre-planning intent confirmation step."""
-
-    needs_clarification: bool = Field(
-        description="True if the request is too ambiguous to plan confidently.",
-    )
-    question: str = Field(
-        default="",
-        description="The clarifying question to ask, when needs_clarification is true.",
-    )
 
 
 def planner_node(state: GraphState) -> dict[str, Any]:
@@ -98,20 +106,24 @@ def planner_node(state: GraphState) -> dict[str, Any]:
             logger.info(f"Planner requesting intent clarification: {question}")
             return {"plan": {}, "info_request": InformationRequest(question=question)}
 
+    # The planner looks into the knowledge base first, then plans with whatever
+    # it found. Both steps use the same model.
     llm = get_chat_model(
         model=settings.openai_model_default,
         temperature=0.0,
         max_tokens=1000,
     )
-    structured_llm = llm.with_structured_output(PlanModel)
-    system_prompt = PLANNER_SYSTEM_PROMPT.format(
-        available_agents="\n".join(f"- {name}" for name in available)
-    )
-
-    result: PlanModel = structured_llm.invoke([
-        SystemMessage(content=system_prompt),
+    messages: list[Any] = [
+        SystemMessage(
+            content=PLANNER_SYSTEM_PROMPT.format(
+                available_agents="\n".join(f"- {name}" for name in available)
+            )
+        ),
         HumanMessage(content=user_prompt),
-    ])
+        *search_knowledge_base(llm, user_prompt),
+    ]
+
+    result: PlanModel = llm.with_structured_output(PlanModel).invoke(messages)
 
     if isinstance(result.assignments, InformationRequest):
         logger.info(f"Planner requested more information: {result.assignments.question}")
@@ -121,6 +133,34 @@ def planner_node(state: GraphState) -> dict[str, Any]:
     plan = _filter_to_known_agents(raw_plan, available)
     logger.info(f"Planner selected {len(plan)} agent(s): {sorted(plan.keys())}")
     return {"plan": plan}
+
+
+def search_knowledge_base(llm: BaseChatModel, user_prompt: str) -> list[Any]:
+    """Let the planner search the uploaded documents, and return the exchange as messages."""
+    if "rag_search" not in tool_registry.all_names():
+        return []
+
+    tool = tool_registry.get("rag_search")
+    decision = llm.bind_tools([tool.as_langchain_tool()]).invoke([
+        SystemMessage(content=LOOKUP_SYSTEM_PROMPT),
+        HumanMessage(content=user_prompt),
+    ])
+
+    calls = getattr(decision, "tool_calls", None) or []
+    if not calls:
+        logger.info("Planner found no reason to search the knowledge base.")
+        return []
+
+    answers: list[Any] = []
+    for call in calls:
+        result = tool.run(**call["args"])
+        if not result.success:
+            logger.warning(f"rag_search failed during planning: {result.error}")
+        passages = result.data if result.success and result.data else []
+        logger.info(f"Planner searched {call['args'].get('query')!r}: {len(passages)} passage(s).")
+        answers.append(ToolMessage(content=json.dumps(passages), tool_call_id=call["id"]))
+
+    return [decision, *answers]
 
 
 def build_user_prompt(state: GraphState, runtime: dict[str, Any]) -> str:

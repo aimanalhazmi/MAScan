@@ -32,7 +32,9 @@ class PGVectorRetriever:
     async def retrieve(self, query: RetrievalQuery) -> list[RetrievedChunk]:
         store = get_vector_store()
 
-        results = await store.asimilarity_search_with_score(query.query, k=query.k)
+
+        embedding = await store.embeddings.aembed_query(query.query)
+        results = await store.asimilarity_search_with_score_by_vector(embedding, k=query.k)
         return [document_to_retrieved_chunk(doc, score) for doc, score in results]
 
 

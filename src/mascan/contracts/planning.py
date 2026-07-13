@@ -19,3 +19,22 @@ class InformationRequest(BaseModel):
     question: str = Field(
         description="A request for additional information or clarification from the user."
     )
+
+class PlanModel(BaseModel):
+    """Structured output the planner LLM is forced to return."""
+
+    assignments: list[AgentAssignment] | InformationRequest = Field(
+        description="List of agent-task assignments or a request for more information.",
+    )
+
+
+class IntentCheck(BaseModel):
+    """Structured output of the pre-planning intent confirmation step."""
+
+    needs_clarification: bool = Field(
+        description="True if the request is too ambiguous to plan confidently.",
+    )
+    question: str = Field(
+        default="",
+        description="The clarifying question to ask, when needs_clarification is true.",
+    )
