@@ -47,3 +47,7 @@ Thumbs.db
 /playground/
 .agents
 rag_images/
+
+# web UI
+src/mascan/app/static/
+frontend/node_modules/
