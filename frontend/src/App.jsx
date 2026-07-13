@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import ChatSidebar from "./components/ChatSidebar";
 import Conversation from "./components/Conversation";
+import Documents from "./components/Documents";
 import GraphRail from "./components/GraphRail";
 import NodeDetail from "./components/NodeDetail";
 import { useAnalysisStream, emptyRun } from "./useAnalysisStream";
@@ -13,6 +14,7 @@ export default function App() {
   });
   const [activeId, setActiveId] = useState(() => conversations[0].id);
   const [selectedNode, setSelectedNode] = useState(null);
+  const [view, setView] = useState("chat"); // "chat" | "documents"
   const [theme, setTheme] = useState(() => localStorage.getItem("mascan.theme") || "light");
   const [leftW, setLeftW] = useState(() => Number(localStorage.getItem("mascan.leftW")) || 250);
   const [rightW, setRightW] = useState(() => Number(localStorage.getItem("mascan.rightW")) || 340);
@@ -51,6 +53,7 @@ export default function App() {
     const conv = conversations.find((c) => c.id === id);
     setActiveId(id);
     setSelectedNode(null);
+    setView("chat");
     stream.reset(loadRun(conv));
   }
 
@@ -59,6 +62,7 @@ export default function App() {
     setConversations((prev) => [conv, ...prev]);
     setActiveId(conv.id);
     setSelectedNode(null);
+    setView("chat");
     stream.reset(emptyRun());
   }
 
@@ -115,30 +119,45 @@ export default function App() {
   const clamp = (n, lo, hi) => Math.max(lo, Math.min(hi, n));
 
   return (
-    <div className="app" style={{ "--left-w": `${leftW}px`, "--right-w": `${rightW}px` }}>
+    <div
+      className={`app${view === "documents" ? " app-wide" : ""}`}
+      style={{ "--left-w": `${leftW}px`, "--right-w": `${rightW}px` }}
+    >
       <ChatSidebar
         conversations={conversations}
         activeId={activeId}
+        view={view}
         onNew={createConversation}
         onSelect={selectConversation}
         onDelete={deleteConversation}
+        onOpenDocuments={() => setView("documents")}
         theme={theme}
         onToggleTheme={() => setTheme((t) => (t === "dark" ? "light" : "dark"))}
       />
       <Resizer onMove={(dx) => setLeftW((w) => clamp(w + dx, 180, 480))} />
-      <Conversation
-        messages={active.messages}
-        run={stream.run}
-        onSend={send}
-        onResume={(answer) => resume(answer)}
-      />
-      <Resizer onMove={(dx) => setRightW((w) => clamp(w - dx, 260, 620))} />
-      <div className="right-rail">
-        <GraphRail run={stream.run} selected={selectedNode} onSelect={setSelectedNode} />
-        {selectedNode && (
-          <NodeDetail run={stream.run} nodeId={selectedNode} onClose={() => setSelectedNode(null)} />
-        )}
-      </div>
+      {view === "documents" ? (
+        <Documents />
+      ) : (
+        <>
+          <Conversation
+            messages={active.messages}
+            run={stream.run}
+            onSend={send}
+            onResume={(answer) => resume(answer)}
+          />
+          <Resizer onMove={(dx) => setRightW((w) => clamp(w - dx, 260, 620))} />
+          <div className="right-rail">
+            <GraphRail run={stream.run} selected={selectedNode} onSelect={setSelectedNode} />
+            {selectedNode && (
+              <NodeDetail
+                run={stream.run}
+                nodeId={selectedNode}
+                onClose={() => setSelectedNode(null)}
+              />
+            )}
+          </div>
+        </>
+      )}
     </div>
   );
 }

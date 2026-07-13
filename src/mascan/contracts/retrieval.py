@@ -32,6 +32,13 @@ class RetrievedChunk(Chunk):
     score: float = Field(0.0, description="Relevance score from the retriever.")
 
 
+class StoredDocument(BaseModel):
+    """A document that is present in the vector store, as shown in the library."""
+    document: str
+    source: str
+    chunks: int
+
+
 class RagAnswer(BaseModel):
     """A generated answer grounded in retrieved chunks, with structured citations."""
     answer: str

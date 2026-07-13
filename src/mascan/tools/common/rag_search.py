@@ -1,33 +1,43 @@
 """rag_search — lets an agent query MAScan's internal RAG index.."""
 
 import asyncio
-import concurrent.futures
+import threading
 from collections.abc import Coroutine
-from typing import Any, ClassVar, TypeVar
+from typing import Any, ClassVar
 
 from pydantic import BaseModel, Field
 
 from mascan.contracts.retrieval import RetrievalQuery
 from mascan.contracts.tools import ToolResult
+from mascan.core.settings import get_settings
 from mascan.rag.retriever import get_retriever
 from mascan.tools.base import BaseTool
 
-_T = TypeVar("_T")
+background_loop: asyncio.AbstractEventLoop | None = None
+loop_lock = threading.Lock()
 
 
-def run_async(coro: Coroutine[Any, Any, _T]) -> _T:
-    """Run a coroutine from sync code, whether or not a loop is already running.
+def get_background_loop() -> asyncio.AbstractEventLoop:
+    """One long-lived event loop for every sync caller of the async RAG stack.
 
-    Agents may be invoked from a plain sync context (no loop → asyncio.run) or
-    from inside FastAPI's async endpoints (a loop is already running on this
-    thread → asyncio.run would raise, so run it in a worker thread instead).
+    The vector store's database engine and the embedding client bind to the loop
+    that first uses them, and fail with a connection error when a later call
+    reaches them from a different loop. Keeping a single loop for all bridged
+    calls also stops each call from opening its own connection pool.
     """
-    try:
-        asyncio.get_running_loop()
-    except RuntimeError:
-        return asyncio.run(coro)
-    with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
-        return pool.submit(asyncio.run, coro).result()
+    global background_loop
+    with loop_lock:
+        if background_loop is None:
+            background_loop = asyncio.new_event_loop()
+            threading.Thread(
+                target=background_loop.run_forever, name="rag-loop", daemon=True
+            ).start()
+        return background_loop
+
+
+def run_async[T](coro: Coroutine[Any, Any, T]) -> T:
+    """Run a coroutine from sync code (agents, the planner) and wait for it."""
+    return asyncio.run_coroutine_threadsafe(coro, get_background_loop()).result()
 
 
 class RagSearchInput(BaseModel):
@@ -46,6 +56,8 @@ class RagSearchTool(BaseTool):
     def run(self, query: str, k: int = 5, **_: Any) -> ToolResult[list[dict[str, Any]]]:
         try:
             chunks = run_async(get_retriever().retrieve(RetrievalQuery(query=query, k=k)))
+            floor = get_settings().rag_min_score
+            relevant = [c for c in chunks if c.score >= floor]
             return ToolResult(
                 success=True,
                 data=[
@@ -54,10 +66,10 @@ class RagSearchTool(BaseTool):
                         "citation": c.citation.model_dump(),
                         "score": c.score,
                     }
-                    for c in chunks
+                    for c in relevant
                 ],
                 source="rag_search",
-                metadata={"query": query, "count": len(chunks)},
+                metadata={"query": query, "count": len(relevant), "retrieved": len(chunks)},
             )
         except Exception as exc:
             self.logger.exception("rag_search failed for query=%r", query)

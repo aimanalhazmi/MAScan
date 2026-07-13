@@ -56,11 +56,20 @@ result = await answer_question(RetrievalQuery(query="What are the main risks?"))
 print(result.answer, result.citations)
 ```
 
-Agents can search the index through the `rag_search` tool
-(`mascan/tools/common/rag_search.py`) by listing it in their `config.yaml`.
+## How the planner uses it
+
+`rag_search` (`mascan/tools/common/rag_search.py`) is bound to the planner. Before
+it writes the plan, the planner decides for itself whether the knowledge base holds
+context about the request (the user's company, product, or market) and searches it
+if so. Passages above `RAG_MIN_SCORE` go into the planning prompt, and the planner
+carries what matters into each agent's `objective_context`. When it looks up nothing,
+or nothing relevant comes back, planning continues unchanged.
+
+Agents can search the index with the same tool by listing it in their `config.yaml`.
 
 HTTP endpoints (see `mascan/app/api.py`): `POST /rag/ingest`, `/rag/upload`,
-`/rag/search`, `/rag/answer`.
+`/rag/search`, `/rag/answer`, and `GET /rag/documents` (the document library:
+what is indexed, grouped by document, uploads only by default).
 
 ## Configuration
 
@@ -75,4 +84,5 @@ Set via environment / `mascan.core.settings`:
 | `VISION_BASE_URL` / `VISION_API_KEY` | OpenAI-compatible endpoint for the vision model (e.g. a self-hosted one). Unset → OpenAI. |
 | `RAG_IMAGE_DIR` | Where extracted PDF figures are saved. |
 | `RAG_MAX_RETRIES` | Max CRAG rewrite-retries on the full path. |
+| `RAG_MIN_SCORE` | Minimum similarity for a passage to reach the planner. |
 | `CHUNK_SIZE` / `CHUNK_OVERLAP` | Chunking parameters. |

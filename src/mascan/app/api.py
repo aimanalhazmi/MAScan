@@ -18,7 +18,13 @@ import mascan.agents.political  # noqa: F401
 import mascan.agents.social  # noqa: F401
 import mascan.agents.technological  # noqa: F401
 from mascan.contracts import FinalReport
-from mascan.contracts.retrieval import Citation, RagAnswer, RetrievalQuery, RetrievedChunk
+from mascan.contracts.retrieval import (
+    Citation,
+    RagAnswer,
+    RetrievalQuery,
+    RetrievedChunk,
+    StoredDocument,
+)
 from mascan.core.exceptions import ConfigError, MAScanError
 from mascan.core.logging import configure_logging, get_logger
 from mascan.orchestrator import resume as orchestrator_resume
@@ -27,6 +33,7 @@ from mascan.orchestrator import stream as orchestrator_stream
 from mascan.rag.answer import answer_question
 from mascan.rag.ingest import ingest_file, ingest_text
 from mascan.rag.retriever import get_retriever
+from mascan.rag.store import list_documents
 
 configure_logging()
 logger = get_logger("app.api")
@@ -171,6 +178,18 @@ async def rag_upload(file: UploadFile = File(...)) -> dict[str, Any]:
     finally:
         os.unlink(tmp_path)
     return {"document": document, "stored": stored}
+
+
+@app.get("/rag/documents", response_model=list[StoredDocument])
+async def rag_documents(source: str | None = "upload") -> list[StoredDocument]:
+    """List the documents held in the RAG store, newest ingest included.
+
+    Defaults to uploads only; pass an empty source to see every ingested document.
+    """
+    try:
+        return await list_documents(source or None)
+    except ConfigError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
 
 
 @app.post("/rag/search", response_model=list[RetrievedChunk])
