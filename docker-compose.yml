@@ -15,6 +15,7 @@ services:
       HOME: /app
       # the self-hosted Firecrawl
       FIRECRAWL_API_URL: http://firecrawl:3002
+      MASCAN_STATIC_DIR: /app/src/mascan/app/static
     volumes:
       - ./src:/app/src:ro
       - ./scripts:/app/scripts:ro

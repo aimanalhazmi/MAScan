@@ -4,7 +4,7 @@ import Conversation from "./components/Conversation";
 import GraphRail from "./components/GraphRail";
 import NodeDetail from "./components/NodeDetail";
 import { useAnalysisStream, emptyRun } from "./useAnalysisStream";
-import { loadConversations, saveConversations, newConversation, titleFrom } from "./storage";
+import { loadConversations, saveConversations, newConversation, titleFrom, loadRun } from "./storage";
 
 export default function App() {
   const [conversations, setConversations] = useState(() => {
@@ -17,7 +17,9 @@ export default function App() {
   const [leftW, setLeftW] = useState(() => Number(localStorage.getItem("mascan.leftW")) || 250);
   const [rightW, setRightW] = useState(() => Number(localStorage.getItem("mascan.rightW")) || 340);
 
-  const stream = useAnalysisStream();
+  // Seed the stream with the active conversation's saved run so the graph shows
+  // its node states on reload instead of starting blank.
+  const stream = useAnalysisStream(loadRun(conversations[0]));
   const active = conversations.find((c) => c.id === activeId) || conversations[0];
 
   useEffect(() => saveConversations(conversations), [conversations]);
@@ -49,7 +51,7 @@ export default function App() {
     const conv = conversations.find((c) => c.id === id);
     setActiveId(id);
     setSelectedNode(null);
-    stream.reset(conv?.run || emptyRun());
+    stream.reset(loadRun(conv));
   }
 
   function createConversation() {
@@ -67,10 +69,31 @@ export default function App() {
       if (id === activeId) {
         setActiveId(next[0].id);
         setSelectedNode(null);
-        stream.reset(next[0].run || emptyRun());
+        stream.reset(loadRun(next[0]));
       }
       return next;
     });
+  }
+
+  // Record the planner's question and the user's answer in the chat before
+  // resuming the run, so the exchange stays visible in the history.
+  function resume(answer) {
+    const question = stream.run.clarification?.question;
+    setConversations((prev) =>
+      prev.map((c) =>
+        c.id === activeId
+          ? {
+              ...c,
+              messages: [
+                ...c.messages,
+                { role: "assistant", content: question || "" },
+                { role: "user", content: answer },
+              ],
+            }
+          : c
+      )
+    );
+    stream.resume(stream.run.clarification?.thread_id, answer);
   }
 
   function send(query) {
@@ -107,7 +130,7 @@ export default function App() {
         messages={active.messages}
         run={stream.run}
         onSend={send}
-        onResume={(answer) => stream.resume(stream.run.clarification?.thread_id, answer)}
+        onResume={(answer) => resume(answer)}
       />
       <Resizer onMove={(dx) => setRightW((w) => clamp(w - dx, 260, 620))} />
       <div className="right-rail">

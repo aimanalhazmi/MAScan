@@ -6,6 +6,7 @@ import { AGENTS, LABELS } from "../graph";
 // 2-column grid, synthesizer at the bottom.
 const POS = {
   planner: { x: 95, y: 0 },
+  clarify: { x: 260, y: 55 },
   political: { x: 5, y: 95 },
   economics: { x: 175, y: 95 },
   social: { x: 5, y: 175 },
@@ -35,6 +36,15 @@ export default function GraphRail({ run, selected, onSelect }) {
     const active = (id) =>
       run.nodeStatus[id] === "active" || run.nodeStatus[id] === "done";
     const list = [];
+    // Planner branches to the clarification node when it needs more input.
+    const clarify = run.nodeStatus.clarify;
+    list.push({
+      id: "p-clarify",
+      source: "planner",
+      target: "clarify",
+      animated: clarify === "active",
+      className: clarify === "idle" ? "scan-edge" : "scan-edge-on",
+    });
     for (const a of AGENTS) {
       const on = active("planner") && run.nodeStatus[a] !== "skipped" && run.nodeStatus[a] !== "idle";
       list.push({ id: `p-${a}`, source: "planner", target: a, animated: on, className: on ? "scan-edge-on" : "scan-edge" });

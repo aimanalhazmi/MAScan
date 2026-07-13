@@ -24,6 +24,22 @@ function renderBody(run, nodeId) {
     return <p className="detail-fail">{run.failures[nodeId]}</p>;
   }
 
+  if (nodeId === "clarify") {
+    const log = run.clarifications || [];
+    if (!log.length) {
+      const waiting = run.nodeStatus.clarify === "active";
+      return <p className="muted">{waiting ? "Waiting for your answer…" : "No clarification was needed."}</p>;
+    }
+    return log.map((item, i) => (
+      <div key={i} className="plan-item">
+        <h4>Question</h4>
+        <p className="muted">{item.question}</p>
+        <h4>Answer</h4>
+        <p>{item.answer}</p>
+      </div>
+    ));
+  }
+
   if (nodeId === "planner") {
     const entries = Object.entries(run.plan);
     if (!entries.length) return <Empty status={run.nodeStatus.planner} />;

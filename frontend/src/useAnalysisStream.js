@@ -5,7 +5,7 @@ import { AGENTS } from "./graph";
 // reduces node events into a single run object the UI renders.
 
 export function emptyRun() {
-  const nodeStatus = { planner: "idle", synthesizer: "idle" };
+  const nodeStatus = { planner: "idle", clarify: "idle", synthesizer: "idle" };
   for (const a of AGENTS) nodeStatus[a] = "idle";
   return {
     status: "idle", // idle | running | clarification | done | error
@@ -16,6 +16,7 @@ export function emptyRun() {
     finalMarkdown: "",
     summary: "",
     clarification: null,
+    clarifications: [], // answered question/answer pairs, kept for the graph
     error: "",
   };
 }
@@ -31,7 +32,7 @@ function markSynthesizer(run) {
   return run;
 }
 
-function reduce(prev, ev) {
+export function reduce(prev, ev) {
   const run = { ...prev, nodeStatus: { ...prev.nodeStatus } };
 
   if (ev.event === "start") {
@@ -43,6 +44,7 @@ function reduce(prev, ev) {
   if (ev.event === "clarification") {
     run.status = "clarification";
     run.clarification = { question: ev.question, thread_id: ev.thread_id };
+    run.nodeStatus.clarify = "active";
     return run;
   }
 
@@ -57,11 +59,33 @@ function reduce(prev, ev) {
     return run;
   }
 
+  // The stream closed. If we never got a "done" event (e.g. a node crashed
+  // server-side), don't hang in "running": show the report if it arrived,
+  // otherwise surface an error.
+  if (ev.event === "eof") {
+    if (run.status === "running") {
+      if (run.finalMarkdown) run.status = "done";
+      else {
+        run.status = "error";
+        run.error = "The run ended before producing a report. Check the API logs.";
+      }
+    }
+    return run;
+  }
+
   if (ev.event !== "node") return run;
 
-  const { node, update = {} } = ev;
+  // A skipped node streams `update: null`, so coalesce (a `= {}` default only
+  // covers undefined).
+  const { node } = ev;
+  const update = ev.update || {};
 
   if (node === "planner") {
+    // Planner is asking for clarification; stay active until the answer comes.
+    if (update.info_request) {
+      run.nodeStatus.planner = "active";
+      return run;
+    }
     run.nodeStatus.planner = "done";
     if (update.plan && typeof update.plan === "object") {
       run.plan = update.plan;
@@ -107,13 +131,19 @@ async function consume(response, apply) {
     for (const part of parts) {
       const line = part.split("\n").find((l) => l.startsWith("data:"));
       if (!line) continue;
-      apply(JSON.parse(line.slice(5).trim()));
+      try {
+        apply(JSON.parse(line.slice(5).trim()));
+      } catch {
+        // Ignore malformed SSE lines rather than killing the stream.
+      }
     }
   }
 }
 
-export function useAnalysisStream() {
-  const [run, setRun] = useState(emptyRun());
+export function useAnalysisStream(initialRun) {
+  // Fill any missing fields so a lightweight snapshot still forms a valid run.
+  const hydrate = (partial) => (partial ? { ...emptyRun(), ...partial } : emptyRun());
+  const [run, setRun] = useState(() => hydrate(initialRun));
 
   const apply = (ev) => setRun((r) => reduce(r, ev));
 
@@ -129,6 +159,7 @@ export function useAnalysisStream() {
         return;
       }
       await consume(res, apply);
+      apply({ event: "eof" });
     } catch (err) {
       apply({ event: "error", message: String(err) });
     }
@@ -143,9 +174,15 @@ export function useAnalysisStream() {
     },
     // Branch 2 wires /analyze/resume; the reducer already handles the events.
     resume: (thread_id, answer) => {
-      setRun((r) => ({ ...r, status: "running", clarification: null }));
+      setRun((r) => ({
+        ...r,
+        status: "running",
+        clarification: null,
+        nodeStatus: { ...r.nodeStatus, clarify: "done" },
+        clarifications: [...(r.clarifications || []), { question: r.clarification?.question, answer }],
+      }));
       return post("/analyze/resume", { thread_id, answer });
     },
-    reset: (initial) => setRun(initial || emptyRun()),
+    reset: (initial) => setRun(hydrate(initial)),
   };
 }

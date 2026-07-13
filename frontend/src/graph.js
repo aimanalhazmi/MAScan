@@ -16,6 +16,7 @@ export const FLOW = ["planner", ...AGENTS, "synthesizer"];
 
 export const LABELS = {
   planner: "Planner",
+  clarify: "Clarification",
   synthesizer: "Synthesizer",
   political: "Political",
   economics: "Economic",
