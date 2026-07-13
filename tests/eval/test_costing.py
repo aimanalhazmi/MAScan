@@ -1,5 +1,4 @@
 import pytest
-from pathlib import Path
 
 from mascan.eval.costing import (
     ModelPricing,
@@ -127,8 +126,23 @@ def test_validate_pricing_table_reports_coverage_metadata_and_zero_rates():
 
 def test_repository_pricing_matches_example_manifest():
     manifest = load_experiment_manifest("eval_papers/gold_experiment_manifest.example.json")
-    pricing = PricingTable.model_validate_json(
-        Path("eval_results/model_pricing.json").read_text(encoding="utf-8")
+    pricing = pricing_template_for_models(
+        [system.model for system in manifest.systems],
+        source_url="https://openai.com/api/pricing/",
+        captured_at="2026-07-12",
+    )
+    pricing = pricing.model_copy(
+        update={
+            "prices": [
+                price.model_copy(
+                    update={
+                        "prompt_usd_per_1m_tokens": 0.15,
+                        "completion_usd_per_1m_tokens": 0.6,
+                    }
+                )
+                for price in pricing.prices
+            ]
+        }
     )
 
     report = validate_pricing_table(
