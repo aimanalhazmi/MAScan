@@ -1,5 +1,5 @@
 .DEFAULT_GOAL := help
-.PHONY: help install test lint format clean run-economics run-political run-legal run-social run-environmental run-orchestrator run-orchestrator-docker run-orchestrator-stream run-api dev-ui build-ui openwebui-up openwebui-down openwebui-logs compose-up compose-down compose-logs compose-rebuild
+.PHONY: help install test lint format clean run-economics run-political run-legal run-social run-environmental run-orchestrator run-orchestrator-docker run-orchestrator-stream run-api dev-ui build-ui compose-up compose-down compose-logs compose-rebuild
 help:  ## Show this help message
 	@echo "MAScan — available commands:"
 	@echo ""
@@ -69,33 +69,12 @@ dev-ui:  ## Run the web UI dev server (proxies to the API on :8000)
 build-ui:  ## Build the web UI into the API's static dir (served at :8000)
 	cd frontend && npm install && npm run build
 
-openwebui-up:  ## Start Open WebUI in Docker on http://localhost:3000
-	@docker ps -a --format '{{.Names}}' | grep -q '^mascan-openwebui$$' && \
-		echo "Container already exists. Run 'docker start mascan-openwebui' to resume, or 'make openwebui-down' to remove it first." && exit 1 || true
-	docker run -d \
-		--name mascan-openwebui \
-		--add-host=host.docker.internal:host-gateway \
-		-p 3000:8080 \
-		-v mascan-openwebui-data:/app/backend/data \
-		--restart unless-stopped \
-		ghcr.io/open-webui/open-webui:main
-	@echo ""
-	@echo "Open WebUI starting at http://localhost:3000 (wait ~15s)"
-
-openwebui-down:  ## Stop and remove the Open WebUI container (data is preserved)
-	-docker stop mascan-openwebui
-	-docker rm mascan-openwebui
-
-openwebui-logs:  ## Follow Open WebUI container logs
-	docker logs -f mascan-openwebui
-
-
-compose-up:  ## Start the full stack (mascan-api + openwebui) via docker compose
+compose-up:  ## Start the full stack (mascan api + UI) via docker compose
 	docker compose up -d --build
 	@echo ""
 	@echo "App starting:"
-	@echo "  - MAScan API:  http://localhost:8000"
-	@echo "  - Open WebUI:  http://localhost:3000"
+	@echo "  - MAScan UI:  http://localhost:8000"
+	@echo "  - MAScan API:  http://localhost:8000\docs"
 	@echo ""
 	@echo "Logs:    make compose-logs"
 	@echo "Stop:    make compose-down"
@@ -105,6 +84,10 @@ compose-down:  ## Stop the full stack (data is preserved in named volume)
 
 compose-logs:  ## Follow logs from all services
 	docker compose logs -f
+
+mascan-logs:  ## Follow logs from mascan api
+	docker logs -f api
+
 
 compose-rebuild:  ## Force a rebuild of the mascan-api image
 	docker compose build --no-cache mascan-api

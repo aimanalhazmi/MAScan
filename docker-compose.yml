@@ -131,27 +131,6 @@ services:
       POSTGRES_PASSWORD: postgres
       POSTGRES_DB: postgres
 
-  # Open WebUI
-  openwebui:
-    image: ghcr.io/open-webui/open-webui:main
-    container_name: mascan-openwebui
-    restart: unless-stopped
-    ports:
-      - "3000:8080"
-    volumes:
-      - openwebui-data:/app/backend/data
-    depends_on:
-      mascan-api:
-        condition: service_healthy
-    environment:
-      # Disable Ollama since we don't use it; speeds up startup.
-      ENABLE_OLLAMA_API: "false"
-      WEBUI_AUTH: "true"
-      # We do RAG in our own pipe; skip Open WebUI's retrieval.
-      BYPASS_EMBEDDING_AND_RETRIEVAL: "true"
-
 volumes:
-  openwebui-data:
-    name: mascan-openwebui-data
   mascan-pgdata:
     name: mascan-pgdata
