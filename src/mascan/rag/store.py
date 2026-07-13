@@ -2,6 +2,9 @@
 
 import asyncio
 import hashlib
+import threading
+from collections.abc import Coroutine
+from typing import Any
 
 from langchain_core.documents import Document
 from langchain_openai import OpenAIEmbeddings
@@ -13,20 +16,36 @@ from mascan.contracts.retrieval import Chunk, Citation, RetrievedChunk, StoredDo
 from mascan.core.exceptions import ConfigError
 from mascan.core.settings import get_settings
 
-stores: dict[int, PGVector] = {}
+rag_loop: asyncio.AbstractEventLoop | None = None
+loop_lock = threading.Lock()
+store: PGVector | None = None
 
 
-DOCUMENTS_SQL = text("""
-    SELECT e.cmetadata #>> '{citation,document}' AS document,
-           e.cmetadata ->> 'source'              AS source,
-           count(*)                              AS chunks
-    FROM langchain_pg_embedding e
-    JOIN langchain_pg_collection c ON c.uuid = e.collection_id
-    WHERE c.name = :collection
-      AND (CAST(:source AS text) IS NULL OR e.cmetadata ->> 'source' = :source)
-    GROUP BY 1, 2
-    ORDER BY 1
-""")
+def get_rag_loop() -> asyncio.AbstractEventLoop:
+    """The one event loop all RAG work runs on.
+
+    The store's connection pool and the embedding client bind to the loop that first
+    uses them, and fail with a connection error when reached from another loop. So
+    everything goes through this loop: the API's async endpoints via `on_rag_loop`,
+    the sync callers (agents, planner, CLI) via `run_sync`. Callers with no loop of
+    their own — the orchestrator script — need it to exist anyway.
+    """
+    global rag_loop
+    with loop_lock:
+        if rag_loop is None:
+            rag_loop = asyncio.new_event_loop()
+            threading.Thread(target=rag_loop.run_forever, name="rag-loop", daemon=True).start()
+        return rag_loop
+
+
+def run_sync[T](coro: Coroutine[Any, Any, T]) -> T:
+    """Run RAG from sync code (agents, planner, CLI) and wait for it."""
+    return asyncio.run_coroutine_threadsafe(coro, get_rag_loop()).result()
+
+
+async def on_rag_loop[T](coro: Coroutine[Any, Any, T]) -> T:
+    """Run RAG from async code (FastAPI) without blocking the caller's loop."""
+    return await asyncio.wrap_future(asyncio.run_coroutine_threadsafe(coro, get_rag_loop()))
 
 
 def content_hash(content: str | bytes) -> str:
@@ -54,11 +73,21 @@ async def list_documents(source: str | None = None) -> list[StoredDocument]:
     Optionally restricted to one source (e.g. "upload"), so the document library
     shows what the user uploaded and not what agents ingested along the way.
     """
-    store = get_vector_store()
+    sql = text("""
+        SELECT e.cmetadata #>> '{citation,document}' AS document,
+               e.cmetadata ->> 'source'              AS source,
+               count(*)                              AS chunks
+        FROM langchain_pg_embedding e
+        JOIN langchain_pg_collection c ON c.uuid = e.collection_id
+        WHERE c.name = :collection
+          AND (CAST(:source AS text) IS NULL OR e.cmetadata ->> 'source' = :source)
+        GROUP BY 1, 2
+        ORDER BY 1
+    """)
     params = {"collection": get_settings().rag_collection, "source": source}
 
-    async with store.session_maker() as session:
-        rows = (await session.execute(DOCUMENTS_SQL, params)).all()
+    async with get_vector_store().session_maker() as session:
+        rows = (await session.execute(sql, params)).all()
 
     return [
         StoredDocument(document=name, source=src or "", chunks=count)
@@ -99,25 +128,24 @@ def document_to_retrieved_chunk(doc: Document, distance: float) -> RetrievedChun
 
 
 def get_vector_store() -> PGVector:
-    """Return the async PGVector store for the running event loop.
-
-    The store's database engine and its embedding client bind to the loop that
-    first uses them, so one store per loop: the API serves requests on FastAPI's
-    loop, while agents and the planner reach the same data from their own loop.
-    Sharing a single store between the two raises a connection error.
-
-    Raises ConfigError if no DATABASE_URL is configured.
     """
+    Retrieve or initialize a global instance of the PGVector store.
+
+    This function checks if the global `store` variable has already been initialized.
+    If not, it creates a new PGVector instance using the settings provided by the
+    application configuration.
+
+    Raises:
+        ConfigError: If the `DATABASE_URL` is not set in the application settings.
+
+    :return: An initialized instance of PGVector.
+    :rtype: PGVector
+    """
+    global store
     s = get_settings()
     if not s.database_url:
         raise ConfigError("DATABASE_URL not set; cannot build the PGVector store.")
 
-    try:
-        key = id(asyncio.get_running_loop())
-    except RuntimeError:
-        key = 0
-
-    store = stores.get(key)
     if store is None:
         embeddings = OpenAIEmbeddings(model=s.embedding_model, api_key=SecretStr(s.openai_api_key))
         store = PGVector(
@@ -128,5 +156,4 @@ def get_vector_store() -> PGVector:
             use_jsonb=True,
             async_mode=True,
         )
-        stores[key] = store
     return store

@@ -1,5 +1,6 @@
 """Ingestion: chunk text, embed, upsert into the PGVector store."""
 
+import asyncio
 from pathlib import Path
 
 from mascan.contracts.retrieval import Chunk, Citation
@@ -48,7 +49,8 @@ async def ingest_file(path: str | Path, *, document: str, source: str = "upload"
             return 0
         from mascan.rag.parsing import parse_pdf
 
-        return await ingest_chunks(parse_pdf(p, document=document, source=source), key=key)
+        chunks = await asyncio.to_thread(parse_pdf, p, document=document, source=source)
+        return await ingest_chunks(chunks, key=key)
     if suffix in {".md", ".txt"}:
         return await ingest_text(
             p.read_text(encoding="utf-8"),

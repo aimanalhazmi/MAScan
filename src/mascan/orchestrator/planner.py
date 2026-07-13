@@ -6,7 +6,7 @@ from langchain_core.messages import HumanMessage, SystemMessage, ToolMessage
 from pydantic import BaseModel, Field
 
 from mascan.agents.registry import agent_registry
-from mascan.contracts.planning import AgentAssignment, InformationRequest
+from mascan.contracts.planning import PlanModel, IntentCheck, AgentAssignment, InformationRequest
 from mascan.core.llm import get_chat_model
 from mascan.core.logging import get_logger
 from mascan.core.settings import get_settings
@@ -85,25 +85,6 @@ Lean towards confirming intent, but do not ask when the request is already
 specific enough to act on.
 """
 
-
-class PlanModel(BaseModel):
-    """Structured output the planner LLM is forced to return."""
-
-    assignments: list[AgentAssignment] | InformationRequest = Field(
-        description="List of agent-task assignments or a request for more information.",
-    )
-
-
-class IntentCheck(BaseModel):
-    """Structured output of the pre-planning intent confirmation step."""
-
-    needs_clarification: bool = Field(
-        description="True if the request is too ambiguous to plan confidently.",
-    )
-    question: str = Field(
-        default="",
-        description="The clarifying question to ask, when needs_clarification is true.",
-    )
 
 
 def planner_node(state: GraphState) -> dict[str, Any]:
