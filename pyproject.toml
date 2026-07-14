@@ -33,6 +33,7 @@ dependencies = [
     "langchain-postgres>=0.0.17",
     "pymupdf>=1.28.0",
     "python-multipart>=0.0.32",
+    "openpyxl>=3.1.5",
 ]
 
 [project.optional-dependencies]

@@ -5,6 +5,7 @@ import hashlib
 import io
 import json
 from collections.abc import Sequence
+from pathlib import Path
 
 from mascan.eval.fingerprints import model_sha256
 from mascan.eval.gold_judge import GOLD_JUDGE_SYSTEM_PROMPT
@@ -302,6 +303,47 @@ def render_gold_standard_manifest_markdown(
     return "\n".join(lines).rstrip() + "\n"
 
 
+def strip_human_packet_sources(response_text: str) -> str:
+    """Remove citation appendices from blinded human-review packet responses."""
+    for marker in ("\n## Sources\n", "\n## Sources\r\n", "\n# Sources\n", "\n# Sources\r\n"):
+        if marker in response_text:
+            return response_text.split(marker, 1)[0].rstrip()
+    return response_text
+
+
+def render_human_rating_instructions() -> str:
+    """Return a minimal rater tutorial for the human calibration workbook."""
+    return "\n".join(
+        [
+            "# How to Rate",
+            "",
+            "**You get:** `rater_N_packet.md` (read) + `rater_N_ratings.xlsx` (fill, return).",
+            "",
+            "## Per case (you have 5)",
+            "",
+            "1. Read **Expected Output**, then **Response A** and **B** in the packet.",
+            "2. In Excel, find rows with the same `case_id`.",
+            "",
+            "### Depth rows (`metric = analytical_depth`, 2 per case: A and B)",
+            "- Fill **column H** with **1**, **2**, or **3** (use dropdown).",
+            "- Leave **column I** empty.",
+            "- **1** = surface · **2** = analytical · **3** = strategic (see packet rubric).",
+            "",
+            "### Category rows (`metric = categorization_accuracy`)",
+            "- Fill **column I** with **true** or **false** (use dropdown).",
+            "- Leave **column H** empty.",
+            "- **true** = factor is discussed in the expected PESTEL bucket (`correct_category`).",
+            "- **false** = missing, wrong bucket, or misleading.",
+            "",
+            "## Do not edit columns A–G",
+            "",
+            "Especially **not column B** (`rater_id` — already filled).",
+            "",
+            "Return your filled `rater_N_ratings.xlsx`.",
+        ]
+    ).rstrip() + "\n"
+
+
 def render_human_packet_markdown(packet: HumanCalibrationPacket) -> str:
     lines = [
         "# Human Calibration Packet",
@@ -357,7 +399,7 @@ def render_human_packet_markdown(packet: HumanCalibrationPacket) -> str:
                 f"#### Response {output.label}",
                 "",
                 "```text",
-                output.response_text,
+                strip_human_packet_sources(output.response_text),
                 "```",
                 "",
             ]
@@ -461,3 +503,95 @@ def csv_text(rows: Sequence[dict[str, str]], fieldnames: Sequence[str]) -> str:
     for row in rows:
         writer.writerow(row)
     return buffer.getvalue()
+
+
+def write_ratings_template_xlsx(
+    path: str,
+    rows: Sequence[dict[str, str]],
+    fieldnames: Sequence[str] = RATINGS_CSV_FIELDS,
+) -> None:
+    """Write a rater workbook with dropdown validation on the editable columns."""
+    from openpyxl import Workbook
+    from openpyxl.styles import Font, PatternFill
+    from openpyxl.worksheet.datavalidation import DataValidation
+
+    workbook = Workbook()
+    worksheet = workbook.active
+    worksheet.title = "Ratings"
+
+    header_font = Font(bold=True)
+    header_fill = PatternFill("solid", fgColor="D9E1F2")
+    for column_index, field in enumerate(fieldnames, start=1):
+        cell = worksheet.cell(row=1, column=column_index, value=field)
+        cell.font = header_font
+        cell.fill = header_fill
+
+    depth_col = list(fieldnames).index("analytical_depth_score") + 1
+    correct_col = list(fieldnames).index("correct") + 1
+    depth_validation = DataValidation(
+        type="list",
+        formula1='"1,2,3"',
+        allow_blank=True,
+        showErrorMessage=True,
+        errorTitle="Invalid depth score",
+        error="Choose 1, 2, or 3 for analytical depth rows.",
+    )
+    correct_validation = DataValidation(
+        type="list",
+        formula1='"true,false"',
+        allow_blank=True,
+        showErrorMessage=True,
+        errorTitle="Invalid categorization answer",
+        error="Choose true or false for categorization rows.",
+    )
+
+    for row_index, row in enumerate(rows, start=2):
+        for column_index, field in enumerate(fieldnames, start=1):
+            worksheet.cell(row=row_index, column=column_index, value=row.get(field, ""))
+        if row.get("metric") == "analytical_depth":
+            depth_validation.add(worksheet.cell(row=row_index, column=depth_col))
+        elif row.get("metric") == "categorization_accuracy":
+            correct_validation.add(worksheet.cell(row=row_index, column=correct_col))
+
+    worksheet.add_data_validation(depth_validation)
+    worksheet.add_data_validation(correct_validation)
+    worksheet.freeze_panes = "A2"
+    for column_index, field in enumerate(fieldnames, start=1):
+        width = 28 if field in {"factor", "rationale"} else 18
+        worksheet.column_dimensions[chr(64 + column_index)].width = width
+
+    instructions = workbook.create_sheet("HowToRate")
+    for line_index, line in enumerate(
+        render_human_rating_instructions().splitlines(),
+        start=1,
+    ):
+        instructions.cell(row=line_index, column=1, value=line)
+    instructions.column_dimensions["A"].width = 100
+
+    workbook.save(path)
+
+
+def read_ratings_rows_from_file(path: str) -> list[dict[str, str]]:
+    """Load rating rows from a CSV or XLSX rater file."""
+    file_path = Path(path)
+    if file_path.suffix.lower() == ".xlsx":
+        from openpyxl import load_workbook
+
+        workbook = load_workbook(file_path, read_only=True, data_only=True)
+        worksheet = workbook["Ratings"] if "Ratings" in workbook.sheetnames else workbook.active
+        rows_iter = worksheet.iter_rows(values_only=True)
+        headers = [str(value) if value is not None else "" for value in next(rows_iter)]
+        rows: list[dict[str, str]] = []
+        for values in rows_iter:
+            if not any(value not in (None, "") for value in values):
+                continue
+            row = {
+                headers[index]: "" if value is None else str(value)
+                for index, value in enumerate(values)
+                if index < len(headers) and headers[index]
+            }
+            rows.append(row)
+        return rows
+
+    with file_path.open(newline="", encoding="utf-8") as handle:
+        return [dict(row) for row in csv.DictReader(handle)]

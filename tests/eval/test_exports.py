@@ -12,6 +12,7 @@ from mascan.eval.exports import (
     render_gold_standard_validation_report,
     render_human_packet_markdown,
     render_prompt_pack_markdown,
+    strip_human_packet_sources,
 )
 from mascan.eval.gold_standard import load_gold_standard
 from mascan.eval.human_calibration import (
@@ -100,6 +101,48 @@ def test_gold_judge_rubric_export_includes_prompt_schema_and_sample_case():
     assert "Political: EU policy affects Shell." in markdown
 
 
+def test_strip_human_packet_sources_removes_sources_appendix():
+    response = "PESTEL body\n\n## Summary\n- claim\n\n## Sources\n\n**Legal**\n- [link](https://example.com)"
+    assert strip_human_packet_sources(response) == "PESTEL body\n\n## Summary\n- claim"
+
+
+def test_human_packet_markdown_strips_sources_from_responses():
+    packet = HumanCalibrationPacket(
+        seed=1,
+        selected_case_ids=["case_1"],
+        cases_per_rater=1,
+        rater_assignments=[HumanRaterAssignment(rater_id="r1", case_ids=["case_1"])],
+        instructions="Rate these outputs.",
+        rating_scale={"1": "surface", "2": "impact", "3": "strategy"},
+        items=[
+            HumanPacketItem(
+                case_id="case_1",
+                case_title="Case",
+                prompt="Prompt",
+                expected_output={"political": ["Policy affects demand."]},
+                category_targets=[
+                    {
+                        "factor": "privacy law",
+                        "correct_category": "Legal",
+                        "rationale": "law",
+                    }
+                ],
+                outputs=[
+                    HumanPacketOutput(
+                        label="A",
+                        response_text="Answer A\n\n## Sources\n- [x](https://example.com)",
+                    )
+                ],
+            )
+        ],
+    )
+
+    markdown = render_human_packet_markdown(packet)
+
+    assert "https://example.com" not in markdown
+    assert "Answer A" in markdown
+
+
 def test_human_packet_markdown_includes_expected_output_and_responses():
     packet = HumanCalibrationPacket(
         seed=1,
@@ -135,6 +178,45 @@ def test_human_packet_markdown_includes_expected_output_and_responses():
     assert "metric=categorization_accuracy" in markdown
     assert "correct_category" in markdown
     assert "Response A" in markdown
+
+
+def test_write_ratings_template_xlsx_adds_row_specific_dropdowns(tmp_path):
+    from openpyxl import load_workbook
+
+    from mascan.eval.exports import write_ratings_template_xlsx
+
+    rows = [
+        {
+            "metric": "analytical_depth",
+            "rater_id": "r1",
+            "case_id": "c1",
+            "label": "A",
+            "factor": "",
+            "correct_category": "",
+            "rationale": "",
+            "analytical_depth_score": "",
+            "correct": "",
+        },
+        {
+            "metric": "categorization_accuracy",
+            "rater_id": "r1",
+            "case_id": "c1",
+            "label": "A",
+            "factor": "privacy law",
+            "correct_category": "Legal",
+            "rationale": "law",
+            "analytical_depth_score": "",
+            "correct": "",
+        },
+    ]
+    path = tmp_path / "ratings.xlsx"
+    write_ratings_template_xlsx(str(path), rows)
+
+    workbook = load_workbook(path)
+    worksheet = workbook["Ratings"]
+    assert worksheet["H2"].value in ("", None)
+    assert worksheet["I3"].value in ("", None)
+    assert "HowToRate" in workbook.sheetnames
 
 
 def test_ratings_template_csv_rows_and_text():

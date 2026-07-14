@@ -14,6 +14,8 @@ from mascan.eval.exports import (
     csv_text,
     ratings_template_csv_rows,
     render_human_packet_markdown,
+    render_human_rating_instructions,
+    write_ratings_template_xlsx,
 )
 from mascan.eval.human_calibration import HumanCalibrationPacket, filter_packet_for_rater
 from mascan.eval.human_ratings import (
@@ -56,6 +58,10 @@ def main() -> int:
 
     out_dir = Path(args.out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
+    (out_dir / "HOW_TO_RATE.md").write_text(
+        render_human_rating_instructions(),
+        encoding="utf-8",
+    )
     for rater_id in rater_ids:
         rater_packet = filter_packet_for_rater(packet, rater_id=rater_id)
         rater_template = filter_human_ratings_template(template, rater_id=rater_id)
@@ -69,6 +75,11 @@ def main() -> int:
         (out_dir / f"{safe_id}_ratings.csv").write_text(
             csv_text(ratings_template_csv_rows(rater_template), RATINGS_CSV_FIELDS),
             encoding="utf-8",
+        )
+        write_ratings_template_xlsx(
+            str(out_dir / f"{safe_id}_ratings.xlsx"),
+            ratings_template_csv_rows(rater_template),
+            RATINGS_CSV_FIELDS,
         )
     return 0
 

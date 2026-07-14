@@ -1,5 +1,5 @@
 .DEFAULT_GOAL := help
-.PHONY: help install test lint format clean run-economics run-political run-legal run-social run-environmental run-technological run-orchestrator run-orchestrator-docker run-orchestrator-stream run-api gold-eval-pre gold-eval gold-eval-post openwebui-up openwebui-down openwebui-logs compose-up compose-down compose-logs compose-rebuild
+.PHONY: help install test lint format clean run-economics run-political run-legal run-social run-environmental run-technological run-orchestrator run-orchestrator-docker run-orchestrator-stream run-api gold-eval-pre gold-eval gold-eval-post market-scenario-eval-pre market-scenario-eval openwebui-up openwebui-down openwebui-logs compose-up compose-down compose-logs compose-rebuild
 help:  ## Show this help message
 	@echo "MAScan — available commands:"
 	@echo ""
@@ -71,6 +71,12 @@ gold-eval:  ## Run the paid gold-standard pre-human phase (responses, judge, hum
 
 gold-eval-post:  ## Run post-human phase after raters return CSV files
 	PYTHONPATH=src uv run python scripts/run_gold_post_human.py --manifest eval_papers/gold_experiment_manifest.example.json --ratings-csv eval_results/human_reviewers/rater_1_ratings.csv eval_results/human_reviewers/rater_2_ratings.csv eval_results/human_reviewers/rater_3_ratings.csv eval_results/human_reviewers/rater_4_ratings.csv eval_results/human_reviewers/rater_5_ratings.csv --preflight-out eval_results/post_human_preflight.json --preflight-markdown-out eval_results/post_human_preflight.md --execute
+
+market-scenario-eval-pre:  ## Preview 3-case market scenario eval (Evonik, VW, BioNTech)
+	PYTHONPATH=src uv run python scripts/run_market_scenario_eval.py
+
+market-scenario-eval:  ## Run paid 3-case market scenario eval (MAScan vs zero-shot, no human step)
+	PYTHONPATH=src uv run python scripts/run_market_scenario_eval.py --execute --init-pricing
 
 openwebui-up:  ## Start Open WebUI in Docker on http://localhost:3000
 	@docker ps -a --format '{{.Names}}' | grep -q '^mascan-openwebui$$' && \
