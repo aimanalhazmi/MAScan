@@ -1,4 +1,4 @@
-"""Planning contracts shared between orchestrator and report models."""
+"""Contracts for the planner's output."""
 
 from pydantic import BaseModel, Field
 
@@ -11,3 +11,11 @@ class AgentAssignment(BaseModel):
         description="Agent-specific brief preserving the user's intent and constraints.",
     )
     tasks: list[str] = Field(description="Specific sub-tasks assigned to this agent.")
+
+
+class InformationRequest(BaseModel):
+    """Planner's request for more information from the user."""
+
+    question: str = Field(
+        description="A request for additional information or clarification from the user."
+    )

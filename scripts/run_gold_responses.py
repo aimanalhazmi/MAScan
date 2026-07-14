@@ -93,6 +93,7 @@ def _run_mascan(case: GoldStandardCase, *, model: str) -> ModelResponseRecord:
     import mascan.agents.legal  # noqa: F401
     import mascan.agents.political  # noqa: F401
     import mascan.agents.social  # noqa: F401
+    import mascan.agents.technological  # noqa: F401
     import mascan.orchestrator.graph as graph_module
     from mascan.agents.registry import agent_registry
     from mascan.core.llm import get_chat_model

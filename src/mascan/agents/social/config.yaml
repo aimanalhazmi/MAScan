@@ -15,7 +15,8 @@ system_prompt: |
   social chatter. Cite sources by name. Explain business implications over general
   commentary. Be explicit about data lag, platform bias, missing credentials, sparse
   results, or other uncertainty in the evidence.
-tools:
+
+optional_tools:
   - web_search
   - world_bank_social_indicators
   - reddit_search

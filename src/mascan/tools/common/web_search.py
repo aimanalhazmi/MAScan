@@ -79,10 +79,14 @@ class WebSearchTool(BaseTool):
         if self.client is None:
             self.client = self._build_firecrawl_client()
 
-        response = self.client.search(query=query, limit=max_results)
+        try:
+            response = self.client.search(query=query, limit=max_results)
+        except AttributeError as exc:
+            # None response when the HTTP request fails without a response obj
+            raise ConnectionError(f"Firecrawl search failed (likely network/server error): {exc}") from exc
 
         formatted_results = []
-        for doc in response.web:
+        for doc in getattr(response, "web", None) or []:
             title = getattr(doc, "title", "No Title")
             url = getattr(doc, "url", "")
 

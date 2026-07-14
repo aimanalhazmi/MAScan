@@ -4,13 +4,23 @@ from langchain_core.messages import HumanMessage, SystemMessage
 from pydantic import BaseModel, Field
 
 from mascan.agents.registry import agent_registry
-from mascan.contracts.planning import AgentAssignment
+from mascan.contracts.planning import AgentAssignment, InformationRequest
 from mascan.core.llm import get_chat_model
 from mascan.core.logging import get_logger
 from mascan.core.settings import get_settings
 from mascan.orchestrator.state import GraphState
 
 logger = get_logger("orchestrator.planner")
+
+# Common planner misspellings / singular forms → registered agent names.
+AGENT_NAME_ALIASES: dict[str, str] = {
+    "economic": "economics",
+    "economy": "economics",
+    "environment": "environmental",
+    "politics": "political",
+    "technology": "technological",
+    "tech": "technological",
+}
 
 PLANNER_SYSTEM_PROMPT = """\
 You are the planner of a PESTEL multi-agent market-analysis system.
@@ -20,10 +30,12 @@ Available agents (each specialises in one PESTEL dimension):
 
 Your job:
 1. Read the user's question.
-2. Decide which agents should investigate it. Only pick agents whose
-   dimension is genuinely relevant. Skip agents whose dimension doesn't
-   apply to this question.
-3. For each selected agent, write:
+2. Decide wheter the user provided enough information to investigate the question.
+   If not, return a clarification request.
+3. Once the user provides sufficient information, decide which agents should investigate it.
+   Only pick agents whose dimension is genuinely relevant.
+   Skip agents whose dimension doesn't apply to this question.
+4. For each selected agent, write:
    - an objective_context: a robust domain-specific brief for that agent.
      This is the only user-query context the agent will receive, so preserve
      every detail that matters for that agent's capabilities: entities,
@@ -44,8 +56,8 @@ Do not add facts that are not present in the user question or runtime context.
 class PlanModel(BaseModel):
     """Structured output the planner LLM is forced to return."""
 
-    assignments: list[AgentAssignment] = Field(
-        description="List of agent-task assignments.",
+    assignments: list[AgentAssignment] | InformationRequest = Field(
+        description="List of agent-task assignments or a request for more information.",
     )
 
 
@@ -59,7 +71,7 @@ def planner_node(state: GraphState) -> dict[str, Any]:
     settings = get_settings()
     llm = get_chat_model(
         model=settings.openai_model_default,
-        temperature=0.0,  # planning should be deterministic
+        temperature=0.0,
         max_tokens=1000,
     )
     structured_llm = llm.with_structured_output(PlanModel)
@@ -81,10 +93,24 @@ def planner_node(state: GraphState) -> dict[str, Any]:
         HumanMessage(content=user_prompt),
     ])
 
-    raw_plan = {a.agent_name: a for a in result.assignments}
+    if isinstance(result.assignments, InformationRequest):
+        logger.info(f"Planner requested more information: {result.assignments.question}")
+        return {"plan": {}, "info_request": result.assignments}
+
+    raw_plan = {a.agent_name: a for a in result.assignments if isinstance(a, AgentAssignment)}
     plan = _filter_to_known_agents(raw_plan, available)
-    logger.info("Planner selected %d agent(s): %s", len(plan), sorted(plan.keys()))
+    logger.info(f"Planner selected {len(plan)} agent(s): {sorted(plan.keys())}")
     return {"plan": plan}
+
+
+def _normalize_agent_name(name: str, available: list[str]) -> str:
+    if name in available:
+        return name
+    alias = AGENT_NAME_ALIASES.get(name.lower())
+    if alias and alias in available:
+        logger.info("Planner alias %r mapped to registered agent %r.", name, alias)
+        return alias
+    return name
 
 
 def _filter_to_known_agents(
@@ -93,10 +119,13 @@ def _filter_to_known_agents(
     known = set(available)
     filtered: dict[str, AgentAssignment] = {}
     for name, assignment in plan.items():
-        if name not in known:
-            logger.warning("Planner hallucinated unknown agent %r; dropping.", name)
+        normalized = _normalize_agent_name(name, available)
+        if normalized not in known:
+            logger.warning(f"Planner hallucinated unknown agent {name}; dropping.")
             continue
         if not assignment.tasks:
             continue
-        filtered[name] = assignment
+        if normalized != name:
+            assignment = assignment.model_copy(update={"agent_name": normalized})
+        filtered[normalized] = assignment
     return filtered
