@@ -133,8 +133,7 @@ Citation classification rules:
   the supplied uploaded-document evidence.
 - Do not create one issue for every action in a roadmap. Group closely related factual gaps
   and return only issues that could materially mislead the user.
-- Return at most 8 issues. Merge closely related claims into one issue, and keep each
-  explanation to no more than two concise sentences.
+- Merge closely related claims into one issue and keep each explanation concise.
 
 Copy the exact final-report passage into each issue claim, including its Markdown
 citation markers when present. Do not duplicate issues already listed by the
@@ -166,7 +165,7 @@ class ValidationIssue(BaseModel):
 class ValidationResult(BaseModel):
     """Structured output from the report-level validator."""
 
-    issues: list[ValidationIssue] = Field(default_factory=list, max_length=8)
+    issues: list[ValidationIssue] = Field(default_factory=list)
     overall_note: str
 
 

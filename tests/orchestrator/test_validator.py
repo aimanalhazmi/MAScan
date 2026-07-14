@@ -246,6 +246,21 @@ def test_fact_check_multidigit_items_use_commonmark_indentation() -> None:
     assert "10. **medium / citation_gap**\n    - Claim:" in rendered
 
 
+def test_validation_result_accepts_any_number_of_issues() -> None:
+    issues = [
+        ValidationIssue(
+            category="citation_gap",
+            severity="low" if number < 5 else "high",
+            claim=f"Claim {number}",
+            explanation="Review required.",
+        )
+        for number in range(11)
+    ]
+
+    parsed = ValidationResult(issues=issues, overall_note="Review completed.")
+    assert len(parsed.issues) == 11
+
+
 def test_report_validator_prompt_does_not_require_citations_for_recommendations() -> None:
     from mascan.orchestrator.validator import VALIDATOR_SYSTEM_PROMPT
 
