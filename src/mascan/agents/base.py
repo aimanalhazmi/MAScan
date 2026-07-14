@@ -176,9 +176,8 @@ class BaseAgent(ABC):
         )
         called_tools = list(report.metadata.get("llm_chosen_tools") or [])
         referenced_tools = cited_tools(cited_findings, ordered_sources)
-        cited_llm_tools = [tool for tool in referenced_tools if tool in called_tools]
         default_display_tools = list(report.metadata.get("default_display_tools") or [])
-        display_tools = list(dict.fromkeys([*default_display_tools, *cited_llm_tools]))
+        display_tools = list(dict.fromkeys([*default_display_tools, *called_tools]))
         rendered = self.render_markdown(
             report.tasks,
             cited_findings,
@@ -193,7 +192,7 @@ class BaseAgent(ABC):
                 "metadata": {
                     **report.metadata,
                     "llm_called_tools": called_tools,
-                    "llm_chosen_tools": display_tools,
+                    "llm_chosen_tools": called_tools,
                     "cited_tools": referenced_tools,
                 },
             }
