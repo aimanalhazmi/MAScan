@@ -15,6 +15,16 @@ from mascan.tools.registry import tool_registry
 
 logger = get_logger("orchestrator.planner")
 
+# Common planner misspellings / singular forms → registered agent names.
+AGENT_NAME_ALIASES: dict[str, str] = {
+    "economic": "economics",
+    "economy": "economics",
+    "environment": "environmental",
+    "politics": "political",
+    "technology": "technological",
+    "tech": "technological",
+}
+
 PLANNER_SYSTEM_PROMPT = """\
 You are the planner of a PESTEL multi-agent market-analysis system.
 
@@ -189,16 +199,29 @@ def clarify_intent(user_prompt: str, settings: Any) -> str | None:
     return question if result.needs_clarification and question else None
 
 
+def _normalize_agent_name(name: str, available: list[str]) -> str:
+    if name in available:
+        return name
+    alias = AGENT_NAME_ALIASES.get(name.lower())
+    if alias and alias in available:
+        logger.info("Planner alias %r mapped to registered agent %r.", name, alias)
+        return alias
+    return name
+
+
 def _filter_to_known_agents(
     plan: dict[str, AgentAssignment], available: list[str]
 ) -> dict[str, AgentAssignment]:
     known = set(available)
     filtered: dict[str, AgentAssignment] = {}
     for name, assignment in plan.items():
-        if name not in known:
+        normalized = _normalize_agent_name(name, available)
+        if normalized not in known:
             logger.warning(f"Planner hallucinated unknown agent {name}; dropping.")
             continue
         if not assignment.tasks:
             continue
-        filtered[name] = assignment
+        if normalized != name:
+            assignment = assignment.model_copy(update={"agent_name": normalized})
+        filtered[normalized] = assignment
     return filtered

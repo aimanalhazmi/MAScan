@@ -1,0 +1,32 @@
+{
+  "gold_standard_file": "eval_papers/market_scenario_cases.json",
+  "expected_case_count": 3,
+  "systems": [
+    {
+      "system_id": "mascan",
+      "model": "gpt-4o-mini",
+      "response_file": "eval_results/market_scenarios/responses_mascan.json"
+    },
+    {
+      "system_id": "zero_shot_same_model",
+      "model": "gpt-4o-mini",
+      "response_file": "eval_results/market_scenarios/responses_zero_shot.json"
+    }
+  ],
+  "merged_responses_file": "eval_results/market_scenarios/responses_all.json",
+  "judged_file": "eval_results/market_scenarios/judged_all.json",
+  "priced_judged_file": "eval_results/market_scenarios/judged_all_priced.json",
+  "pricing_file": "eval_results/market_scenarios/model_pricing.json",
+  "system_summary_file": "eval_results/market_scenarios/system_summary.json",
+  "case_trace_file": "eval_results/market_scenarios/case_trace.json",
+  "comparisons": [
+    {
+      "treatment_system": "mascan",
+      "control_system": "zero_shot_same_model",
+      "metric": "combined_quality",
+      "normality_alpha": 0.05,
+      "file": "eval_results/market_scenarios/mascan_vs_zero_shot.json"
+    }
+  ],
+  "final_report_file": "eval_results/market_scenarios/experiment_report.md"
+}

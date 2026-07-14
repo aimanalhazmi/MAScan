@@ -43,9 +43,15 @@ logs/
 # OS
 Thumbs.db
 
-# local experiemnts 
+# local experiemnts
 /playground/
 .agents
+
+# Evaluation harness outputs and local test scratch dirs
+eval_results/
+tmp/
+
+# RAG figure output
 rag_images/
 
 # web UI
