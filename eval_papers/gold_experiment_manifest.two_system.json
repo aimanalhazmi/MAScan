@@ -1,0 +1,42 @@
+{
+  "gold_standard_file": "eval_papers/gold_standard_cases.json",
+  "expected_case_count": 25,
+  "systems": [
+    {
+      "system_id": "mascan",
+      "model": "gpt-4o-mini",
+      "response_file": "eval_results/responses_mascan.json"
+    },
+    {
+      "system_id": "zero_shot_same_model",
+      "model": "gpt-4o-mini",
+      "response_file": "eval_results/responses_zero_shot.json"
+    }
+  ],
+  "merged_responses_file": "eval_results/responses_all.json",
+  "judged_file": "eval_results/judged_all.json",
+  "priced_judged_file": "eval_results/judged_all_priced.json",
+  "pricing_file": "eval_results/model_pricing.json",
+  "system_summary_file": "eval_results/system_summary.json",
+  "case_trace_file": "eval_results/case_trace.json",
+  "human_calibration": {
+    "packet_file": "eval_results/human_packet.json",
+    "answer_key_file": "eval_results/human_answer_key.json",
+    "ratings_template_file": "eval_results/human_ratings_template.json",
+    "ratings_file": "eval_results/human_ratings.json",
+    "rater_ids": ["rater_1", "rater_2", "rater_3", "rater_4", "rater_5"],
+    "cases_per_rater": 5,
+    "irr_file": "eval_results/human_irr.json",
+    "expected_case_count": 25
+  },
+  "comparisons": [
+    {
+      "treatment_system": "mascan",
+      "control_system": "zero_shot_same_model",
+      "metric": "combined_quality",
+      "normality_alpha": 0.05,
+      "file": "eval_results/mascan_vs_zero_shot.json"
+    }
+  ],
+  "final_report_file": "eval_results/gold_experiment_report.md"
+}
