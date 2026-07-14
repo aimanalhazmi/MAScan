@@ -9,7 +9,6 @@ Pattern:
 from typing import Any
 
 from langchain.agents import create_agent
-from langchain_core.messages import HumanMessage
 
 from mascan.agents.base import BaseAgent
 from mascan.agents.context import render_tool_outputs
@@ -17,6 +16,7 @@ from mascan.agents.political.prompts import build_user_prompt
 from mascan.contracts.reports import AgentReport
 from mascan.contracts.tools import ToolResult
 from mascan.core.llm import get_chat_model
+
 
 class PoliticalAgent(BaseAgent):
     name = "political"  # must match config.yaml `name`
@@ -77,8 +77,5 @@ class PoliticalAgent(BaseAgent):
             render_tool_outputs(deterministic_outputs),
             context=context,
         )
-        result = agent.invoke(
-            {"messages": [HumanMessage(content=user_prompt)]},
-            config={"recursion_limit": self.config.max_llm_iterations},
-        )
+        result = self.invoke_react_with_fallback(agent, llm, user_prompt)
         return result,self.extract_final_answer(result), self.extract_used_tools(result)

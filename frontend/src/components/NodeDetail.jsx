@@ -1,8 +1,9 @@
-import Markdown from "react-markdown";
 import { LABELS } from "../graph";
+import { withoutFactCheck } from "../markdown.js";
+import MarkdownContent from "./MarkdownContent";
 
 // Inspector for a clicked graph node: the plan for the planner, the agent's
-// report for an agent, the final markdown for the synthesizer.
+// report for an agent, the final report, or the validator's Fact Check.
 export default function NodeDetail({ run, nodeId, onClose }) {
   if (!nodeId) return null;
 
@@ -54,31 +55,17 @@ function renderBody(run, nodeId) {
 
   if (nodeId === "synthesizer") {
     if (!run.finalMarkdown) return <Empty status={run.nodeStatus.synthesizer} />;
-    return <Markdown>{run.finalMarkdown}</Markdown>;
+    return <MarkdownContent>{withoutFactCheck(run.finalMarkdown)}</MarkdownContent>;
+  }
+
+  if (nodeId === "validator") {
+    if (!run.validationMarkdown) return <Empty status={run.nodeStatus.validator} />;
+    return <MarkdownContent>{run.validationMarkdown}</MarkdownContent>;
   }
 
   const report = run.reports[nodeId];
   if (!report) return <Empty status={run.nodeStatus[nodeId]} />;
-  return (
-    <>
-      <div className="confidence">
-        Confidence: {Math.round((report.confidence ?? 0) * 100)}%
-      </div>
-      <Markdown>{report.rendered_markdown || report.findings || ""}</Markdown>
-      {report.sources?.length > 0 && (
-        <div className="sources">
-          <h4>Sources</h4>
-          <ul>
-            {report.sources.map((s, i) => (
-              <li key={i}>
-                {s.url ? <a href={s.url} target="_blank" rel="noreferrer">{s.name}</a> : s.name}
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
-    </>
-  );
+  return <MarkdownContent>{report.rendered_markdown || report.findings || ""}</MarkdownContent>;
 }
 
 function Empty({ status }) {

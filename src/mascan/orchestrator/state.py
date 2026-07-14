@@ -1,11 +1,11 @@
 from datetime import datetime
-from typing import Annotated
+from typing import Annotated, Any
 from zoneinfo import ZoneInfo
 
 from pydantic import BaseModel, Field
 
 from mascan.contracts.planning import AgentAssignment, InformationRequest
-from mascan.contracts.reports import AgentReport
+from mascan.contracts.reports import AgentReport, Source
 
 
 def merge_dicts(left: dict, right: dict) -> dict:
@@ -56,8 +56,27 @@ class GraphState(BaseModel):
         description="Agents that errored: agent_name -> error message.",
     )
 
+    rag_evidence: list[dict[str, Any]] = Field(
+        default_factory=list,
+        description="Uploaded-document passages retrieved by the planner, with provenance.",
+    )
+
     final_summary: str = Field("", description="LLM-synthesized final answer.")
     final_markdown: str = Field("", description="Markdown rendering of the final answer.")
+    final_sources: list[Source] = Field(
+        default_factory=list,
+        description="Sources in final-body citation order, including uploaded documents.",
+    )
+    validation_status: str = Field("", description="Final report validation status.")
+    validation_issues: list[dict[str, Any]] = Field(
+        default_factory=list,
+        description="Structured validation issues found in the final report.",
+    )
+    validation_markdown: str = Field("", description="Rendered Fact Check section.")
+    validation_payload: dict[str, Any] = Field(
+        default_factory=dict,
+        description="Full structured validation result.",
+    )
 
     iteration: int = 0
     max_iterations: int = 10

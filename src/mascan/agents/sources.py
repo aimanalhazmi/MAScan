@@ -4,7 +4,7 @@ import ast
 import json
 import re
 from typing import Any
-from urllib.parse import urlparse
+from urllib.parse import urlparse, urlsplit, urlunsplit
 
 from mascan.contracts.reports import Source
 from mascan.contracts.tools import ToolResult
@@ -26,6 +26,7 @@ SKIP_RECURSE_KEYS: frozenset[str] = frozenset(
     {"markdown", "selftext", "snippet", "text", "body", "content", "html"}
 )
 URL_RE = re.compile(r"https?://[^\s\"'\)\]]+")
+MARKDOWN_LINK_RE = re.compile(r"\[([^\]]+)\]\((https?://[^)\s]+)\)")
 MAX_LABEL_CHARS = 160
 
 
@@ -90,7 +91,7 @@ def make_source(label: str | None, url: str, tool: str) -> Source:
 def sources_from_tool_results(outputs: dict[str, ToolResult[Any]]) -> list[Source]:
     """Article-level sources from deterministic tool outputs."""
     sources: list[Source] = []
-    for result in outputs.values():
+    for tool_name, result in outputs.items():
         if not result.success:
             continue
         links = links_from_structure(result.data)
@@ -98,7 +99,7 @@ def sources_from_tool_results(outputs: dict[str, ToolResult[Any]]) -> list[Sourc
         for url in result.metadata.get("source_urls") or []:
             if isinstance(url, str) and url.startswith("http"):
                 links.append((None, url))
-        sources.extend(make_source(label, url, result.source) for label, url in links)
+        sources.extend(make_source(label, url, tool_name) for label, url in links)
     return sources
 
 
@@ -120,10 +121,87 @@ def dedupe_sources(sources: list[Source]) -> list[Source]:
     """Drop duplicate references, keyed by URL (falling back to name)."""
     seen: dict[str, Source] = {}
     for source in sources:
-        key = source.url or source.name
+        key = canonical_source_url(source.url) if source.url else source.name.strip()
         if key not in seen:
             seen[key] = source
     return list(seen.values())
+
+
+def canonical_source_url(url: str | None) -> str:
+    """Normalize a URL for comparison without discarding meaningful queries."""
+    if not url:
+        return ""
+    cleaned = url.strip()
+    try:
+        parts = urlsplit(cleaned)
+    except ValueError:
+        return cleaned
+
+    path = parts.path
+    if path == "/":
+        path = ""
+    elif path.endswith("/"):
+        path = path.rstrip("/")
+    return urlunsplit(
+        (parts.scheme.lower(), parts.netloc.lower(), path, parts.query, "")
+    )
+
+
+def normalize_agent_citations(
+    findings: str,
+    sources: list[Source],
+) -> tuple[str, list[Source]]:
+    """Number verified Markdown links and order sources by first citation.
+
+    Links outside the tool-derived source registry are downgraded to plain text.
+    When the body contains no verified links, all URL-backed sources are retained
+    in their first-collected order as a best-effort fallback.
+    """
+    deduped = dedupe_sources(sources)
+    sources_by_url = {
+        canonical_source_url(source.url): source
+        for source in deduped
+        if source.url and canonical_source_url(source.url)
+    }
+    cited_urls: list[str] = []
+    number_by_url: dict[str, int] = {}
+
+    def replace_link(match: re.Match[str]) -> str:
+        label, url = match.groups()
+        key = canonical_source_url(url)
+        source = sources_by_url.get(key)
+        if source is None:
+            return label
+        if key not in number_by_url:
+            number_by_url[key] = len(number_by_url) + 1
+            cited_urls.append(key)
+        return f"[{number_by_url[key]}]({source.url})"
+
+    normalized_findings = MARKDOWN_LINK_RE.sub(replace_link, findings)
+    if cited_urls:
+        ordered_sources = [sources_by_url[url] for url in cited_urls]
+    else:
+        ordered_sources = [source for source in deduped if source.url]
+    return normalized_findings, ordered_sources
+
+
+def cited_tools(
+    findings: str,
+    sources: list[Source],
+) -> list[str]:
+    """Return tools whose collected URLs are actually cited in the findings."""
+    cited_urls = {
+        canonical_source_url(url)
+        for _, url in MARKDOWN_LINK_RE.findall(findings)
+    }
+    tools: list[str] = []
+    for source in sources:
+        if not source.url or canonical_source_url(source.url) not in cited_urls:
+            continue
+        tool = source.metadata.get("tool")
+        if isinstance(tool, str) and tool not in tools:
+            tools.append(tool)
+    return tools
 
 
 def format_source_line(source: Source) -> str:
@@ -136,3 +214,13 @@ def render_source_lines(sources: list[Source]) -> str:
     if not sources:
         return "- (none)"
     return "\n".join(format_source_line(source) for source in sources)
+
+
+def render_numbered_source_lines(sources: list[Source]) -> str:
+    if not sources:
+        return "- (none)"
+    return "\n".join(
+        f"{number}. [{source.name}]({source.url})"
+        for number, source in enumerate(sources, start=1)
+        if source.url
+    )

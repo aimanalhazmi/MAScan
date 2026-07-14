@@ -7,9 +7,9 @@ from typing import Any
 from uuid import uuid4
 
 from fastapi import FastAPI, File, HTTPException, UploadFile
-from pydantic import BaseModel, Field
-from fastapi.responses import StreamingResponse
+from fastapi.responses import FileResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
+from pydantic import BaseModel, Field
 
 import mascan.agents.economics  # noqa: F401
 import mascan.agents.environmental  # noqa: F401
@@ -27,6 +27,7 @@ from mascan.contracts.retrieval import (
 )
 from mascan.core.exceptions import ConfigError, MAScanError
 from mascan.core.logging import configure_logging, get_logger
+from mascan.core.settings import get_settings
 from mascan.orchestrator import resume as orchestrator_resume
 from mascan.orchestrator import run as orchestrator_run
 from mascan.orchestrator import stream as orchestrator_stream
@@ -166,13 +167,17 @@ async def rag_upload(file: UploadFile = File(...)) -> dict[str, Any]:
     plain-text path. source is 'upload' so the generation step knows these
     chunks may carry visual elements.
     """
-    document = file.filename or "upload"
+    document = Path(file.filename or "upload").name
     suffix = Path(document).suffix.lower()
+    payload = await file.read()
     with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
-        tmp.write(await file.read())
+        tmp.write(payload)
         tmp_path = tmp.name
     try:
         stored = await on_rag_loop(ingest_file(tmp_path, document=document, source="upload"))
+        upload_dir = Path(get_settings().rag_upload_dir)
+        upload_dir.mkdir(parents=True, exist_ok=True)
+        (upload_dir / document).write_bytes(payload)
     except ValueError as exc:
         raise HTTPException(status_code=415, detail=str(exc)) from exc
     except ConfigError as exc:
@@ -180,6 +185,21 @@ async def rag_upload(file: UploadFile = File(...)) -> dict[str, Any]:
     finally:
         os.unlink(tmp_path)
     return {"document": document, "stored": stored}
+
+
+@app.get("/rag/files/{document}")
+async def rag_file(document: str) -> FileResponse:
+    """Open the retained original for an uploaded RAG document."""
+    safe_name = Path(document).name
+    if not safe_name or safe_name != document:
+        raise HTTPException(status_code=404, detail="Uploaded document not found.")
+    path = Path(get_settings().rag_upload_dir) / safe_name
+    if not path.is_file():
+        raise HTTPException(
+            status_code=404,
+            detail="Original upload is unavailable; upload the document again.",
+        )
+    return FileResponse(path, filename=safe_name, content_disposition_type="inline")
 
 
 @app.get("/rag/documents", response_model=list[StoredDocument])
