@@ -55,6 +55,14 @@ COUNTRY_ALIASES: dict[str, str] = {
     "worldwide": "WLD",
 }
 
+WORLD_BANK_LOCATION_CODES: dict[str, str] = {
+    "ARG": "AR", "AUS": "AU", "BRA": "BR", "CAN": "CA", "CHN": "CN",
+    "DEU": "DE", "FRA": "FR", "GBR": "GB", "IND": "IN", "IDN": "ID",
+    "ITA": "IT", "JPN": "JP", "KOR": "KR", "MEX": "MX", "NLD": "NL",
+    "RUS": "RU", "SAU": "SA", "ESP": "ES", "TUR": "TR", "USA": "US",
+    "ZAF": "ZA", "EUU": "EU", "WLD": "1W",
+}
+
 
 class WorldBankSocialIndicatorsInput(BaseModel):
     country_code: str = Field(
@@ -102,10 +110,6 @@ class WorldBankSocialIndicatorsTool(BaseTool):
                 try:
                     response = http_get(
                         api_url,
-                        params={
-                            "format": "json",
-                            "per_page": 5,
-                        },
                         timeout=15.0,
                     )
                     payload = response.json()
@@ -124,6 +128,7 @@ class WorldBankSocialIndicatorsTool(BaseTool):
                             "unit": latest.get("unit") or None,
                             "source_note": latest.get("indicator", {}).get("value"),
                             "api_url": api_url,
+                            "url": self._display_url(country, indicator),
                         }
                     )
                 except Exception as exc:
@@ -146,7 +151,7 @@ class WorldBankSocialIndicatorsTool(BaseTool):
                 "country_codes": countries,
                 "indicator_count": len(results),
                 "failed_indicators": errors,
-                "source_urls": sorted({item["api_url"] for item in results}),
+                "source_urls": sorted({item["url"] for item in results}),
             },
         )
 
@@ -161,7 +166,15 @@ class WorldBankSocialIndicatorsTool(BaseTool):
 
     @staticmethod
     def _api_url(country: str, indicator: str) -> str:
-        return f"https://api.worldbank.org/v2/country/{country}/indicator/{indicator}"
+        return (
+            f"https://api.worldbank.org/v2/country/{country}/indicator/{indicator}"
+            "?format=json&per_page=5"
+        )
+
+    @staticmethod
+    def _display_url(country: str, indicator: str) -> str:
+        location = WORLD_BANK_LOCATION_CODES.get(country, country)
+        return f"https://data.worldbank.org/indicator/{indicator}?locations={location}"
 
     @staticmethod
     def _latest_non_empty_observation(payload: Any) -> dict[str, Any] | None:

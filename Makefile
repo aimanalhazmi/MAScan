@@ -1,5 +1,5 @@
 .DEFAULT_GOAL := help
-.PHONY: help install test lint format clean run-economics run-political run-legal run-social run-environmental run-orchestrator run-orchestrator-docker run-orchestrator-stream run-api openwebui-up openwebui-down openwebui-logs compose-up compose-down compose-logs compose-rebuild
+.PHONY: help install test lint format clean run-economics run-political run-legal run-social run-environmental run-technological run-orchestrator run-orchestrator-docker run-orchestrator-stream run-api dev-ui build-ui gold-eval-pre gold-eval gold-eval-post market-scenario-eval-pre market-scenario-eval openwebui-up openwebui-down openwebui-logs compose-up compose-down compose-logs compose-rebuild
 help:  ## Show this help message
 	@echo "MAScan — available commands:"
 	@echo ""
@@ -55,13 +55,34 @@ run-orchestrator:
 
 
 run-orchestrator-docker:  ## Run the orchestrator inside the running mascan-api container
-	docker exec -e PYTHONPATH=/app/src mascan-api python /app/scripts/run_orchestrator.py "$(Q)"
+	docker exec -it -e PYTHONPATH=/app/src api python /app/scripts/run_orchestrator.py "$(Q)"
 
 run-orchestrator-stream:
 	PYTHONPATH=src uv run python scripts/run_orchestrator.py --stream "$(Q)"
 
 run-api:  ## Run the MAScan FastAPI server on http://localhost:8000
 	uv run uvicorn mascan.app.api:app --reload --host 0.0.0.0 --port 8000
+
+dev-ui:  ## Run the web UI dev server (proxies to the API on :8000)
+	cd frontend && npm install && npm run dev
+
+build-ui:  ## Build the web UI into the API's static dir (served at :8000)
+	cd frontend && npm install && npm run build
+
+gold-eval-pre:  ## Preview gold-standard eval commands (no API calls)
+	PYTHONPATH=src uv run python scripts/run_gold_pre_human.py --manifest eval_papers/gold_experiment_manifest.example.json --reviewer-out-dir eval_results/human_reviewers --trace-csv-out eval_results/case_trace.csv --preflight-out eval_results/pre_human_preflight.json --preflight-markdown-out eval_results/pre_human_preflight.md
+
+gold-eval:  ## Run the paid gold-standard pre-human phase (responses, judge, human packet)
+	PYTHONPATH=src uv run python scripts/run_gold_pre_human.py --manifest eval_papers/gold_experiment_manifest.example.json --reviewer-out-dir eval_results/human_reviewers --trace-csv-out eval_results/case_trace.csv --preflight-out eval_results/pre_human_preflight.json --preflight-markdown-out eval_results/pre_human_preflight.md --execute
+
+gold-eval-post:  ## Run post-human phase after raters return CSV files
+	PYTHONPATH=src uv run python scripts/run_gold_post_human.py --manifest eval_papers/gold_experiment_manifest.example.json --ratings-csv eval_results/human_reviewers/rater_1_ratings.csv eval_results/human_reviewers/rater_2_ratings.csv eval_results/human_reviewers/rater_3_ratings.csv eval_results/human_reviewers/rater_4_ratings.csv eval_results/human_reviewers/rater_5_ratings.csv --preflight-out eval_results/post_human_preflight.json --preflight-markdown-out eval_results/post_human_preflight.md --execute
+
+market-scenario-eval-pre:  ## Preview 3-case market scenario eval (Evonik, VW, BioNTech)
+	PYTHONPATH=src uv run python scripts/run_market_scenario_eval.py
+
+market-scenario-eval:  ## Run paid 3-case market scenario eval (MAScan vs zero-shot, no human step)
+	PYTHONPATH=src uv run python scripts/run_market_scenario_eval.py --execute --init-pricing
 
 openwebui-up:  ## Start Open WebUI in Docker on http://localhost:3000
 	@docker ps -a --format '{{.Names}}' | grep -q '^mascan-openwebui$$' && \
@@ -83,13 +104,12 @@ openwebui-down:  ## Stop and remove the Open WebUI container (data is preserved)
 openwebui-logs:  ## Follow Open WebUI container logs
 	docker logs -f mascan-openwebui
 
-
-compose-up:  ## Start the full stack (mascan-api + openwebui) via docker compose
+compose-up:  ## Start the full stack (mascan api + UI) via docker compose
 	docker compose up -d --build
 	@echo ""
 	@echo "App starting:"
-	@echo "  - MAScan API:  http://localhost:8000"
-	@echo "  - Open WebUI:  http://localhost:3000"
+	@echo "  - MAScan UI:  http://localhost:8000"
+	@echo "  - MAScan API:  http://localhost:8000\docs"
 	@echo ""
 	@echo "Logs:    make compose-logs"
 	@echo "Stop:    make compose-down"
@@ -99,6 +119,10 @@ compose-down:  ## Stop the full stack (data is preserved in named volume)
 
 compose-logs:  ## Follow logs from all services
 	docker compose logs -f
+
+mascan-logs:  ## Follow logs from mascan api
+	docker logs -f api
+
 
 compose-rebuild:  ## Force a rebuild of the mascan-api image
 	docker compose build --no-cache mascan-api

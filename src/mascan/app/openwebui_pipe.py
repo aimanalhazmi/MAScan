@@ -132,6 +132,8 @@ class Pipe:
             return "Planner ran but selected no agents."
         if node == "synthesizer":
             return "Synthesizing final report..."
+        if node == "validator":
+            return "Validating final report..."
 
         reports = update.get("reports") or {}
         if node in reports:

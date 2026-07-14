@@ -68,6 +68,7 @@ def build_social_graph(agent: Any) -> Any:
                     "mode": "mixed",
                     "deterministic_tools": list(agent.config.always_call_tools),
                     "llm_chosen_tools": state.llm_used_tools,
+                    "default_display_tools": ["world_bank_social_indicators"],
                     "evidence_plan": getattr(agent, "_last_evidence_plan", None),
                 },
             )

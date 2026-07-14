@@ -5,7 +5,6 @@ import json
 from typing import Any
 
 from langchain.agents import create_agent
-from langchain_core.messages import HumanMessage
 
 from mascan.agents.base import GraphBackedAgent
 from mascan.agents.context import render_tool_outputs
@@ -58,10 +57,7 @@ class EconomicsAgent(GraphBackedAgent):
             render_tool_outputs(deterministic_outputs or {}),
             context=context,
         )
-        result = agent.invoke(
-            {"messages": [HumanMessage(content=user_prompt)]},
-            config={"recursion_limit": self.config.max_llm_iterations},
-        )
+        result = self.invoke_react_with_fallback(agent, llm, user_prompt)
 
         return (
             result,

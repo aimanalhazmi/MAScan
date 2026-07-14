@@ -1,33 +1,15 @@
 """rag_search — lets an agent query MAScan's internal RAG index.."""
 
-import asyncio
-import concurrent.futures
-from collections.abc import Coroutine
-from typing import Any, ClassVar, TypeVar
+from typing import Any, ClassVar
 
 from pydantic import BaseModel, Field
 
 from mascan.contracts.retrieval import RetrievalQuery
 from mascan.contracts.tools import ToolResult
+from mascan.core.settings import get_settings
 from mascan.rag.retriever import get_retriever
+from mascan.rag.store import run_sync
 from mascan.tools.base import BaseTool
-
-_T = TypeVar("_T")
-
-
-def run_async(coro: Coroutine[Any, Any, _T]) -> _T:
-    """Run a coroutine from sync code, whether or not a loop is already running.
-
-    Agents may be invoked from a plain sync context (no loop → asyncio.run) or
-    from inside FastAPI's async endpoints (a loop is already running on this
-    thread → asyncio.run would raise, so run it in a worker thread instead).
-    """
-    try:
-        asyncio.get_running_loop()
-    except RuntimeError:
-        return asyncio.run(coro)
-    with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
-        return pool.submit(asyncio.run, coro).result()
 
 
 class RagSearchInput(BaseModel):
@@ -45,7 +27,9 @@ class RagSearchTool(BaseTool):
 
     def run(self, query: str, k: int = 5, **_: Any) -> ToolResult[list[dict[str, Any]]]:
         try:
-            chunks = run_async(get_retriever().retrieve(RetrievalQuery(query=query, k=k)))
+            chunks = run_sync(get_retriever().retrieve(RetrievalQuery(query=query, k=k)))
+            floor = get_settings().rag_min_score
+            relevant = [c for c in chunks if c.score >= floor]
             return ToolResult(
                 success=True,
                 data=[
@@ -54,10 +38,10 @@ class RagSearchTool(BaseTool):
                         "citation": c.citation.model_dump(),
                         "score": c.score,
                     }
-                    for c in chunks
+                    for c in relevant
                 ],
                 source="rag_search",
-                metadata={"query": query, "count": len(chunks)},
+                metadata={"query": query, "count": len(relevant), "retrieved": len(chunks)},
             )
         except Exception as exc:
             self.logger.exception("rag_search failed for query=%r", query)

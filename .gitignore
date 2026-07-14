@@ -43,8 +43,18 @@ logs/
 # OS
 Thumbs.db
 
-# local experiemnts 
+# local experiemnts
 /playground/
 .agents
-rag_images/
 AGENTS.md
+
+# Evaluation harness outputs and local test scratch dirs
+eval_results/
+tmp/
+
+# RAG figure output
+rag_images/
+
+# web UI
+src/mascan/app/static/
+frontend/node_modules/

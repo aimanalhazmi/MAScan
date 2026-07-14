@@ -203,10 +203,7 @@ class SocialAgent(GraphBackedAgent):
             render_tool_outputs(deterministic_outputs),
             context=context,
         )
-        result = agent.invoke(
-            {"messages": [HumanMessage(content=user_prompt)]},
-            config={"recursion_limit": self.config.max_llm_iterations},
-        )
+        result = self.invoke_react_with_fallback(agent, llm, user_prompt)
         return (
             result,
             self.extract_final_answer(result),

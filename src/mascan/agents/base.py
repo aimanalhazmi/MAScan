@@ -3,10 +3,16 @@
 from abc import ABC, abstractmethod
 from typing import Any, ClassVar, cast
 
+from langchain_core.language_models import BaseChatModel
+from langchain_core.messages import HumanMessage, SystemMessage
+from langgraph.errors import GraphRecursionError
+
 from mascan.agents.config import AgentConfig
 from mascan.agents.sources import (
+    cited_tools,
     dedupe_sources,
-    render_source_lines,
+    normalize_agent_citations,
+    render_numbered_source_lines,
     sources_from_react,
     sources_from_tool_results,
 )
@@ -63,8 +69,8 @@ class BaseAgent(ABC):
         self,
         tasks: list[str],
         context: dict[str, Any] | None = None,
-        deterministic_outputs: dict[str, ToolResult[Any]] | None = None
-        ) -> AgentReport:
+        deterministic_outputs: dict[str, ToolResult[Any]] | None = None,
+    ) -> AgentReport:
         """Execute the agent's analysis.
 
         Args:
@@ -107,6 +113,45 @@ class BaseAgent(ABC):
                     used.append(name)
         return used
 
+    def invoke_react_with_fallback(
+        self,
+        agent: Any,
+        llm: BaseChatModel,
+        user_prompt: str,
+    ) -> dict[str, Any]:
+        """Run ReAct and force a final answer if its tool loop hits the step cap."""
+        latest: dict[str, Any] | None = None
+        try:
+            for update in agent.stream(
+                {"messages": [HumanMessage(content=user_prompt)]},
+                config={"recursion_limit": self.config.max_llm_iterations},
+                stream_mode="values",
+            ):
+                latest = update
+            return latest or {"messages": []}
+        except GraphRecursionError:
+            messages = list((latest or {}).get("messages") or [])
+            self.logger.warning(
+                "ReAct reached recursion limit %s; forcing a tool-free final report.",
+                self.config.max_llm_iterations,
+            )
+            final = llm.invoke(
+                [
+                    SystemMessage(content=self.config.system_prompt),
+                    *messages,
+                    HumanMessage(
+                        content=(
+                            "The evidence-collection budget is exhausted. Do not call any "
+                            "more tools. Write the final concise analysis now using only "
+                            "the evidence already present in this conversation. Preserve "
+                            "the requested inline URL citations and explicitly acknowledge "
+                            "any evidence gaps."
+                        )
+                    ),
+                ]
+            )
+            return {"messages": [*messages, final]}
+
     def run(self, tasks: list[str], context: dict[str, Any] | None = None) -> AgentReport:
         """Wraps the subclass's `_run()` method with execution of mandatory tool calls.
 
@@ -120,7 +165,39 @@ class BaseAgent(ABC):
 
         # Execute always-call tools first, if any.
         deterministic_outputs = self.gather_deterministic(tasks)
-        return self._run(tasks, context=context, deterministic_outputs=deterministic_outputs)
+        report = self._run(
+            tasks,
+            context=context,
+            deterministic_outputs=deterministic_outputs,
+        )
+        cited_findings, ordered_sources = normalize_agent_citations(
+            report.findings,
+            report.sources,
+        )
+        called_tools = list(report.metadata.get("llm_chosen_tools") or [])
+        referenced_tools = cited_tools(cited_findings, ordered_sources)
+        cited_llm_tools = [tool for tool in referenced_tools if tool in called_tools]
+        default_display_tools = list(report.metadata.get("default_display_tools") or [])
+        display_tools = list(dict.fromkeys([*default_display_tools, *cited_llm_tools]))
+        rendered = self.render_markdown(
+            report.tasks,
+            cited_findings,
+            ordered_sources,
+            display_tools,
+        )
+        return report.model_copy(
+            update={
+                "findings": cited_findings,
+                "sources": ordered_sources,
+                "rendered_markdown": rendered,
+                "metadata": {
+                    **report.metadata,
+                    "llm_called_tools": called_tools,
+                    "llm_chosen_tools": display_tools,
+                    "cited_tools": referenced_tools,
+                },
+            }
+        )
 
     def llm_with_tools(self) -> Any:
         """Return an LLM bound to this agent's tools for LLM-driven calling.
@@ -182,15 +259,16 @@ class BaseAgent(ABC):
         llm_used_tools: list[str],
     ) -> str:
         task_lines = "\n".join(f"- {t}" for t in tasks)
-        src_lines = render_source_lines(sources)
-        llm_lines = "\n".join(f"- {t}" for t in llm_used_tools) or "- (none)"
-        always_lines = "\n".join(f"- {t}" for t in self.config.always_call_tools)
+        src_lines = render_numbered_source_lines(sources)
+        tool_block = ""
+        if llm_used_tools:
+            llm_lines = "\n".join(f"- {tool}" for tool in llm_used_tools)
+            tool_block = f"**Tools the LLM chose to call:**\n{llm_lines}\n\n"
         return (
             f"## {self.name.title()} Analysis\n\n"
             f"**Tasks:**\n{task_lines}\n\n"
             f"**Findings:**\n\n{findings}\n\n"
-            f"**Tools always called:**\n{always_lines}\n\n"
-            f"**Tools the LLM chose to call:**\n{llm_lines}\n\n"
+            f"{tool_block}"
             f"**Sources:**\n{src_lines}\n"
         )
 

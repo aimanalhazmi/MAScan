@@ -76,6 +76,10 @@ def test_world_bank_environmental_indicators_formats_latest_values(mocker: Any) 
     assert result.data[0]["value"] == 59.4
     assert result.data[0]["api_url"] == (
         "https://api.worldbank.org/v2/country/BRA/indicator/AG.LND.FRST.ZS"
+        "?format=json&per_page=60"
+    )
+    assert result.data[0]["url"] == (
+        "https://data.worldbank.org/indicator/AG.LND.FRST.ZS?locations=BR"
     )
 
 

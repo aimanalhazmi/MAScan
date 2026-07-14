@@ -1,0 +1,343 @@
+{
+  "schema_version": "1.0",
+  "created_at": "2026-07-14",
+  "purpose": "Three instructor market-analysis scenarios (Evonik, Volkswagen, BioNTech) for a focused MAScan vs zero-shot evaluation. Same judge rubric as the 25-case gold standard, but prompts also require a strategic roadmap with prioritized investments, risks/opportunities, and rough cost estimates where feasible.",
+  "generation_instruction_template": "Conduct a PESTEL-based market analysis for {case_subject}. Use the case timeframe and market context stated in the prompt. Return exactly these headings: Political, Economic, Social, Technological, Environmental, Legal, Strategic implications. Under each PESTEL heading, provide concise bullets that connect the external factor to direct business impact. Under Strategic implications, provide a prioritized investment roadmap, note opportunities and risks per investment area, and include rough cost estimates where feasible. Do not mention this dataset or the source document.",
+  "rubric_support": {
+    "analytical_depth_scale": {
+      "1_surface": "Names or lists an external factor but does not connect it to the organization, market, operating model, or strategy.",
+      "2_analytical": "Names the factor and explains a direct operational, financial, demand, compliance, or reputational impact.",
+      "3_strategic": "Names the factor, traces the operational impact, and connects it to a strategic risk, opportunity, or recommended shift."
+    },
+    "categorization_accuracy": "Use category_targets as the discrete ground truth for bucket placement. Award credit when the model maps the factor to the correct PESTEL category and does not primarily place it under a misleading bucket."
+  },
+  "cases": [
+    {
+      "case_id": "market_evonik",
+      "source_pdf": "eval_papers/market-analysis-scenarios.pdf",
+      "case_title": "Evonik — remaining competitive in European specialty chemicals",
+      "case_subject": "Evonik prioritizing strategic investments to remain competitive in Europe amid high energy costs, global low-cost competition, supply-chain disruption, and slow AI adoption",
+      "prompt": "Conduct a PESTEL-based market analysis for Evonik prioritizing strategic investments to remain competitive in Europe amid high energy costs, global low-cost competition, supply-chain disruption, and slow AI adoption in internal processes. Evonik operates mainly in specialty chemicals. Use a current European industrial context. Return exactly these headings: Political, Economic, Social, Technological, Environmental, Legal, Strategic implications. Under each PESTEL heading, provide concise bullets that connect the external factor to direct business impact for Evonik. Under Strategic implications, provide clear growth opportunities within the chemical sector, a recommended strategic roadmap with prioritized investment areas, the opportunities and risks associated with each investment area, and rough cost estimates where feasible. Do not mention this dataset or the source document.",
+      "expected_output": {
+        "political": [
+          "EU industrial policy, subsidies, and political stability shape where Evonik can invest in European capacity without losing competitiveness to non-EU producers.",
+          "Upcoming EU regulations on chemicals, energy, and sustainability increase compliance cost but can also unlock subsidy-backed modernization."
+        ],
+        "economic": [
+          "High and uneven energy costs across EU member states directly compress margins for energy-intensive specialty chemical production.",
+          "Inflation, interest rates, and global commodity prices affect capex timing, working capital, and pricing power versus cheaper global competitors."
+        ],
+        "social": [
+          "Demographic change and skilled-labor availability constrain automation and digital transformation unless Evonik invests in workforce upskilling.",
+          "The sustainability movement raises customer and stakeholder expectations for lower-carbon products and transparent supply chains."
+        ],
+        "technological": [
+          "AI adoption and process automation can reduce cost, improve batch quality, and accelerate R&D if integrated into legacy chemical operations.",
+          "Digitalization of supply-chain planning helps mitigate disruption risk from geopolitical shocks and supplier concentration."
+        ],
+        "environmental": [
+          "Renewable-energy sourcing and recycling pathways reduce exposure to carbon pricing and improve product positioning in green chemistry markets.",
+          "Circular-economy requirements create both compliance cost and differentiation opportunities for specialty materials."
+        ],
+        "legal": [
+          "Emissions regulations and chemical-sector safety legislation increase plant compliance burden and can delay capacity changes.",
+          "REACH-style product stewardship and process-safety rules affect which product lines remain viable in Europe."
+        ],
+        "strategic_implications": [
+          "Prioritize investments that decouple margin from volatile EU energy costs, such as electrification, heat recovery, and site optimization.",
+          "Accelerate AI and automation in manufacturing, procurement, and R&D to close the productivity gap with global low-cost rivals.",
+          "Reshape the European asset portfolio toward higher-margin specialty niches while using subsidies and partnerships to fund transition capex."
+        ]
+      },
+      "gold_claims": [
+        {
+          "category": "Economic",
+          "claim": "High European energy costs are a direct competitiveness threat for Evonik because specialty chemicals production is energy-intensive and global rivals face lower input costs."
+        },
+        {
+          "category": "Technological",
+          "claim": "AI adoption and process automation are strategic levers to offset labor and energy disadvantages if embedded in operations rather than treated as pilot projects."
+        },
+        {
+          "category": "Political",
+          "claim": "EU industrial policy and subsidies can partially de-risk European capex, but regulatory tightening still raises the bar for staying invested in the region."
+        },
+        {
+          "category": "Environmental",
+          "claim": "Renewable energy and recycling investments reduce carbon exposure and support premium positioning in sustainability-sensitive customer segments."
+        },
+        {
+          "category": "Social",
+          "claim": "Skilled-labor shortages and demographic pressure make workforce transformation part of competitiveness, not just HR policy."
+        },
+        {
+          "category": "Legal",
+          "claim": "Chemical safety and emissions rules convert environmental underperformance into legal, operational, and reputational risk for European assets."
+        }
+      ],
+      "category_targets": [
+        {
+          "factor": "EU industrial policy and subsidies",
+          "correct_category": "Political",
+          "rationale": "Industrial policy and subsidy design are government levers affecting where Evonik invests in Europe."
+        },
+        {
+          "factor": "Energy costs across EU member states",
+          "correct_category": "Economic",
+          "rationale": "Energy price differences directly affect production economics and site competitiveness."
+        },
+        {
+          "factor": "Skilled labor availability and demographics",
+          "correct_category": "Social",
+          "rationale": "Workforce availability and skills are labor-market and societal constraints."
+        },
+        {
+          "factor": "AI adoption and process automation",
+          "correct_category": "Technological",
+          "rationale": "These are digital and process-technology enablers of productivity."
+        },
+        {
+          "factor": "Renewable energy and recycling pathways",
+          "correct_category": "Environmental",
+          "rationale": "They concern emissions, resource use, and circularity."
+        },
+        {
+          "factor": "Emissions and chemical safety legislation",
+          "correct_category": "Legal",
+          "rationale": "They are regulatory compliance obligations with penalty exposure."
+        }
+      ],
+      "avoid_claims": [
+        "Evonik's main problem is only marketing and has nothing to do with energy or global competition.",
+        "AI adoption requires no operational change in chemical manufacturing.",
+        "European energy costs are irrelevant because specialty chemicals are not energy-intensive."
+      ],
+      "validation_notes": {
+        "source_anchors": [
+          "Scenario brief: Evonik under pressure from cheap global competitors, high energy costs, supply-chain disruption, and slow AI adoption.",
+          "Expected analysis dimensions: EU industrial policy, energy costs, demographics, AI/automation, renewables/recycling, emissions and safety law.",
+          "Expected output: growth opportunities, prioritized roadmap, risks/opportunities per area, rough cost estimates."
+        ],
+        "reread_justification": "The expected output combines PESTEL drivers from the scenario brief with a strategic-investment roadmap appropriate for a specialty-chemicals competitiveness question."
+      }
+    },
+    {
+      "case_id": "market_volkswagen",
+      "source_pdf": "eval_papers/market-analysis-scenarios.pdf",
+      "case_title": "Volkswagen — strategic transformation of production, workforce, and investments",
+      "case_subject": "Volkswagen restructuring global production, workforce, and investment portfolio over five to ten years amid China decline, European underutilization, trade rules, and stalled EV/software transition",
+      "prompt": "Conduct a PESTEL-based market analysis for Volkswagen restructuring global production, workforce, and investment portfolio over the next five to ten years to restore competitiveness while minimizing strategic and societal risks. Background: declining revenues, sharp decline in China, underused European factories, global trade regulations, stalled EV transition due to software delays and legacy systems. Return exactly these headings: Political, Economic, Social, Technological, Environmental, Legal, Strategic implications. Under each PESTEL heading, provide concise bullets that connect the external factor to direct business impact for Volkswagen. Under Strategic implications, provide a clear transformation path with concrete actions, present different strategic options, assess financial/reputational/political risks for each, and draft a roadmap explaining steps, decisions, and consequences. Do not mention this dataset or the source document.",
+      "expected_output": {
+        "political": [
+          "German automotive policy, tariff scenarios, and subsidy design influence where VW can scale EV production and which export markets remain accessible.",
+          "Geopolitical trade tensions can disrupt China exposure and reshape where VW localizes battery and software development."
+        ],
+        "economic": [
+          "Plant-level production costs, brand profitability, and labor-cost differences determine which factories can stay open during restructuring.",
+          "Weak China demand and currency shifts directly hit revenue stability and capex capacity for EV and software recovery."
+        ],
+        "social": [
+          "Brand perception in key markets affects EV uptake and pricing power, especially where software quality has damaged trust.",
+          "Employee satisfaction, union position, and labor-market conditions constrain workforce reductions and site closures."
+        ],
+        "technological": [
+          "Cariad/software strategy, battery technology, patents, and R&D spend determine whether VW can close the EV competitiveness gap.",
+          "Legacy vehicle architectures slow platform consolidation unless VW prioritizes software-defined vehicle investment."
+        ],
+        "environmental": [
+          "Battery lifecycle impacts and plant CO2 footprints affect compliance cost and the credibility of VW's transition narrative.",
+          "Environmental regulation accelerates the need to retire or repurpose ICE-heavy assets."
+        ],
+        "legal": [
+          "Labor agreements, emissions rules, and GDPR compliance limit how fast VW can restructure plants and digital operations.",
+          "Regulatory penalties for emissions non-compliance add financial risk during the transition period."
+        ],
+        "strategic_implications": [
+          "Present option paths such as aggressive China de-risking, European capacity rationalization, and software/platform consolidation.",
+          "Prioritize investments in software, batteries, and modular EV platforms while managing union and political backlash from closures.",
+          "Use a phased roadmap that links plant decisions, workforce agreements, and brand recovery milestones to financial targets."
+        ]
+      },
+      "gold_claims": [
+        {
+          "category": "Economic",
+          "claim": "Declining China revenues and underused European plants create a dual margin problem that forces portfolio and capacity choices, not incremental cost cutting alone."
+        },
+        {
+          "category": "Technological",
+          "claim": "Software delays and legacy systems are central strategic bottlenecks because they stall EV transition and platform economics."
+        },
+        {
+          "category": "Social",
+          "claim": "Union power and employee/brand trust constrain restructuring speed and determine whether plant closures become political crises."
+        },
+        {
+          "category": "Political",
+          "claim": "Tariffs and automotive industrial policy can either protect European production or punish VW if its EV/software roadmap remains delayed."
+        },
+        {
+          "category": "Environmental",
+          "claim": "Battery lifecycle and plant emissions requirements shape which assets must be retired, retrofitted, or replaced during transition."
+        },
+        {
+          "category": "Legal",
+          "claim": "Labor agreements and emissions regulation convert restructuring choices into binding legal and negotiation processes."
+        }
+      ],
+      "category_targets": [
+        {
+          "factor": "German automotive policy and tariff scenarios",
+          "correct_category": "Political",
+          "rationale": "Policy and trade rules are government-level constraints on VW's global footprint."
+        },
+        {
+          "factor": "Production cost by plant and brand profitability",
+          "correct_category": "Economic",
+          "rationale": "Plant economics and brand margins drive restructuring decisions."
+        },
+        {
+          "factor": "Brand perception and union position",
+          "correct_category": "Social",
+          "rationale": "Market trust and labor relations are social constraints on transformation."
+        },
+        {
+          "factor": "Cariad strategy and battery technology advances",
+          "correct_category": "Technological",
+          "rationale": "Software and battery technology are core transition enablers."
+        },
+        {
+          "factor": "Battery lifecycle and plant CO2 emissions",
+          "correct_category": "Environmental",
+          "rationale": "Lifecycle and emissions impacts are environmental transition factors."
+        },
+        {
+          "factor": "Labor agreements and emissions regulations",
+          "correct_category": "Legal",
+          "rationale": "Collective bargaining and compliance law shape feasible restructuring actions."
+        }
+      ],
+      "avoid_claims": [
+        "Volkswagen can ignore software delays because ICE sales will recover fully in China.",
+        "Plant closures have no social or political consequences in Germany.",
+        "EV transition requires no change to workforce or labor agreements."
+      ],
+      "validation_notes": {
+        "source_anchors": [
+          "Scenario brief: revenue decline, China weakness, European underutilization, trade rules, stalled EV/software transition.",
+          "Expected analysis: German auto policy, plant economics, brand/union dynamics, Cariad/battery/R&D, lifecycle emissions, labor and emissions law.",
+          "Expected output: transformation path, options, risk assessment, roadmap with consequences."
+        ],
+        "reread_justification": "The case emphasizes restructuring under political and social constraints, with software/EV technology as the decisive technological bottleneck."
+      }
+    },
+    {
+      "case_id": "market_biontech",
+      "source_pdf": "eval_papers/market-analysis-scenarios.pdf",
+      "case_title": "BioNTech — from pandemic success to long-term oncology leader",
+      "case_subject": "BioNTech allocating financial resources, R&D investments, and partnerships over the next decade after post-COVID revenue decline and leadership change",
+      "prompt": "Conduct a PESTEL-based market analysis for BioNTech allocating financial resources, R&D investments, and strategic partnerships over the next decade to become a leading global biotechnology company after the COVID pandemic. Background: post-pandemic revenue decline, collapsed COVID vaccine market, founder departures, and high R&D spend that becomes a financial risk if pipeline results are weak. Return exactly these headings: Political, Economic, Social, Technological, Environmental, Legal, Strategic implications. Under each PESTEL heading, provide concise bullets that connect the external factor to direct business impact for BioNTech. Under Strategic implications, provide actionable steps with financial risk/opportunity assessment, multiple scenarios under different market conditions, a recommended investment roadmap across sectors, and a concise competitor overview with advantages and disadvantages. Do not mention this dataset or the source document.",
+      "expected_output": {
+        "political": [
+          "EU pharmaceutical strategy, international trade deals, and public-health policy shape market access and funding for oncology and infectious-disease platforms.",
+          "Government pandemic-procurement dynamics have shifted, reducing COVID windfall revenue and changing partnership leverage."
+        ],
+        "economic": [
+          "High R&D expenditure and declining post-COVID cash inflows create pressure to prioritize pipeline bets with clearer commercial upside.",
+          "Oncology market growth and competitor financial strength determine whether BioNTech can sustain long-horizon investment."
+        ],
+        "social": [
+          "Demographic and healthcare trends support oncology demand, but public perception of mRNA technology still influences uptake and policy support.",
+          "Leadership change after founder departures affects investor confidence and strategic continuity."
+        ],
+        "technological": [
+          "Patent portfolio, AI-enabled R&D, publications, and competitor progress define BioNTech's ability to lead in oncology and next-generation vaccines.",
+          "Platform breadth beyond COVID is the key technological question: can mRNA scale into durable oncology revenue?"
+        ],
+        "environmental": [
+          "Manufacturing emissions and ESG expectations affect site expansion, partner selection, and cost of capital.",
+          "Sustainable biomanufacturing can become a licensing and partnership differentiator."
+        ],
+        "legal": [
+          "Clinical-trial regulation, EMA/FDA guidance, licensing, and compliance requirements determine timeline risk for pipeline assets.",
+          "IP and partnership contracts structure how much value BioNTech retains from platform collaborations."
+        ],
+        "strategic_implications": [
+          "Recommend a portfolio roadmap balancing oncology core bets, selective vaccine assets, and partnership-led expansion.",
+          "Present scenarios for strong, moderate, and weak oncology conversion and show how cash runway and R&D pacing should change.",
+          "Compare key competitors and prioritize investments where BioNTech retains platform control and differentiated science."
+        ]
+      },
+      "gold_claims": [
+        {
+          "category": "Economic",
+          "claim": "Post-COVID revenue collapse makes R&D concentration a financial risk unless BioNTech converts oncology and platform assets into durable revenue streams."
+        },
+        {
+          "category": "Technological",
+          "claim": "Patents, AI-enabled discovery, and competitor R&D progress determine whether BioNTech remains a platform leader or becomes a one-product story."
+        },
+        {
+          "category": "Political",
+          "claim": "EU pharma strategy and public-health policy influence reimbursement, trial access, and the policy environment for mRNA platforms."
+        },
+        {
+          "category": "Social",
+          "claim": "Public perception of mRNA and demographic healthcare demand affect market acceptance and long-term oncology expansion."
+        },
+        {
+          "category": "Legal",
+          "claim": "Clinical-trial and regulatory pathways create timeline and approval risk that directly affects partnership terms and capital allocation."
+        },
+        {
+          "category": "Environmental",
+          "claim": "Manufacturing emissions and ESG reporting influence partner appetite and the cost of scaling biologics production."
+        }
+      ],
+      "category_targets": [
+        {
+          "factor": "EU pharmaceutical strategy and public health policies",
+          "correct_category": "Political",
+          "rationale": "Pharma and health policy are government-level market-access drivers."
+        },
+        {
+          "factor": "R&D expenditure and cash reserve pressure",
+          "correct_category": "Economic",
+          "rationale": "Spend levels and liquidity are core financial constraints."
+        },
+        {
+          "factor": "Public perception of mRNA technology",
+          "correct_category": "Social",
+          "rationale": "Public acceptance is a social determinant of demand and policy support."
+        },
+        {
+          "factor": "Patent portfolio and AI strategy",
+          "correct_category": "Technological",
+          "rationale": "IP and AI are technology assets shaping R&D competitiveness."
+        },
+        {
+          "factor": "Manufacturing emissions and ESG expectations",
+          "correct_category": "Environmental",
+          "rationale": "Production emissions and ESG are environmental operating constraints."
+        },
+        {
+          "factor": "Clinical trial and EMA/FDA regulatory requirements",
+          "correct_category": "Legal",
+          "rationale": "Trial and approval rules are legal/regulatory gates on commercialization."
+        }
+      ],
+      "avoid_claims": [
+        "BioNTech can rely indefinitely on COVID vaccine revenue without pipeline diversification.",
+        "Founder departures have no effect on investor confidence or strategy execution.",
+        "Regulatory approval timelines are irrelevant to R&D investment pacing."
+      ],
+      "validation_notes": {
+        "source_anchors": [
+          "Scenario brief: post-COVID revenue decline, vaccine market collapse, founder exits, high R&D spend risk.",
+          "Expected analysis: EU pharma strategy, R&D/cash/competitors, demographics/mRNA perception, patents/AI, ESG, clinical/regulatory law.",
+          "Expected output: steps with financial risk/opportunity, multi-scenario roadmap, competitor overview."
+        ],
+        "reread_justification": "The case tests whether the system can move from pandemic windfall logic to long-horizon oncology/platform allocation under financial and regulatory constraints."
+      }
+    }
+  ]
+}

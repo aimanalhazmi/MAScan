@@ -17,7 +17,7 @@ class AgentConfig(BaseModel):
     system_prompt: str = Field(..., description="System prompt for the agent.")
     always_call_tools: list[str] = Field(default_factory=list, description="Tool names this agent always calls.")
     optional_tools: list[str] = Field(default_factory=list, description="Tool names this agent may call.")
-    max_llm_iterations: int = Field(10, gt=0, description="Maximum number of LLM iterations.")
+    max_llm_iterations: int = Field(25, gt=0, description="Maximum number of LLM iterations.")
     options: dict[str, Any] = Field(
         default_factory=dict,
         description="Agent-specific options (e.g. feature toggles) read by that agent.",

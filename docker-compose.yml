@@ -4,7 +4,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    container_name: mascan-api
+    container_name: api
     restart: unless-stopped
     ports:
       - "8000:8000"
@@ -15,9 +15,12 @@ services:
       HOME: /app
       # the self-hosted Firecrawl
       FIRECRAWL_API_URL: http://firecrawl:3002
+      MASCAN_STATIC_DIR: /app/src/mascan/app/static
+      RAG_UPLOAD_DIR: /app/rag_uploads
     volumes:
       - ./src:/app/src:ro
       - ./scripts:/app/scripts:ro
+      - mascan-rag-uploads:/app/rag_uploads
       # Reddit session cached on the host by `rdt login`. Mounted read-only so the
       # reddit_search tool can authenticate non-interactively inside the container.
       - ${HOME}/.config/rdt-cli:/app/.config/rdt-cli:ro
@@ -130,27 +133,8 @@ services:
       POSTGRES_PASSWORD: postgres
       POSTGRES_DB: postgres
 
-  # Open WebUI
-  openwebui:
-    image: ghcr.io/open-webui/open-webui:main
-    container_name: mascan-openwebui
-    restart: unless-stopped
-    ports:
-      - "3000:8080"
-    volumes:
-      - openwebui-data:/app/backend/data
-    depends_on:
-      mascan-api:
-        condition: service_healthy
-    environment:
-      # Disable Ollama since we don't use it; speeds up startup.
-      ENABLE_OLLAMA_API: "false"
-      WEBUI_AUTH: "true"
-      # We do RAG in our own pipe; skip Open WebUI's retrieval.
-      BYPASS_EMBEDDING_AND_RETRIEVAL: "true"
-
 volumes:
-  openwebui-data:
-    name: mascan-openwebui-data
   mascan-pgdata:
     name: mascan-pgdata
+  mascan-rag-uploads:
+    name: mascan-rag-uploads
