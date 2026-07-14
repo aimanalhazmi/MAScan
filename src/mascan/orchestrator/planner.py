@@ -17,6 +17,8 @@ logger = get_logger("orchestrator.planner")
 # Common planner misspellings / singular forms → registered agent names.
 AGENT_NAME_ALIASES: dict[str, str] = {
     "economic": "economics",
+    "economic agent": "economics",
+    "economics agent": "economics",
     "economy": "economics",
     "environment": "environmental",
     "politics": "political",
@@ -220,9 +222,11 @@ def clarify_intent(user_prompt: str, settings: Any) -> str | None:
 
 
 def _normalize_agent_name(name: str, available: list[str]) -> str:
-    if name in available:
-        return name
-    alias = AGENT_NAME_ALIASES.get(name.lower())
+    normalized = name.strip().lower()
+    canonical_names = {candidate.lower(): candidate for candidate in available}
+    if normalized in canonical_names:
+        return canonical_names[normalized]
+    alias = AGENT_NAME_ALIASES.get(normalized)
     if alias and alias in available:
         logger.info("Planner alias %r mapped to registered agent %r.", name, alias)
         return alias
