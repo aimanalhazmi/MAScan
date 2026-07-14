@@ -2,7 +2,11 @@
 
 from typing import Any
 
-from mascan.agents.context import render_agent_context, render_runtime_context
+from mascan.agents.context import (
+    render_agent_context,
+    render_citation_requirements,
+    render_runtime_context,
+)
 
 
 def build_user_prompt(
@@ -23,18 +27,15 @@ def build_user_prompt(
         "Group findings by evidence type when useful: official social indicators, "
         "public discourse, user pain points, demand/adoption signals, controversy, "
         "and business implications. Distinguish official statistics from anecdotal "
-        "chatter and uncertainty. "
-        "\n\nCitation requirements:\n"
-        "- Cite evidence directly in the analysis text using Markdown links.\n"
-        "- For World Bank indicators, cite the attached api_url, for example "
-        "[World Bank: unemployment](https://api.worldbank.org/.../SL.UEM.TOTL.ZS).\n"
-        "- For web_search results, cite the page url with the page title or source name.\n"
-        "- For Reddit and X results, cite each referenced post with its url when available.\n"
-        "- Do not write bare citations like '(World Bank, 2024)', '(source: Reddit)', "
-        "or '(source: X)' when a URL is present in the tool output.\n"
-        "- If a claim cannot be linked to a URL, explicitly mark it as unlinked evidence.\n\n"
+        "chatter and uncertainty.\n\n"
         "Use the already gathered web_search and World Bank evidence as the baseline. "
         "When qualitative community or recent-post signals would strengthen the analysis, "
         "call the reddit_search and/or x_search tools yourself; otherwise rely on the "
-        "baseline evidence. Only cite Reddit or X posts that those tool calls actually return."
+        "baseline evidence. Only cite Reddit or X posts that those tool calls actually return.\n\n"
+        + render_citation_requirements(
+            "For World Bank indicators, cite the returned user-facing url, not api_url.",
+            "For Reddit and X evidence, cite the exact returned post URL.",
+            "Do not use bare citations such as '(World Bank, 2024)' when a URL exists.",
+            "Treat Reddit and X as qualitative, non-representative evidence.",
+        )
     )

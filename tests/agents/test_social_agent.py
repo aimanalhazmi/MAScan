@@ -393,9 +393,13 @@ def test_world_bank_social_indicators_formats_latest_values(mocker: Any) -> None
     assert result.data[0]["value"] == 8000000000
     assert result.data[0]["api_url"] == (
         "https://api.worldbank.org/v2/country/WLD/indicator/SP.POP.TOTL"
+        "?format=json&per_page=5"
+    )
+    assert result.data[0]["url"] == (
+        "https://data.worldbank.org/indicator/SP.POP.TOTL?locations=1W"
     )
     assert result.metadata["source_urls"] == [
-        "https://api.worldbank.org/v2/country/WLD/indicator/SP.POP.TOTL"
+        "https://data.worldbank.org/indicator/SP.POP.TOTL?locations=1W"
     ]
 
 

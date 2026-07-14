@@ -3,7 +3,7 @@ import ReactFlow, { Background } from "reactflow";
 import { AGENTS, LABELS } from "../graph";
 
 // Fixed positions for the PESTEL pipeline. Planner on top, the six agents in a
-// 2-column grid, synthesizer at the bottom.
+// 2-column grid, followed by synthesizer and validator.
 const POS = {
   planner: { x: 95, y: 0 },
   clarify: { x: 260, y: 55 },
@@ -14,6 +14,7 @@ const POS = {
   environmental: { x: 5, y: 255 },
   legal: { x: 175, y: 255 },
   synthesizer: { x: 95, y: 350 },
+  validator: { x: 95, y: 430 },
 };
 
 function statusClass(status, selected) {
@@ -51,6 +52,14 @@ export default function GraphRail({ run, selected, onSelect }) {
       const on2 = run.nodeStatus[a] === "done";
       list.push({ id: `${a}-s`, source: a, target: "synthesizer", animated: on2, className: on2 ? "scan-edge-on" : "scan-edge" });
     }
+    const validate = run.nodeStatus.validator === "active" || run.nodeStatus.validator === "done";
+    list.push({
+      id: "s-validator",
+      source: "synthesizer",
+      target: "validator",
+      animated: run.nodeStatus.validator === "active",
+      className: validate ? "scan-edge-on" : "scan-edge",
+    });
     return list;
   }, [run.nodeStatus]);
 

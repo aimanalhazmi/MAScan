@@ -3,10 +3,9 @@ from typing import Any
 
 from langchain_core.language_models import BaseChatModel
 from langchain_core.messages import HumanMessage, SystemMessage, ToolMessage
-from pydantic import BaseModel, Field
 
 from mascan.agents.registry import agent_registry
-from mascan.contracts.planning import PlanModel, IntentCheck, AgentAssignment, InformationRequest
+from mascan.contracts.planning import AgentAssignment, InformationRequest, IntentCheck, PlanModel
 from mascan.core.llm import get_chat_model
 from mascan.core.logging import get_logger
 from mascan.core.settings import get_settings
@@ -75,6 +74,8 @@ agents gather all of that themselves.
 
 - Call rag_search when the request names a company, product, or market the user is
   likely to have documented, using a short query naming that entity, once per entity.
+- If the user says a document is attached, uploaded, or should be used, you MUST call
+  rag_search for the named company or document topic.
 - Call nothing when the request is self-contained, or when it asks about the wider
   world rather than about the user's own business.
 """
@@ -123,6 +124,7 @@ def planner_node(state: GraphState) -> dict[str, Any]:
         temperature=0.0,
         max_tokens=1000,
     )
+    knowledge_messages, rag_evidence = search_knowledge_base(llm, user_prompt)
     messages: list[Any] = [
         SystemMessage(
             content=PLANNER_SYSTEM_PROMPT.format(
@@ -130,7 +132,7 @@ def planner_node(state: GraphState) -> dict[str, Any]:
             )
         ),
         HumanMessage(content=user_prompt),
-        *search_knowledge_base(llm, user_prompt),
+        *knowledge_messages,
     ]
 
     result: PlanModel = llm.with_structured_output(PlanModel).invoke(messages)
@@ -142,13 +144,16 @@ def planner_node(state: GraphState) -> dict[str, Any]:
     raw_plan = {a.agent_name: a for a in result.assignments if isinstance(a, AgentAssignment)}
     plan = _filter_to_known_agents(raw_plan, available)
     logger.info(f"Planner selected {len(plan)} agent(s): {sorted(plan.keys())}")
-    return {"plan": plan}
+    return {"plan": plan, "rag_evidence": rag_evidence}
 
 
-def search_knowledge_base(llm: BaseChatModel, user_prompt: str) -> list[Any]:
+def search_knowledge_base(
+    llm: BaseChatModel,
+    user_prompt: str,
+) -> tuple[list[Any], list[dict[str, Any]]]:
     """Let the planner search the uploaded documents, and return the exchange as messages."""
     if "rag_search" not in tool_registry.all_names():
-        return []
+        return [], []
 
     tool = tool_registry.get("rag_search")
     decision = llm.bind_tools([tool.as_langchain_tool()]).invoke([
@@ -159,18 +164,33 @@ def search_knowledge_base(llm: BaseChatModel, user_prompt: str) -> list[Any]:
     calls = getattr(decision, "tool_calls", None) or []
     if not calls:
         logger.info("Planner found no reason to search the knowledge base.")
-        return []
+        return [], []
 
     answers: list[Any] = []
+    evidence: list[dict[str, Any]] = []
+    seen_evidence: set[tuple[str, int | None, str]] = set()
     for call in calls:
-        result = tool.run(**call["args"])
+        call_args = dict(call["args"])
+        call_args["k"] = max(int(call_args.get("k") or 5), 10)
+        result = tool.run(**call_args)
         if not result.success:
             logger.warning(f"rag_search failed during planning: {result.error}")
         passages = result.data if result.success and result.data else []
         logger.info(f"Planner searched {call['args'].get('query')!r}: {len(passages)} passage(s).")
         answers.append(ToolMessage(content=json.dumps(passages), tool_call_id=call["id"]))
+        for passage in passages:
+            if not isinstance(passage, dict):
+                continue
+            citation = passage.get("citation") or {}
+            document = str(citation.get("document") or "uploaded document")
+            page = citation.get("page") if isinstance(citation.get("page"), int) else None
+            content = str(passage.get("content") or "").strip()
+            key = (document, page, content)
+            if content and key not in seen_evidence:
+                seen_evidence.add(key)
+                evidence.append(passage)
 
-    return [decision, *answers]
+    return [decision, *answers], evidence
 
 
 def build_user_prompt(state: GraphState, runtime: dict[str, Any]) -> str:
@@ -220,6 +240,12 @@ def _filter_to_known_agents(
             logger.warning(f"Planner hallucinated unknown agent {name}; dropping.")
             continue
         if not assignment.tasks:
+            continue
+        if normalized in filtered:
+            logger.warning(
+                "Planner returned duplicate assignments for %s; keeping the first.",
+                normalized,
+            )
             continue
         if normalized != name:
             assignment = assignment.model_copy(update={"agent_name": normalized})

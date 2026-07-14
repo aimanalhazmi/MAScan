@@ -13,6 +13,7 @@ from mascan.orchestrator.adapters import make_agent_node
 from mascan.orchestrator.planner import planner_node
 from mascan.orchestrator.state import GraphState
 from mascan.orchestrator.synthesizer import synthesizer_node
+from mascan.orchestrator.validator import validator_node
 
 MAX_INFO_REQUESTS = 3
 
@@ -79,6 +80,7 @@ def build_graph() -> Any:
     graph.add_node("handle_info_request", handle_info_request)
     graph.add_node("agents", agents_passthrough)
     graph.add_node("synthesizer", synthesizer_node)
+    graph.add_node("validator", validator_node)
 
     agents = agent_registry.all()
     if not agents:
@@ -92,7 +94,7 @@ def build_graph() -> Any:
 
     # Edges
     graph.add_edge(START, "planner")
-    
+
     # Conditional routing from planner
     graph.add_conditional_edges(
         "planner",
@@ -110,8 +112,9 @@ def build_graph() -> Any:
     for agent in agents:
         graph.add_edge("agents", agent.name)
         graph.add_edge(agent.name, "synthesizer")
-    
-    graph.add_edge("synthesizer", END)
+
+    graph.add_edge("synthesizer", "validator")
+    graph.add_edge("validator", END)
 
     # Checkpointer lets the clarification interrupt pause and resume by thread_id.
     compiled_graph = graph.compile(checkpointer=MemorySaver())
@@ -182,6 +185,7 @@ def state_to_report(state_dict: dict[str, Any]) -> FinalReport:
         plan=state_dict.get("plan", {}),
         agent_reports=state_dict.get("reports", {}),
         failures=state_dict.get("failures", {}),
+        metadata={"validation": state_dict.get("validation_payload", {})},
     )
 
 def route_planner(state: GraphState) -> str:

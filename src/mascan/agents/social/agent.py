@@ -70,6 +70,7 @@ class SocialAgent(BaseAgent):
                 "mode": "mixed",
                 "deterministic_tools": list(self.config.always_call_tools),
                 "llm_chosen_tools": llm_used_tools,
+                "default_display_tools": ["world_bank_social_indicators"],
                 "evidence_plan": getattr(self, "_last_evidence_plan", None),
             },
         )
@@ -79,7 +80,6 @@ class SocialAgent(BaseAgent):
         tasks: list[str],
         context: dict[str, Any] | None = None,
     ) -> dict[str, ToolResult[Any]]:
-        query = " ; ".join(tasks)
         plan = self.plan_evidence(tasks, context=context)
         self._last_evidence_plan = plan.model_dump()
         outputs: dict[str, ToolResult[Any]] = {}
@@ -211,10 +211,7 @@ class SocialAgent(BaseAgent):
             render_tool_outputs(deterministic_outputs),
             context=context,
         )
-        result = agent.invoke(
-            {"messages": [HumanMessage(content=user_prompt)]},
-            config={"recursion_limit": self.config.max_llm_iterations},
-        )
+        result = self.invoke_react_with_fallback(agent, llm, user_prompt)
         return (
             result,
             self.extract_final_answer(result),

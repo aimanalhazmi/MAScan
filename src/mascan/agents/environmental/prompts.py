@@ -2,8 +2,11 @@
 
 from typing import Any
 
-from mascan.contracts.tools import ToolResult
-from mascan.agents.context import render_agent_context, render_runtime_context
+from mascan.agents.context import (
+    render_agent_context,
+    render_citation_requirements,
+    render_runtime_context,
+)
 
 
 def build_user_prompt(
@@ -29,6 +32,11 @@ def build_user_prompt(
         "Use web_search for climate/weather patterns, extreme weather events, air quality, "
         "biodiversity, land use change, or ecological footprint data where no dedicated "
         "tool is available. "
-        "Report raw data findings first, then interpret their business implications. "
-        "Cite all sources by name, coverage period, and geographic scope."
+        "Report raw data findings first, then interpret their business implications.\n\n"
+        + render_citation_requirements(
+            "For World Bank indicators, cite the returned user-facing url, not api_url.",
+            "For web_search evidence, cite the exact returned page URL.",
+            "State the coverage period and geography next to the supported finding.",
+            "Distinguish observations, modeled projections, and inferred trends.",
+        )
     )

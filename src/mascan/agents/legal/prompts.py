@@ -5,6 +5,7 @@ The system prompt itself lives in config.yaml. This module holds prompt
 sections, build task lists, etc.
 """
 
+from mascan.agents.context import render_citation_requirements
 from mascan.contracts.tools import ToolResult
 
 
@@ -25,6 +26,12 @@ def build_user_prompt(tasks: list[str], tool_block: str) -> str:
         f"Information already gathered:\n{tool_block}\n\n"
         "Write a concise legal and regulatory analysis addressing the tasks "
         "above. Distinguish enacted law from proposals, note effective dates "
-        "and comment deadlines where known, and cite sources by name. Call "
-        "optional tools only if needed."
+        "and comment deadlines where known, and call optional tools only if needed.\n\n"
+        + render_citation_requirements(
+            "For Federal Register evidence, cite the returned official document URL.",
+            "For EU law, cite the returned EUR-Lex document URL.",
+            "For web_search evidence, cite the exact returned page URL.",
+            "State whether a cited measure is enacted, proposed, under consultation, "
+            "or not yet effective.",
+        )
     )

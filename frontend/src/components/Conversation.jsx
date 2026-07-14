@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from "react";
-import Markdown from "react-markdown";
 import FileUpload from "./FileUpload";
+import MarkdownContent from "./MarkdownContent";
+import { buildProgressSteps } from "../progress.js";
+import { withoutFactCheck } from "../markdown.js";
 
 // Center pane: messages, the live run indicator, an inline clarification prompt,
 // and the composer.
@@ -8,6 +10,9 @@ export default function Conversation({ messages, run, onSend, onResume }) {
   const [input, setInput] = useState("");
   const [answer, setAnswer] = useState("");
   const busy = run.status === "running";
+  const showProgress = busy || run.status === "clarification";
+  const progressSteps = buildProgressSteps(run);
+  const progressKey = progressSteps.map((step) => `${step.id}:${step.status}:${step.text}`).join("|");
   const scrollRef = useRef(null);
   const taRef = useRef(null);
 
@@ -15,7 +20,7 @@ export default function Conversation({ messages, run, onSend, onResume }) {
   useEffect(() => {
     const el = scrollRef.current;
     if (el) el.scrollTop = el.scrollHeight;
-  }, [messages, run.status, run.finalMarkdown]);
+  }, [messages, run.status, run.finalMarkdown, progressKey]);
 
   // Grow the input with its content, up to a cap, like Claude's composer.
   useEffect(() => {
@@ -51,11 +56,11 @@ export default function Conversation({ messages, run, onSend, onResume }) {
 
         {messages.map((m, i) => (
           <div key={i} className={`msg msg-${m.role}`}>
-            {m.role === "assistant" ? <Markdown>{m.content}</Markdown> : m.content}
+            {m.role === "assistant" ? <MarkdownContent>{withoutFactCheck(m.content)}</MarkdownContent> : m.content}
           </div>
         ))}
 
-        {busy && <RunIndicator run={run} />}
+        {showProgress && progressSteps.length > 0 && <ProgressPanel steps={progressSteps} />}
 
         {run.status === "clarification" && run.clarification && (
           <div className="msg msg-assistant clarify">
@@ -101,14 +106,20 @@ export default function Conversation({ messages, run, onSend, onResume }) {
   );
 }
 
-function RunIndicator({ run }) {
-  const active = Object.entries(run.nodeStatus)
-    .filter(([, s]) => s === "active")
-    .map(([id]) => id);
-  const label = active.length ? active.join(", ") : "planning";
+function ProgressPanel({ steps }) {
   return (
-    <div className="msg msg-assistant run-indicator">
-      <span className="scan-dot" /> Scanning — {label}…
+    <div className="msg msg-assistant progress-panel" role="status" aria-live="polite">
+      <div className="progress-title">Analysis progress</div>
+      <div className="progress-steps">
+        {steps.map((step) => (
+          <div key={step.id} className={`progress-step progress-${step.status}`}>
+            <span className="progress-marker" aria-hidden="true">
+              {step.status === "active" ? "" : step.status === "failed" ? "×" : "✓"}
+            </span>
+            <span>{step.text}</span>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }

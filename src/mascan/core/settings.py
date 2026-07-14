@@ -44,6 +44,9 @@ class Settings(BaseSettings):
     rag_image_dir: str = Field(
         "rag_images", description="Directory where figures extracted from uploaded PDFs are saved."
     )
+    rag_upload_dir: str = Field(
+        "rag_uploads", description="Directory where original uploaded documents are retained."
+    )
     rag_max_retries: int = Field(
         1, description="Max self-correction (CRAG) rewrite-retries on the full retrieval path."
     )

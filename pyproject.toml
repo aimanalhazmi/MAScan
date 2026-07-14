@@ -30,6 +30,7 @@ dependencies = [
     "uvicorn>=0.48.0",
     "pypdf>=5.0.0",
     "langchain-text-splitters>=1.1.2",
+    "markdown-it-py>=4.2.0",
     "langchain-postgres>=0.0.17",
     "pymupdf>=1.28.0",
     "python-multipart>=0.0.32",

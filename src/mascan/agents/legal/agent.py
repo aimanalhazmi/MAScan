@@ -9,13 +9,13 @@ Pattern:
 from typing import Any
 
 from langchain.agents import create_agent
-from langchain_core.messages import HumanMessage
 
 from mascan.agents.base import BaseAgent
 from mascan.agents.legal.prompts import build_user_prompt, render_tool_outputs
 from mascan.contracts.reports import AgentReport
 from mascan.contracts.tools import ToolResult
 from mascan.core.llm import get_chat_model
+
 
 class LegalAgent(BaseAgent):
     name = "legal"  # must match config.yaml `name`
@@ -43,7 +43,7 @@ class LegalAgent(BaseAgent):
                 "llm_chosen_tools": llm_used_tools,
             },
         )
-    
+
     def run_react_agent(
         self,
         tasks: list[str],
@@ -66,8 +66,5 @@ class LegalAgent(BaseAgent):
         )
 
         user_prompt = build_user_prompt(tasks, render_tool_outputs(deterministic_outputs))
-        result = agent.invoke(
-            {"messages": [HumanMessage(content=user_prompt)]},
-            config={"recursion_limit": self.config.max_llm_iterations},
-        )
+        result = self.invoke_react_with_fallback(agent, llm, user_prompt)
         return result, self.extract_final_answer(result), self.extract_used_tools(result)

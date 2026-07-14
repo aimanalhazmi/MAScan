@@ -1,11 +1,17 @@
 import { useState } from "react";
-import { AGENTS } from "./graph";
+import { AGENTS } from "./graph.js";
+import { withoutFactCheck } from "./markdown.js";
 
 // Drives an analysis run: POSTs to the SSE endpoints, parses the stream, and
 // reduces node events into a single run object the UI renders.
 
 export function emptyRun() {
-  const nodeStatus = { planner: "idle", clarify: "idle", synthesizer: "idle" };
+  const nodeStatus = {
+    planner: "idle",
+    clarify: "idle",
+    synthesizer: "idle",
+    validator: "idle",
+  };
   for (const a of AGENTS) nodeStatus[a] = "idle";
   return {
     status: "idle", // idle | running | clarification | done | error
@@ -15,10 +21,26 @@ export function emptyRun() {
     failures: {},
     finalMarkdown: "",
     summary: "",
+    validationStatus: "",
+    validationIssues: [],
+    validationMarkdown: "",
+    validationPayload: {},
     clarification: null,
     clarifications: [], // answered question/answer pairs, kept for the graph
     error: "",
   };
+}
+
+export function hydrateRun(partial) {
+  const base = emptyRun();
+  if (!partial) return base;
+  const hydrated = {
+    ...base,
+    ...partial,
+    nodeStatus: { ...base.nodeStatus, ...(partial.nodeStatus || {}) },
+  };
+  hydrated.finalMarkdown = withoutFactCheck(hydrated.finalMarkdown);
+  return hydrated;
 }
 
 function markSynthesizer(run) {
@@ -98,8 +120,18 @@ export function reduce(prev, ev) {
 
   if (node === "synthesizer") {
     run.nodeStatus.synthesizer = "done";
-    run.finalMarkdown = update.final_markdown || run.finalMarkdown;
+    run.nodeStatus.validator = "active";
+    run.finalMarkdown = withoutFactCheck(update.final_markdown || run.finalMarkdown);
     run.summary = update.final_summary || run.summary;
+    return run;
+  }
+
+  if (node === "validator") {
+    run.nodeStatus.validator = "done";
+    run.validationStatus = update.validation_status || run.validationStatus;
+    run.validationIssues = update.validation_issues || run.validationIssues;
+    run.validationMarkdown = update.validation_markdown || run.validationMarkdown;
+    run.validationPayload = update.validation_payload || run.validationPayload;
     return run;
   }
 
@@ -141,9 +173,8 @@ async function consume(response, apply) {
 }
 
 export function useAnalysisStream(initialRun) {
-  // Fill any missing fields so a lightweight snapshot still forms a valid run.
-  const hydrate = (partial) => (partial ? { ...emptyRun(), ...partial } : emptyRun());
-  const [run, setRun] = useState(() => hydrate(initialRun));
+  // Fill missing fields, including nodes absent from older saved snapshots.
+  const [run, setRun] = useState(() => hydrateRun(initialRun));
 
   const apply = (ev) => setRun((r) => reduce(r, ev));
 
@@ -183,6 +214,6 @@ export function useAnalysisStream(initialRun) {
       }));
       return post("/analyze/resume", { thread_id, answer });
     },
-    reset: (initial) => setRun(hydrate(initial)),
+    reset: (initial) => setRun(hydrateRun(initial)),
   };
 }
