@@ -1,13 +1,13 @@
 """Economics tools"""
 
-import yfinance as yf
-
 from typing import Any, ClassVar
 
+import yfinance as yf
 from pydantic import BaseModel, Field
 
 from mascan.contracts.tools import ToolResult
 from mascan.tools.base import BaseTool
+
 
 class WebQueryInput(BaseModel):
     query: str = Field(..., description="Search query for economic or market context.")
@@ -64,7 +64,7 @@ class WeeklyStockPricesTool(BaseTool):
                     "end_date": end_date,
                 },
             )
-        
+
     def get_stock_prices(self, ticker: str, start_date: str, end_date:str) -> str:
         """Fetches weekly stock prices and fundamentals from Yahoo Finance.
 
@@ -76,7 +76,7 @@ class WeeklyStockPricesTool(BaseTool):
         Returns:
             str: A JSON string containing the stock price data.
         """
-        
+
         try:
             stock = yf.Ticker(ticker)
             info = stock.info
@@ -126,6 +126,28 @@ class WeeklyStockPricesTool(BaseTool):
                 "ticker": ticker,
                 "start_date": start_date,
                 "end_date": end_date,
+                "sources": [
+                    {
+                        "name": f"Yahoo Finance price history: {ticker}",
+                        "category": "prices",
+                        "url": f"https://finance.yahoo.com/quote/{ticker}/history",
+                    },
+                    {
+                        "name": f"Yahoo Finance company summary: {ticker}",
+                        "category": "summary",
+                        "url": f"https://finance.yahoo.com/quote/{ticker}",
+                    },
+                    {
+                        "name": f"Yahoo Finance financials: {ticker}",
+                        "category": "financials",
+                        "url": f"https://finance.yahoo.com/quote/{ticker}/financials",
+                    },
+                    {
+                        "name": f"Yahoo Finance statistics: {ticker}",
+                        "category": "statistics",
+                        "url": f"https://finance.yahoo.com/quote/{ticker}/key-statistics",
+                    },
+                ],
                 "fundamentals": {
                     "company_name": info.get("longName"),
                     "currency": info.get("currency"),
@@ -156,7 +178,7 @@ class WeeklyStockPricesTool(BaseTool):
                     "price_points": len(weekly_prices),
                 },
             )
-        
+
         except Exception as exc:
             result = ToolResult(
                 success=False,

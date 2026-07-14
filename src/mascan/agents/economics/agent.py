@@ -10,6 +10,7 @@ from mascan.agents.base import GraphBackedAgent
 from mascan.agents.context import render_tool_outputs
 from mascan.agents.economics.graph import EconomicsAgentState, build_economics_graph
 from mascan.agents.economics.prompts import build_user_prompt
+from mascan.agents.sources import dedupe_sources
 from mascan.contracts.reports import Source
 from mascan.contracts.tools import ToolResult
 from mascan.core.llm import get_chat_model
@@ -65,10 +66,26 @@ class EconomicsAgent(GraphBackedAgent):
             self.extract_used_tools(result),
         )
 
+    def collect_sources(
+        self,
+        react_result: dict[str, Any] | None = None,
+        deterministic_outputs: dict[str, ToolResult[Any]] | None = None,
+    ) -> list[Source]:
+        sources: list[Source] = []
+        if react_result:
+            sources.extend(self.extract_llm_sources(react_result))
+        sources.extend(
+            super().collect_sources(
+                react_result=react_result,
+                deterministic_outputs=deterministic_outputs,
+            )
+        )
+        return dedupe_sources(sources)
+
     @classmethod
     def extract_llm_sources(cls, result: dict[str, Any]) -> list[Source]:
         """Turn the LLM's market-data tool calls into rich Sources."""
-        sources_by_name: dict[str, Source] = {}
+        sources_by_url: dict[str, Source] = {}
         for msg in result.get("messages", []):
             if getattr(msg, "type", None) != "tool":
                 continue
@@ -86,23 +103,33 @@ class EconomicsAgent(GraphBackedAgent):
                 if isinstance(fundamentals, dict)
                 else None
             )
-            name = f"yfinance:{ticker}"
-            if name in sources_by_name:
+            source_entries = payload.get("sources")
+            if not isinstance(source_entries, list):
                 continue
-            sources_by_name[name] = Source(
-                name=name,
-                url=f"https://finance.yahoo.com/quote/{ticker}",
-                metadata={
-                    "used_by": "llm_decision",
-                    "tool": "get_weekly_stock_prices",
-                    "provider": "yfinance",
-                    "ticker": ticker,
-                    "company_name": company,
-                    "start_date": payload.get("start_date"),
-                    "end_date": payload.get("end_date"),
-                },
-            )
-        return list(sources_by_name.values())
+            for entry in source_entries:
+                if not isinstance(entry, dict):
+                    continue
+                name = entry.get("name")
+                url = entry.get("url")
+                if not isinstance(name, str) or not isinstance(url, str):
+                    continue
+                if not url.startswith(("http://", "https://")) or url in sources_by_url:
+                    continue
+                sources_by_url[url] = Source(
+                    name=name,
+                    url=url,
+                    metadata={
+                        "used_by": "llm_decision",
+                        "tool": "get_weekly_stock_prices",
+                        "provider": "yfinance",
+                        "category": entry.get("category"),
+                        "ticker": ticker,
+                        "company_name": company,
+                        "start_date": payload.get("start_date"),
+                        "end_date": payload.get("end_date"),
+                    },
+                )
+        return list(sources_by_url.values())
 
     @staticmethod
     def _parse_tool_payload(content: Any) -> Any:
