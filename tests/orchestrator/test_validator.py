@@ -1,3 +1,5 @@
+from contextvars import ContextVar
+
 import pytest
 
 from mascan.contracts.reports import AgentReport, Source
@@ -7,9 +9,11 @@ from mascan.orchestrator.graph import state_to_report
 from mascan.orchestrator.state import GraphState
 from mascan.orchestrator.validator import (
     CitationEvaluation,
+    SourceCheck,
     ValidationIssue,
     ValidationResult,
     build_validation_prompt,
+    evaluate_citation_pairs,
     fetch_cited_sources,
     issues_from_citation_evaluations,
     render_issue_citations,
@@ -109,6 +113,61 @@ def test_validator_failure_does_not_discard_final_report(monkeypatch: pytest.Mon
     assert "**Status:** failed to validate" not in update["final_markdown"]
     assert "**Status:** failed to validate" in update["validation_markdown"]
     assert update["validation_payload"]["error"] == "RuntimeError: model unavailable"
+
+
+def test_citation_workers_inherit_the_validator_measurement_context(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    owner = ContextVar("metrics_owner", default="missing")
+    owner.set("validator")
+    seen_owners: list[str] = []
+
+    def judge(model, attribution, citation, source, excerpt):
+        seen_owners.append(owner.get())
+        return CitationEvaluation(
+            claim=attribution.claim,
+            passage=attribution.passage,
+            citation_number=citation.number,
+            url=citation.url,
+            link_works=True,
+            relevant_content="relevant",
+            fact_check="supported",
+            explanation="Supported by the excerpt.",
+            status="completed",
+        )
+
+    monkeypatch.setattr(
+        "mascan.orchestrator.validator.get_citation_validation_model",
+        lambda: object(),
+    )
+    monkeypatch.setattr("mascan.orchestrator.validator._judge_pair_with_retries", judge)
+    document = parse_attribution_document(
+        "GDP grew [1](https://example.com/gdp)."
+    )
+
+    evaluations = evaluate_citation_pairs(
+        document,
+        [
+            SourceCheck(
+                citation_numbers=[1],
+                requested_url="https://example.com/gdp",
+                final_url="https://example.com/gdp",
+                title="GDP release",
+                status="fetched",
+                checked_at="2026-07-15T00:00:00+00:00",
+            )
+        ],
+        {
+            "https://example.com/gdp": {
+                "title": "GDP release",
+                "final_url": "https://example.com/gdp",
+                "markdown": "GDP grew.",
+            }
+        },
+    )
+
+    assert [evaluation.status for evaluation in evaluations] == ["completed"]
+    assert seen_owners == ["validator"]
 
 
 def test_final_report_metadata_contains_validation_payload() -> None:

@@ -3,13 +3,14 @@
 import functools
 import inspect
 from abc import ABC, abstractmethod
-from typing import  Any, ClassVar
+from typing import Any, ClassVar
+
+from langchain_core.tools import StructuredTool
+from pydantic import BaseModel
 
 from mascan.contracts.tools import ToolResult
 from mascan.core.logging import get_logger
 
-from pydantic import BaseModel
-from langchain_core.tools import StructuredTool
 
 class BaseTool(ABC):
     """Abstract base class for all tools.
@@ -84,6 +85,13 @@ class BaseTool(ABC):
             kwargs["args_schema"] = self.input_schema
 
         return StructuredTool.from_function(**kwargs)
+
+    @staticmethod
+    def truncate_text(value: Any, max_chars: int, marker: str = " […]") -> Any:
+        """Truncate text with the marker included inside the character limit."""
+        if not isinstance(value, str) or len(value) <= max_chars:
+            return value
+        return value[: max_chars - len(marker)].rstrip() + marker
 
     def __repr__(self) -> str:
         return f"<Tool name={self.name!r}>"

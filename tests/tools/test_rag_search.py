@@ -15,6 +15,7 @@ def chunk(score: float, document: str) -> RetrievedChunk:
 
 def test_run_drops_passages_below_the_score_floor(mocker: Any) -> None:
     """A weak nearest neighbour must not reach the planner and pollute the plan."""
+    mocker.patch("mascan.tools.common.rag_search.get_retriever")
     mocker.patch(
         "mascan.tools.common.rag_search.run_sync",
         return_value=[chunk(0.72, "relevant.pdf"), chunk(0.41, "unrelated.pdf")],
@@ -25,4 +26,33 @@ def test_run_drops_passages_below_the_score_floor(mocker: Any) -> None:
 
     assert result.success
     assert [c["citation"]["document"] for c in result.data] == ["relevant.pdf"]
-    assert result.metadata == {"query": "anything", "count": 1, "retrieved": 2}
+    assert result.metadata == {
+        "query": "anything",
+        "count": 1,
+        "retrieved": 2,
+        "limit_applied": False,
+    }
+
+
+def test_run_clamps_k_and_long_passages_without_failing(mocker: Any) -> None:
+    chunks = [
+        RetrievedChunk(
+            content="x" * 1_500,
+            source="upload",
+            citation=Citation(document=f"{index}.pdf"),
+            score=0.9,
+        )
+        for index in range(12)
+    ]
+    retriever = mocker.patch("mascan.tools.common.rag_search.get_retriever").return_value
+    mocker.patch("mascan.tools.common.rag_search.run_sync", return_value=chunks)
+    mocker.patch("mascan.tools.common.rag_search.get_settings").return_value.rag_min_score = 0.5
+
+    result = RagSearchTool().run(query="anything", k=50)
+
+    assert result.success
+    assert len(result.data) == 10
+    assert all(len(row["content"]) <= 1_000 for row in result.data)
+    assert result.metadata["limit_applied"] is True
+    query = retriever.retrieve.call_args.args[0]
+    assert query.k == 10

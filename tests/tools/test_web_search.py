@@ -17,6 +17,7 @@ def test_truncate_markdown_caps_long_pages() -> None:
     truncated = WebSearchTool._truncate_markdown(long_body)
 
     assert len(truncated) < len(long_body)
+    assert len(truncated) <= WebSearchTool.MAX_MARKDOWN_CHARS
     assert truncated.endswith("[...truncated...]")
 
 
@@ -59,6 +60,23 @@ def test_search_impl_truncates_each_result(mocker: Any) -> None:
 
     assert len(results) == 1
     assert results[0]["markdown"].endswith("[...truncated...]")
-    assert len(results[0]["markdown"]) <= WebSearchTool.MAX_MARKDOWN_CHARS + len(
-        "\n\n[...truncated...]"
-    )
+    assert len(results[0]["markdown"]) <= WebSearchTool.MAX_MARKDOWN_CHARS
+
+
+def test_run_clamps_oversized_result_count_without_failing(mocker: Any) -> None:
+    tool = WebSearchTool(api_key="test")
+    response = mocker.Mock()
+    response.web = [
+        _Doc(str(index), f"https://example.com/{index}", "body")
+        for index in range(6)
+    ]
+    fake_client = mocker.Mock()
+    fake_client.search.return_value = response
+    tool.client = fake_client
+
+    result = tool.run(query="anything", max_results=50)
+
+    assert result.success
+    assert len(result.data) == 5
+    assert result.metadata["limit_applied"] is True
+    fake_client.search.assert_called_once_with(query="anything", limit=5)

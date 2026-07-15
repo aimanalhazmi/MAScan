@@ -31,7 +31,7 @@ class EurLexInput(BaseModel):
     """Arguments the LLM supplies when it chooses to call this tool."""
 
     query: str = Field(description="Keyword(s) to match against EU legislation titles, e.g. 'data protection'.")
-    limit: int = Field(default=5, ge=1, le=50, description="Maximum number of legal acts to return.")
+    limit: int = Field(default=5, description="Requested legal acts; values are clamped to 1–10.")
 
 
 class EurLexTool(BaseTool):
@@ -46,6 +46,8 @@ class EurLexTool(BaseTool):
 
     ENDPOINT = "https://publications.europa.eu/webapi/rdf/sparql"
     RESULT_FORMAT = "application/sparql-results+json"
+    MAX_RESULTS = 10
+    MAX_TITLE_CHARS = 500
 
     def run(self, query: str, limit: int = 5, **_: Any) -> ToolResult[dict[str, Any]]:
         """Search EU legislation by keyword.
@@ -55,7 +57,8 @@ class EurLexTool(BaseTool):
             limit: Maximum number of legal acts to return.
         """
         try:
-            sparql = self._build_query(query, limit)
+            bounded_limit = max(1, min(limit, self.MAX_RESULTS))
+            sparql = self._build_query(query, bounded_limit)
             response = http_get(
                 self.ENDPOINT,
                 params={"query": sparql, "format": self.RESULT_FORMAT},
@@ -63,7 +66,13 @@ class EurLexTool(BaseTool):
             payload = response.json()
 
             bindings = payload.get("results", {}).get("bindings", [])
-            documents = self._dedupe_by_celex(self._parse(b) for b in bindings)
+            unique = self._dedupe_by_celex(self._parse(b) for b in bindings)
+            documents = unique[: self.MAX_RESULTS]
+            text_truncated = any(
+                isinstance(self._value(binding, "title"), str)
+                and len(self._value(binding, "title") or "") > self.MAX_TITLE_CHARS
+                for binding in bindings[: self.MAX_RESULTS]
+            )
             data = {
                 "query": query,
                 "returned": len(documents),
@@ -76,7 +85,12 @@ class EurLexTool(BaseTool):
                 metadata={
                     "provider": "eur-lex.europa.eu",
                     "returned": len(documents),
-                    "limit": limit,
+                    "limit": bounded_limit,
+                    "limit_applied": (
+                        limit != bounded_limit
+                        or len(unique) > self.MAX_RESULTS
+                        or text_truncated
+                    ),
                 },
             )
         except Exception as exc:
@@ -135,7 +149,10 @@ class EurLexTool(BaseTool):
         celex = EurLexTool._value(binding, "celex")
         return {
             "celex": celex,
-            "title": EurLexTool._value(binding, "title"),
+            "title": EurLexTool.truncate_text(
+                EurLexTool._value(binding, "title"),
+                EurLexTool.MAX_TITLE_CHARS,
+            ),
             "date": EurLexTool._value(binding, "date"),
             "url": (
                 f"https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX:{celex}"

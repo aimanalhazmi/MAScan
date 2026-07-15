@@ -9,7 +9,7 @@ from mascan.tools.base import BaseTool
 
 class WebSearchInput(BaseModel):
     query: str = Field(..., description="Search query for recent public-web information.")
-    max_results: int = Field(5, ge=1, le=10, description="Maximum number of pages to return.")
+    max_results: int = Field(5, description="Requested pages; values are clamped to 1–5.")
 
 
 class WebSearchTool(BaseTool):
@@ -20,6 +20,7 @@ class WebSearchTool(BaseTool):
     )
     input_schema: ClassVar[type[BaseModel] | None] = WebSearchInput
 
+    MAX_RESULTS: ClassVar[int] = 5
     # Firecrawl returns the full scraped page as markdown. Left unbounded, a
     # handful of long pages overflows the model context window, so cap each
     # page's body before it is handed to the LLM.
@@ -39,12 +40,17 @@ class WebSearchTool(BaseTool):
 
     def run(self, query: str, max_results: int = 5, **_: Any) -> ToolResult[list[dict[str, Any]]]:
         try:
-            results = self.search_impl(query=query, max_results=max_results)
+            bounded_results = max(1, min(max_results, self.MAX_RESULTS))
+            results = self.search_impl(query=query, max_results=bounded_results)
             return ToolResult(
                 success=True,
                 data=results,
                 source="web_search:firecrawl",
-                metadata={"query": query, "count": len(results)},
+                metadata={
+                    "query": query,
+                    "count": len(results),
+                    "limit_applied": max_results != bounded_results,
+                },
             )
         except Exception as exc:
             self.logger.exception("web_search failed for query=%r", query)
@@ -79,14 +85,15 @@ class WebSearchTool(BaseTool):
         if self.client is None:
             self.client = self._build_firecrawl_client()
 
+        bounded_results = max(1, min(max_results, self.MAX_RESULTS))
         try:
-            response = self.client.search(query=query, limit=max_results)
+            response = self.client.search(query=query, limit=bounded_results)
         except AttributeError as exc:
             # None response when the HTTP request fails without a response obj
             raise ConnectionError(f"Firecrawl search failed (likely network/server error): {exc}") from exc
 
         formatted_results = []
-        for doc in getattr(response, "web", None) or []:
+        for doc in (getattr(response, "web", None) or [])[:bounded_results]:
             title = getattr(doc, "title", "No Title")
             url = getattr(doc, "url", "")
 
@@ -109,6 +116,8 @@ class WebSearchTool(BaseTool):
     @classmethod
     def _truncate_markdown(cls, markdown: str) -> str:
         """Cap a single page's markdown so a few long pages can't overflow context."""
-        if not isinstance(markdown, str) or len(markdown) <= cls.MAX_MARKDOWN_CHARS:
-            return markdown
-        return markdown[: cls.MAX_MARKDOWN_CHARS].rstrip() + "\n\n[...truncated...]"
+        return cls.truncate_text(
+            markdown,
+            cls.MAX_MARKDOWN_CHARS,
+            marker="\n\n[...truncated...]",
+        )

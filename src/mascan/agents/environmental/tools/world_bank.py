@@ -1,4 +1,4 @@
-from typing import Any
+from typing import Any, ClassVar
 
 from pydantic import BaseModel, Field
 
@@ -97,6 +97,8 @@ class WorldBankEnvironmentalIndicatorsTool(BaseTool):
         "Use for water-stress, deforestation, or emissions signals by country."
     )
     input_schema = WorldBankEnvironmentalIndicatorsInput
+    MAX_COUNTRIES: ClassVar[int] = 3
+    MAX_INDICATORS: ClassVar[int] = 4
 
     def run(
         self,
@@ -105,8 +107,10 @@ class WorldBankEnvironmentalIndicatorsTool(BaseTool):
         indicators: list[str] | None = None,
         **_: Any,
     ) -> ToolResult[list[dict[str, Any]]]:
-        selected = indicators or list(DEFAULT_ENV_INDICATORS)
-        countries = self._normalize_country_codes(country_codes or [country_code])
+        requested_indicators = indicators or list(DEFAULT_ENV_INDICATORS)
+        requested_countries = self._normalize_country_codes(country_codes or [country_code])
+        selected = requested_indicators[: self.MAX_INDICATORS]
+        countries = requested_countries[: self.MAX_COUNTRIES]
         results: list[dict[str, Any]] = []
         errors: list[str] = []
 
@@ -159,6 +163,10 @@ class WorldBankEnvironmentalIndicatorsTool(BaseTool):
                 "indicator_count": len(results),
                 "failed_indicators": errors,
                 "source_urls": sorted({item["url"] for item in results}),
+                "limit_applied": (
+                    len(requested_indicators) > self.MAX_INDICATORS
+                    or len(requested_countries) > self.MAX_COUNTRIES
+                ),
             },
         )
 

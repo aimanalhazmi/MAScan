@@ -1,4 +1,4 @@
-from typing import Any
+from typing import Any, ClassVar
 
 from pydantic import BaseModel, Field
 
@@ -91,6 +91,8 @@ class WorldBankSocialIndicatorsTool(BaseTool):
         "urbanization, life expectancy, education, unemployment, and inequality."
     )
     input_schema = WorldBankSocialIndicatorsInput
+    MAX_COUNTRIES: ClassVar[int] = 3
+    MAX_INDICATORS: ClassVar[int] = 6
 
     def run(
         self,
@@ -99,8 +101,10 @@ class WorldBankSocialIndicatorsTool(BaseTool):
         indicators: list[str] | None = None,
         **_: Any,
     ) -> ToolResult[list[dict[str, Any]]]:
-        selected = indicators or list(DEFAULT_SOCIAL_INDICATORS)
-        countries = self._normalize_country_codes(country_codes or [country_code])
+        requested_indicators = indicators or list(DEFAULT_SOCIAL_INDICATORS)
+        requested_countries = self._normalize_country_codes(country_codes or [country_code])
+        selected = requested_indicators[: self.MAX_INDICATORS]
+        countries = requested_countries[: self.MAX_COUNTRIES]
         results: list[dict[str, Any]] = []
         errors: list[str] = []
 
@@ -152,6 +156,10 @@ class WorldBankSocialIndicatorsTool(BaseTool):
                 "indicator_count": len(results),
                 "failed_indicators": errors,
                 "source_urls": sorted({item["url"] for item in results}),
+                "limit_applied": (
+                    len(requested_indicators) > self.MAX_INDICATORS
+                    or len(requested_countries) > self.MAX_COUNTRIES
+                ),
             },
         )
 
