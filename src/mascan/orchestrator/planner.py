@@ -8,6 +8,7 @@ from mascan.agents.registry import agent_registry
 from mascan.contracts.planning import AgentAssignment, InformationRequest, IntentCheck, PlanModel
 from mascan.core.llm import get_chat_model
 from mascan.core.logging import get_logger
+from mascan.core.metrics import measure_component
 from mascan.core.settings import get_settings
 from mascan.orchestrator.state import GraphState
 from mascan.tools.registry import tool_registry
@@ -101,6 +102,11 @@ specific enough to act on.
 
 
 def planner_node(state: GraphState) -> dict[str, Any]:
+    """Measure one planner execution and return its state update."""
+    return measure_component("planner", lambda: _planner_node(state))
+
+
+def _planner_node(state: GraphState) -> dict[str, Any]:
     """LangGraph node: build the plan and write it to state."""
     available = agent_registry.all_names()
     if not available:

@@ -2,6 +2,7 @@
 
 import re
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from contextvars import copy_context
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import Any, Literal
@@ -12,6 +13,7 @@ from tenacity import Retrying, stop_after_attempt, wait_exponential
 from mascan.agents.sources import canonical_source_url
 from mascan.contracts.reports import AgentReport
 from mascan.core.logging import get_logger
+from mascan.core.metrics import measure_component
 from mascan.orchestrator.attribution import (
     Attribution,
     AttributionDocument,
@@ -209,6 +211,11 @@ class ValidationExecution:
 
 
 def validator_node(state: GraphState) -> dict[str, Any]:
+    """Measure one validator execution and return its state update."""
+    return measure_component("validator", lambda: _validator_node(state))
+
+
+def _validator_node(state: GraphState) -> dict[str, Any]:
     """Validate the report while keeping Fact Check separate from report Markdown."""
     try:
         execution_or_result = run_validation(state)
@@ -427,8 +434,10 @@ def evaluate_citation_pairs(
     with ThreadPoolExecutor(max_workers=3, thread_name_prefix="citation-check") as executor:
         futures: dict[Any, tuple[int, Attribution, CitationRef]] = {}
         for index, attribution, citation, source, excerpt in pending:
+            context = copy_context()
             futures[
                 executor.submit(
+                    context.run,
                     _judge_pair_with_retries,
                     model,
                     attribution,

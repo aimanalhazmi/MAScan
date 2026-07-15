@@ -8,6 +8,7 @@ from mascan.agents.sources import canonical_source_url
 from mascan.contracts.reports import AgentReport, Source
 from mascan.core.llm import get_chat_model
 from mascan.core.logging import get_logger
+from mascan.core.metrics import measure_component
 from mascan.core.settings import get_settings
 from mascan.orchestrator.state import GraphState
 
@@ -88,6 +89,11 @@ class CitedLink:
 
 
 def synthesizer_node(state: GraphState) -> dict[str, Any]:
+    """Measure one synthesizer execution and return its state update."""
+    return measure_component("synthesizer", lambda: _synthesizer_node(state))
+
+
+def _synthesizer_node(state: GraphState) -> dict[str, Any]:
     """LangGraph node: produce the final summary and markdown."""
     if not state.reports and not state.failures:
         logger.warning("Synthesizer ran with no reports and no failures.")
