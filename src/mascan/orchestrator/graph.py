@@ -1,3 +1,4 @@
+import time
 from collections.abc import Callable, Iterator
 from typing import Any
 from uuid import uuid4
@@ -9,6 +10,7 @@ from langgraph.types import Command, interrupt
 from mascan.agents.registry import agent_registry
 from mascan.contracts import FinalReport
 from mascan.core.logging import configure_logging, get_logger
+from mascan.core.metrics import aggregate_component_token_usage
 from mascan.orchestrator.adapters import make_agent_node
 from mascan.orchestrator.planner import planner_node
 from mascan.orchestrator.state import GraphState
@@ -64,9 +66,9 @@ def _append_clarification_to_user_input(
     )
 
 
-def agents_passthrough(state: GraphState) -> GraphState:
+def agents_passthrough(_state: GraphState) -> dict[str, Any]:
     """Passthrough node that routes to all agent nodes."""
-    return state
+    return {}
 
 
 def build_graph() -> Any:
@@ -136,11 +138,25 @@ def run(
     configure_logging()
     graph = build_graph()
     config = {"configurable": {"thread_id": thread_id or str(uuid4())}}
+    started_at = time.perf_counter()
     result = graph.invoke(GraphState(user_input=query), config=config)
     while (question := interrupt_question(result)) is not None:
         answer = on_clarify(question) if on_clarify else ""
         result = graph.invoke(Command(resume=answer or ""), config=config)
-    return state_to_report(result)
+
+    report = state_to_report(result)
+    token_usage = aggregate_component_token_usage(report.component_metrics)
+    return report.model_copy(
+        update={
+            "metadata": {
+                **report.metadata,
+                "execution": {
+                    "duration_seconds": round(time.perf_counter() - started_at, 6),
+                    "token_usage": token_usage.model_dump(),
+                },
+            }
+        }
+    )
 
 
 def stream(query: str, thread_id: str | None = None) -> Iterator[dict[str, Any]]:
@@ -185,6 +201,7 @@ def state_to_report(state_dict: dict[str, Any]) -> FinalReport:
         plan=state_dict.get("plan", {}),
         agent_reports=state_dict.get("reports", {}),
         failures=state_dict.get("failures", {}),
+        component_metrics=state_dict.get("component_metrics", {}),
         metadata={"validation": state_dict.get("validation_payload", {})},
     )
 
