@@ -1,12 +1,14 @@
 """Private LangGraph workflow for SocialAgent."""
 
-from typing import Any
+from typing import Annotated, Any
 
 from langgraph.graph import END, START, StateGraph
 from pydantic import BaseModel, Field
 
+from mascan.contracts.metrics import AgentCallMetrics, merge_agent_metrics
 from mascan.contracts.reports import AgentReport, Source
 from mascan.contracts.tools import ToolResult
+from mascan.core.metrics import measure_agent_call
 
 
 class SocialAgentState(BaseModel):
@@ -20,6 +22,9 @@ class SocialAgentState(BaseModel):
     llm_used_tools: list[str] = Field(default_factory=list)
     llm_sources: list[Source] = Field(default_factory=list)
     sources: list[Source] = Field(default_factory=list)
+    agent_metrics: Annotated[dict[str, AgentCallMetrics], merge_agent_metrics] = Field(
+        default_factory=dict
+    )
     report: AgentReport | None = None
 
     model_config = {"arbitrary_types_allowed": True}
@@ -29,16 +34,28 @@ def build_social_graph(agent: Any) -> Any:
     """Build the behavior-preserving private graph for SocialAgent."""
 
     def run_react_agent(state: SocialAgentState) -> dict[str, Any]:
-        react_result, findings, llm_used_tools, llm_sources = agent.run_react_agent(
-            state.tasks,
-            state.deterministic_outputs,
-            context=state.context,
+        (
+            (
+                react_result,
+                findings,
+                llm_used_tools,
+                llm_sources,
+            ),
+            agent_metrics,
+        ) = measure_agent_call(
+            "analyst",
+            lambda: agent.run_react_agent(
+                state.tasks,
+                state.deterministic_outputs,
+                context=state.context,
+            ),
         )
         return {
             "react_result": react_result,
             "findings": findings,
             "llm_used_tools": llm_used_tools,
             "llm_sources": llm_sources,
+            "agent_metrics": agent_metrics,
         }
 
     def collect_sources(state: SocialAgentState) -> dict[str, Any]:

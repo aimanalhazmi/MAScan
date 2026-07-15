@@ -1,5 +1,6 @@
 """BaseAgent — the contract every agent must implement."""
 
+import time
 from abc import ABC, abstractmethod
 from typing import Any, ClassVar, cast
 
@@ -16,10 +17,16 @@ from mascan.agents.sources import (
     sources_from_react,
     sources_from_tool_results,
 )
+from mascan.contracts.metrics import (
+    AgentCallMetrics,
+    ComponentMetrics,
+    merge_agent_metrics,
+)
 from mascan.contracts.reports import AgentReport, Source
 from mascan.contracts.tools import ToolResult
 from mascan.core.llm import get_chat_model
 from mascan.core.logging import get_logger
+from mascan.core.metrics import aggregate_agent_token_usage
 from mascan.tools.base import BaseTool
 from mascan.tools.registry import tool_registry
 
@@ -153,7 +160,7 @@ class BaseAgent(ABC):
             return {"messages": [*messages, final]}
 
     def run(self, tasks: list[str], context: dict[str, Any] | None = None) -> AgentReport:
-        """Wraps the subclass's `_run()` method with execution of mandatory tool calls.
+        """Run the agent, then normalize citations and rendered output.
 
         Args:
             tasks: Specific subtasks the orchestrator has assigned.
@@ -163,8 +170,13 @@ class BaseAgent(ABC):
             AgentReport with structured fields AND rendered markdown.
         """
 
-        # Execute always-call tools first, if any.
-        deterministic_outputs = self.gather_deterministic(tasks)
+        started_at = time.perf_counter()
+        outside_agent_metrics: dict[str, AgentCallMetrics] = {}
+        deterministic_outputs = self.gather_deterministic(
+            tasks,
+            context=context,
+            agent_metrics=outside_agent_metrics,
+        )
         report = self._run(
             tasks,
             context=context,
@@ -184,6 +196,20 @@ class BaseAgent(ABC):
             ordered_sources,
             display_tools,
         )
+        provisional = report.component_metrics.get(self.name, ComponentMetrics())
+        agent_metrics = merge_agent_metrics(
+            provisional.agents,
+            outside_agent_metrics,
+        )
+        component_metrics = {
+            **report.component_metrics,
+            self.name: ComponentMetrics(
+                run_count=1,
+                duration_seconds=round(time.perf_counter() - started_at, 6),
+                token_usage=aggregate_agent_token_usage(agent_metrics),
+                agents=agent_metrics,
+            ),
+        }
         return report.model_copy(
             update={
                 "findings": cited_findings,
@@ -195,6 +221,7 @@ class BaseAgent(ABC):
                     "llm_chosen_tools": called_tools,
                     "cited_tools": referenced_tools,
                 },
+                "component_metrics": component_metrics,
             }
         )
 
@@ -218,7 +245,12 @@ class BaseAgent(ABC):
         lc_tools = [t.as_langchain_tool() for t in self.optional_tools.values()]
         return llm.bind_tools(lc_tools)
 
-    def gather_deterministic(self, tasks: list[str]) -> dict[str, ToolResult[Any]]:
+    def gather_deterministic(
+        self,
+        tasks: list[str],
+        context: dict[str, Any] | None = None,
+        agent_metrics: dict[str, AgentCallMetrics] | None = None,
+    ) -> dict[str, ToolResult[Any]]:
         """Call the always-call tools regardless of the question."""
         query = " ; ".join(tasks)
         outputs: dict[str, ToolResult[Any]] = {}
@@ -290,7 +322,19 @@ class GraphBackedAgent(BaseAgent):
             deterministic_outputs=deterministic_outputs,
         )
         final_state = self.build_graph().invoke(state)
-        return self.extract_report(final_state)
+        agent_metrics = final_state.get("agent_metrics", {})
+        report = self.extract_report(final_state)
+        return report.model_copy(
+            update={
+                "component_metrics": {
+                    self.name: ComponentMetrics(
+                        run_count=1,
+                        token_usage=aggregate_agent_token_usage(agent_metrics),
+                        agents=agent_metrics,
+                    )
+                }
+            }
+        )
 
     @abstractmethod
     def build_initial_state(

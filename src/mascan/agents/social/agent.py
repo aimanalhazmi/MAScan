@@ -11,9 +11,11 @@ from mascan.agents.context import render_agent_context, render_runtime_context, 
 from mascan.agents.social.graph import SocialAgentState, build_social_graph
 from mascan.agents.social.prompts import build_user_prompt
 from mascan.agents.sources import sources_from_react
+from mascan.contracts.metrics import AgentCallMetrics
 from mascan.contracts.reports import Source
 from mascan.contracts.tools import ToolResult
 from mascan.core.llm import get_chat_model
+from mascan.core.metrics import measure_agent_call
 
 MAX_SEARCH_QUERIES = 3
 WEB_RESULTS_PER_QUERY = 5
@@ -69,8 +71,14 @@ class SocialAgent(GraphBackedAgent):
         self,
         tasks: list[str],
         context: dict[str, Any] | None = None,
+        agent_metrics: dict[str, AgentCallMetrics] | None = None,
     ) -> dict[str, ToolResult[Any]]:
-        plan = self.plan_evidence(tasks, context=context)
+        plan, measured = measure_agent_call(
+            "evidence_planner",
+            lambda: self.plan_evidence(tasks, context=context),
+        )
+        if agent_metrics is not None:
+            agent_metrics.update(measured)
         self._last_evidence_plan = plan.model_dump()
         outputs: dict[str, ToolResult[Any]] = {}
 
