@@ -4,6 +4,7 @@ from zoneinfo import ZoneInfo
 
 from pydantic import BaseModel, Field
 
+from mascan.contracts.metrics import ComponentMetrics, merge_component_metrics
 from mascan.contracts.planning import AgentAssignment, InformationRequest
 from mascan.contracts.reports import AgentReport, Source
 
@@ -49,6 +50,13 @@ class GraphState(BaseModel):
     reports: Annotated[dict[str, AgentReport], merge_dicts] = Field(
         default_factory=dict,
         description="Successful agent reports keyed by agent name.",
+    )
+
+    component_metrics: Annotated[
+        dict[str, ComponentMetrics], merge_component_metrics
+    ] = Field(
+        default_factory=dict,
+        description="Accumulated execution metrics keyed by owning component.",
     )
 
     failures: Annotated[dict[str, str], merge_dicts] = Field(

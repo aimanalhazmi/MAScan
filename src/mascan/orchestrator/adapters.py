@@ -24,7 +24,10 @@ def make_agent_node(agent: BaseAgent) -> Callable[[GraphState], dict[str, Any]]:
                     "runtime": state.runtime_context.model_dump(),
                 },
             )
-            return {"reports": {agent.name: report}}
+            return {
+                "reports": {agent.name: report},
+                "component_metrics": report.component_metrics,
+            }
         except Exception as exc:  # noqa: BLE001
             logger.exception("Agent %r failed", agent.name)
             return {"failures": {agent.name: f"{type(exc).__name__}: {exc}"}}
