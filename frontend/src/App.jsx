@@ -147,7 +147,12 @@ export default function App() {
           />
           <Resizer onMove={(dx) => setRightW((w) => clamp(w - dx, 260, 620))} />
           <div className="right-rail">
-            <GraphRail run={stream.run} selected={selectedNode} onSelect={setSelectedNode} />
+            <GraphRail
+              key={activeId}
+              run={stream.run}
+              selected={selectedNode}
+              onSelect={setSelectedNode}
+            />
             {selectedNode && (
               <NodeDetail
                 key={selectedNode}

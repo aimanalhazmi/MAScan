@@ -20,6 +20,7 @@ export function emptyRun() {
     reports: {},
     failures: {},
     componentMetrics: {},
+    runDurationSeconds: null,
     finalMarkdown: "",
     summary: "",
     validationStatus: "",
@@ -81,12 +82,34 @@ function mergeComponentMetrics(current, incoming) {
   return merged;
 }
 
+export function aggregateRunTokenUsage(componentMetrics) {
+  return Object.values(componentMetrics || {}).reduce(
+    (totals, metric) => {
+      const tokens = metric.token_usage || {};
+      totals.input_tokens += tokens.input_tokens || 0;
+      totals.output_tokens += tokens.output_tokens || 0;
+      totals.total_tokens += tokens.total_tokens || 0;
+      return totals;
+    },
+    {
+      input_tokens: 0,
+      output_tokens: 0,
+      total_tokens: 0,
+    }
+  );
+}
+
 export function reduce(prev, ev) {
   const run = {
     ...prev,
     nodeStatus: { ...prev.nodeStatus },
     componentMetrics: { ...(prev.componentMetrics || {}) },
   };
+
+  if (Number.isFinite(ev.duration_seconds)) {
+    run.runDurationSeconds =
+      (run.runDurationSeconds || 0) + ev.duration_seconds;
+  }
 
   if (ev.event === "start") {
     run.status = "running";

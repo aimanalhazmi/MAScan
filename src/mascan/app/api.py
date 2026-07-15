@@ -1,6 +1,7 @@
 import json
 import os
 import tempfile
+import time
 from collections.abc import Iterator
 from pathlib import Path
 from typing import Any
@@ -65,15 +66,36 @@ SSE_HEADERS = {"Cache-Control": "no-cache", "Connection": "keep-alive", "X-Accel
 
 
 def sse_from_events(events: Iterator[dict[str, Any]], thread_id: str) -> Iterator[str]:
-    """Turn orchestrator node events into SSE lines. A clarification interrupt
-    ends the stream so the client can collect an answer and POST /analyze/resume.
+    """Turn orchestrator node events into SSE lines and time active execution.
+
+    A clarification ends the current stream segment; resume() starts a new
+    segment, so time waiting for the user is excluded.
     """
+    started_at = time.perf_counter()
     for ev in events:
         if ev["node"] == "__interrupt__":
-            yield sse_event({"event": "clarification", "question": ev["question"], "thread_id": thread_id})
+            yield sse_event(
+                {
+                    "event": "clarification",
+                    "question": ev["question"],
+                    "thread_id": thread_id,
+                    "duration_seconds": round(
+                        time.perf_counter() - started_at,
+                        6,
+                    ),
+                }
+            )
             return
         yield sse_event({"event": "node", **ev})
-    yield sse_event({"event": "done"})
+    yield sse_event(
+        {
+            "event": "done",
+            "duration_seconds": round(
+                time.perf_counter() - started_at,
+                6,
+            ),
+        }
+    )
 
 app = FastAPI(title="MAScan API", description="HTTP interface to the MAScan multi-agent orchestrator.", version="0.1.0")
 

@@ -1,6 +1,7 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import ReactFlow, { Background } from "reactflow";
 import { AGENTS, LABELS } from "../graph";
+import { aggregateRunTokenUsage } from "../useAnalysisStream.js";
 
 // Fixed positions for the PESTEL pipeline. Planner on top, the six agents in a
 // 2-column grid, followed by synthesizer and validator.
@@ -21,7 +22,46 @@ function statusClass(status, selected) {
   return `scan-node scan-${status}${selected ? " scan-selected" : ""}`;
 }
 
+function RunMetrics({ run }) {
+  const tokens = aggregateRunTokenUsage(run.componentMetrics);
+  const active =
+    run.status === "running" || run.status === "clarification";
+  const duration = active
+    ? "Running…"
+    : run.runDurationSeconds == null
+      ? "Not recorded"
+      : Number(run.runDurationSeconds).toLocaleString(undefined, {
+          maximumFractionDigits: 2,
+        }) + "s";
+  const rows = [
+    ["Wall-clock duration", duration],
+    ["Input tokens", Number(tokens.input_tokens).toLocaleString()],
+    ["Output tokens", Number(tokens.output_tokens).toLocaleString()],
+    ["Total tokens", Number(tokens.total_tokens).toLocaleString()],
+  ];
+
+  return (
+    <div className="run-metrics">
+      <dl className="metric-list">
+        {rows.map(([label, value]) => (
+          <div key={label} className="metric-row">
+            <dt>{label}</dt>
+            <dd>{value}</dd>
+          </div>
+        ))}
+      </dl>
+    </div>
+  );
+}
+
 export default function GraphRail({ run, selected, onSelect }) {
+  const [view, setView] = useState("scan");
+
+  const showView = (nextView) => {
+    setView(nextView);
+    if (nextView === "metrics") onSelect(null);
+  };
+
   const nodes = useMemo(() => {
     return Object.keys(POS).map((id) => ({
       id,
@@ -65,23 +105,44 @@ export default function GraphRail({ run, selected, onSelect }) {
 
   return (
     <div className="graph-rail">
-      <div className="rail-head">Scan</div>
-      <ReactFlow
-        nodes={nodes}
-        edges={edges}
-        onNodeClick={(_, n) => onSelect(n.id)}
-        fitView
-        fitViewOptions={{ padding: 0.15 }}
-        nodesDraggable={false}
-        nodesConnectable={false}
-        elementsSelectable
-        panOnDrag={false}
-        zoomOnScroll={false}
-        zoomOnDoubleClick={false}
-        proOptions={{ hideAttribution: true }}
-      >
-        <Background gap={18} size={1} className="rail-bg" />
-      </ReactFlow>
+      <div className="rail-head" role="group" aria-label="Right rail view">
+        <button
+          type="button"
+          className={"rail-view-button" + (view === "scan" ? " active" : "")}
+          aria-pressed={view === "scan"}
+          onClick={() => showView("scan")}
+        >
+          Scan
+        </button>
+        <button
+          type="button"
+          className={"rail-view-button" + (view === "metrics" ? " active" : "")}
+          aria-pressed={view === "metrics"}
+          onClick={() => showView("metrics")}
+        >
+          Run Metrics
+        </button>
+      </div>
+      {view === "scan" ? (
+        <ReactFlow
+          nodes={nodes}
+          edges={edges}
+          onNodeClick={(_, n) => onSelect(n.id)}
+          fitView
+          fitViewOptions={{ padding: 0.15 }}
+          nodesDraggable={false}
+          nodesConnectable={false}
+          elementsSelectable
+          panOnDrag={false}
+          zoomOnScroll={false}
+          zoomOnDoubleClick={false}
+          proOptions={{ hideAttribution: true }}
+        >
+          <Background gap={18} size={1} className="rail-bg" />
+        </ReactFlow>
+      ) : (
+        <RunMetrics run={run} />
+      )}
     </div>
   );
 }

@@ -1,7 +1,12 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { emptyRun, hydrateRun, reduce } from "./useAnalysisStream.js";
+import {
+  aggregateRunTokenUsage,
+  emptyRun,
+  hydrateRun,
+  reduce,
+} from "./useAnalysisStream.js";
 import { buildProgressSteps } from "./progress.js";
 import { withoutFactCheck } from "./markdown.js";
 
@@ -61,6 +66,59 @@ test("node metrics are stored and repeated runs accumulate", () => {
       output_tokens: 5,
       total_tokens: 35,
     },
+  });
+});
+
+
+test("run duration accumulates clarification and completion segments", () => {
+  const paused = reduce(emptyRun(), {
+    event: "clarification",
+    question: "Which market?",
+    thread_id: "thread-1",
+    duration_seconds: 1.25,
+  });
+  const done = reduce(paused, {
+    event: "done",
+    duration_seconds: 0.75,
+  });
+
+  assert.equal(paused.runDurationSeconds, 1.25);
+  assert.equal(done.runDurationSeconds, 2);
+  assert.equal(done.status, "done");
+});
+
+
+test("run token totals sum component totals once", () => {
+  const totals = aggregateRunTokenUsage({
+    planner: {
+      token_usage: {
+        input_tokens: 10,
+        output_tokens: 2,
+        total_tokens: 12,
+      },
+    },
+    economics: {
+      token_usage: {
+        input_tokens: 20,
+        output_tokens: 5,
+        total_tokens: 25,
+      },
+      agents: {
+        analyst: {
+          token_usage: {
+            input_tokens: 20,
+            output_tokens: 5,
+            total_tokens: 25,
+          },
+        },
+      },
+    },
+  });
+
+  assert.deepEqual(totals, {
+    input_tokens: 30,
+    output_tokens: 7,
+    total_tokens: 37,
   });
 });
 
