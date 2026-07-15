@@ -15,6 +15,56 @@ test("older snapshots gain the validator state without losing saved nodes", () =
 });
 
 
+test("node metrics are stored and repeated runs accumulate", () => {
+  const first = reduce(emptyRun(), {
+    event: "node",
+    node: "planner",
+    update: {
+      info_request: { question: "Which market?" },
+      component_metrics: {
+        planner: {
+          run_count: 1,
+          duration_seconds: 0.25,
+          token_usage: {
+            input_tokens: 10,
+            output_tokens: 2,
+            total_tokens: 12,
+          },
+        },
+      },
+    },
+  });
+  const run = reduce(first, {
+    event: "node",
+    node: "planner",
+    update: {
+      plan: {},
+      component_metrics: {
+        planner: {
+          run_count: 1,
+          duration_seconds: 0.75,
+          token_usage: {
+            input_tokens: 20,
+            output_tokens: 3,
+            total_tokens: 23,
+          },
+        },
+      },
+    },
+  });
+
+  assert.deepEqual(run.componentMetrics.planner, {
+    run_count: 2,
+    duration_seconds: 1,
+    token_usage: {
+      input_tokens: 30,
+      output_tokens: 5,
+      total_tokens: 35,
+    },
+  });
+});
+
+
 test("synthesizer completion activates validator", () => {
   const run = reduce(emptyRun(), {
     event: "node",

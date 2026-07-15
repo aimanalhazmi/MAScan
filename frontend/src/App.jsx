@@ -150,6 +150,7 @@ export default function App() {
             <GraphRail run={stream.run} selected={selectedNode} onSelect={setSelectedNode} />
             {selectedNode && (
               <NodeDetail
+                key={selectedNode}
                 run={stream.run}
                 nodeId={selectedNode}
                 onClose={() => setSelectedNode(null)}

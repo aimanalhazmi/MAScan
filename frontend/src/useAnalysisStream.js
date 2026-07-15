@@ -19,6 +19,7 @@ export function emptyRun() {
     plan: {},
     reports: {},
     failures: {},
+    componentMetrics: {},
     finalMarkdown: "",
     summary: "",
     validationStatus: "",
@@ -54,8 +55,38 @@ function markSynthesizer(run) {
   return run;
 }
 
+function mergeComponentMetrics(current, incoming) {
+  const merged = { ...current };
+  for (const [name, metric] of Object.entries(incoming || {})) {
+    const previous = merged[name];
+    if (!previous) {
+      merged[name] = metric;
+      continue;
+    }
+    const left = previous.token_usage || {};
+    const right = metric.token_usage || {};
+    merged[name] = {
+      ...previous,
+      ...metric,
+      run_count: (previous.run_count || 0) + (metric.run_count || 0),
+      duration_seconds:
+        (previous.duration_seconds || 0) + (metric.duration_seconds || 0),
+      token_usage: {
+        input_tokens: (left.input_tokens || 0) + (right.input_tokens || 0),
+        output_tokens: (left.output_tokens || 0) + (right.output_tokens || 0),
+        total_tokens: (left.total_tokens || 0) + (right.total_tokens || 0),
+      },
+    };
+  }
+  return merged;
+}
+
 export function reduce(prev, ev) {
-  const run = { ...prev, nodeStatus: { ...prev.nodeStatus } };
+  const run = {
+    ...prev,
+    nodeStatus: { ...prev.nodeStatus },
+    componentMetrics: { ...(prev.componentMetrics || {}) },
+  };
 
   if (ev.event === "start") {
     run.status = "running";
@@ -101,6 +132,13 @@ export function reduce(prev, ev) {
   // covers undefined).
   const { node } = ev;
   const update = ev.update || {};
+
+  if (update.component_metrics && typeof update.component_metrics === "object") {
+    run.componentMetrics = mergeComponentMetrics(
+      run.componentMetrics,
+      update.component_metrics
+    );
+  }
 
   if (node === "planner") {
     // Planner is asking for clarification; stay active until the answer comes.
