@@ -1,5 +1,5 @@
 from mascan.contracts.planning import AgentAssignment
-from mascan.orchestrator.planner import _filter_to_known_agents
+from mascan.orchestrator.planner import PLANNER_SYSTEM_PROMPT, _filter_to_known_agents
 
 
 def assignment(name: str, task: str) -> AgentAssignment:
@@ -31,3 +31,13 @@ def test_alias_and_canonical_duplicates_keep_first_assignment() -> None:
     )
 
     assert plan["economics"].tasks == ["First task"]
+
+
+def test_planner_assigns_required_uploaded_evidence_to_an_agent() -> None:
+    assert "evidence_documents" in PLANNER_SYSTEM_PROMPT
+    assert "Copy its filename exactly from rag_search" in PLANNER_SYSTEM_PROMPT
+    assert "at least one suitable agent must receive that filename" in PLANNER_SYSTEM_PROMPT
+
+
+def test_assignment_defaults_to_no_uploaded_documents() -> None:
+    assert assignment("economics", "Assess costs").evidence_documents == []

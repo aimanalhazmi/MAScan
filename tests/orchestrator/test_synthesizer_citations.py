@@ -6,9 +6,12 @@ from mascan.orchestrator.synthesizer import (
     _build_synthesis_prompt,
     _extract_cited_source_numbers,
     _extract_html_source_numbers,
+    _needs_citation_repair,
     _normalize_citation_links,
     _render_sources_section,
+    _renumber_all_citations,
     _renumber_citation_links,
+    _strip_draft_wrappers,
 )
 
 
@@ -97,40 +100,41 @@ def test_sources_follow_body_citation_order_and_remove_duplicates() -> None:
     )
 
 
-def test_sources_fall_back_to_registry_when_body_has_no_citations() -> None:
-    assert _render_sources_section(make_state(), "No numbered citations") == (
-        "1. [Source A](https://example.com/a)\n"
-        "2. [Source B](https://example.com/b)"
-    )
+def test_sources_do_not_fall_back_to_uncited_registry_entries() -> None:
+    assert _render_sources_section(make_state(), "No numbered citations") == ""
     assert _render_sources_section(GraphState(user_input="Question"), "Summary") == ""
 
 
-def test_uploaded_factsheet_is_background_but_not_a_final_source() -> None:
-    state = make_state().model_copy(
+def test_uploaded_factsheet_reaches_registry_through_agent_report() -> None:
+    upload = Source(
+        name="EVONIK Analyst & Investor Factsheet Q1 2026.pdf",
+        url=(
+            "/rag/files/EVONIK%20Analyst%20%26%20Investor%20Factsheet%20Q1%202026.pdf"
+        ),
+    )
+    state = make_state()
+    economics = state.reports["economics"].model_copy(
         update={
-            "rag_evidence": [
-                {
-                    "content": "Adjusted EBITDA increased in Q1 2026.",
-                    "citation": {
-                        "document": "EVONIK Analyst & Investor Factsheet Q1 2026.pdf",
-                        "page": 4,
-                    },
-                    "score": 0.91,
-                }
-            ]
+            "findings": f"Adjusted EBITDA increased [Factsheet]({upload.url}).",
+            "sources": [*state.reports["economics"].sources, upload],
         }
     )
+    state = state.model_copy(update={"reports": {**state.reports, "economics": economics}})
     registry = _build_citation_registry(state)
     prompt = _build_synthesis_prompt(state)
 
-    assert len(registry) == 2
+    assert len(registry) == 3
     assert all(entry.source.url for entry in registry)
+    assert [entry.source.url for entry in registry] == [
+        "https://example.com/a",
+        upload.url,
+        "https://example.com/b",
+    ]
     assert "Adjusted EBITDA" in prompt
-    assert "background context only; do not cite it" in prompt
-    assert "Factsheet" not in _render_sources_section(state, "No citations")
+    assert _needs_citation_repair(state, "Web fact [1](https://example.com/a).") is False
 
 
-def test_uploaded_factsheet_pages_share_one_background_evidence_block() -> None:
+def test_raw_rag_evidence_is_not_injected_directly_into_synthesizer() -> None:
     state = GraphState(
         user_input="Assess EVONIK",
         rag_evidence=[
@@ -148,12 +152,47 @@ def test_uploaded_factsheet_pages_share_one_background_evidence_block() -> None:
     prompt = _build_synthesis_prompt(state)
 
     assert _build_citation_registry(state) == []
-    assert prompt.count("factsheet.pdf") == 1
-    assert "[Page 1]" in prompt
-    assert "[Page 3]" in prompt
+    assert "First-page evidence" not in prompt
+    assert "Third-page evidence" not in prompt
 
 
-def test_synthesizer_requires_web_sources_for_external_pestel_claims() -> None:
-    assert "company-specific" in SYNTHESIZER_SYSTEM_PROMPT
-    assert "external PESTEL" in SYNTHESIZER_SYSTEM_PROMPT
-    assert "must include the relevant URL-backed citations" in SYNTHESIZER_SYSTEM_PROMPT
+def test_web_and_upload_sources_are_renumbered_by_first_body_appearance() -> None:
+    state = make_state()
+    upload = Source(name="factsheet.pdf", url="/rag/files/factsheet.pdf")
+    economics = state.reports["economics"].model_copy(
+        update={"sources": [*state.reports["economics"].sources, upload]}
+    )
+    state = state.model_copy(update={"reports": {**state.reports, "economics": economics}})
+    draft = (
+        "Company fact [3](/rag/files/factsheet.pdf). "
+        "Market fact [1](https://example.com/a). "
+        "Company fact again [3](/rag/files/factsheet.pdf)."
+    )
+
+    summary, sources = _renumber_all_citations(state, draft)
+
+    assert summary == (
+        "Company fact [1](/rag/files/factsheet.pdf). "
+        "Market fact [2](https://example.com/a). "
+        "Company fact again [1](/rag/files/factsheet.pdf)."
+    )
+    assert [source.url for source in sources] == [
+        "/rag/files/factsheet.pdf",
+        "https://example.com/a",
+    ]
+    assert _render_sources_section(state, summary, sources) == (
+        "1. [factsheet.pdf](/rag/files/factsheet.pdf)\n"
+        "2. [Source A](https://example.com/a)"
+    )
+
+
+def test_synthesizer_preserves_agent_citations_without_attachment_special_case() -> None:
+    assert "Preserve relevant inline citations" in SYNTHESIZER_SYSTEM_PROMPT
+    assert "including `/rag/files/...` links" in SYNTHESIZER_SYSTEM_PROMPT
+    assert "explicitly asks to use an attached" not in SYNTHESIZER_SYSTEM_PROMPT
+
+
+def test_citation_repair_draft_wrappers_are_removed() -> None:
+    repaired = "--- DRAFT ---\nReport body [1](https://example.com).\n--- END DRAFT ---"
+
+    assert _strip_draft_wrappers(repaired) == "Report body [1](https://example.com)."

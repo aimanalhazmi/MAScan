@@ -3,26 +3,45 @@ from mascan.agents.environmental.prompts import build_user_prompt as environment
 from mascan.agents.legal.prompts import build_user_prompt as legal_prompt
 from mascan.agents.political.prompts import build_user_prompt as political_prompt
 from mascan.agents.social.prompts import build_user_prompt as social_prompt
-from mascan.agents.sources import normalize_agent_citations
+from mascan.agents.sources import (
+    cited_provided_sources,
+    normalize_agent_citations,
+    provided_sources_from_context,
+)
 from mascan.agents.technological.prompts import build_user_prompt as technological_prompt
 from mascan.contracts.reports import Source
 
 
 def test_all_agent_prompts_share_the_citation_contract() -> None:
+    attachment = Source(
+        name="factsheet.pdf",
+        url="/rag/files/factsheet.pdf",
+        metadata={
+            "kind": "uploaded_document",
+            "content": "[Page 2]\nAdjusted EBITDA was EUR 522 million.",
+        },
+    )
+    context = {
+        "user_input": "Use the attached factsheet.",
+        "objective_context": "Assess company performance.",
+        "provided_sources": [attachment],
+    }
     prompts = [
-        political_prompt(["policy"], ""),
-        economics_prompt(["costs"], ""),
-        social_prompt(["workforce"], ""),
-        environmental_prompt(["emissions"]),
-        legal_prompt(["regulation"], ""),
-        technological_prompt(["AI adoption"]),
+        political_prompt(["policy"], "", context=context),
+        economics_prompt(["costs"], "", context=context),
+        social_prompt(["workforce"], "", context=context),
+        environmental_prompt(["emissions"], context=context),
+        legal_prompt(["regulation"], "", context=context),
+        technological_prompt(["AI adoption"], context=context),
     ]
 
     for prompt in prompts:
         assert "Citation requirements:" in prompt
-        assert "Use only URLs returned by tools during this agent run." in prompt
+        assert "exact uploaded-file" in prompt
         assert "Do not assign citation numbers" in prompt
-        assert "unlinked evidence" not in prompt
+        assert "Original user request:" in prompt
+        assert "[factsheet.pdf](/rag/files/factsheet.pdf)" in prompt
+        assert "Adjusted EBITDA" in prompt
 
 
 def test_technological_prompt_uses_technology_not_environmental_instructions() -> None:
@@ -70,6 +89,43 @@ def test_unknown_links_are_plain_text_and_not_added_to_sources() -> None:
 
     assert normalized == "Known [1](https://example.com/known). Unknown Invented."
     assert sources == [source]
+
+
+def test_agent_can_cite_a_provided_uploaded_file_but_not_other_local_paths() -> None:
+    uploaded = Source(name="Factsheet", url="/rag/files/EVONIK%20Q1.pdf")
+
+    normalized, sources = normalize_agent_citations(
+        "Company fact [Factsheet](/rag/files/EVONIK%20Q1.pdf). "
+        "Unknown [Local file](/tmp/private.pdf).",
+        [uploaded],
+    )
+
+    assert normalized == (
+        "Company fact [1](/rag/files/EVONIK%20Q1.pdf). "
+        "Unknown Local file."
+    )
+    assert sources == [uploaded]
+
+
+def test_provided_sources_are_read_from_internal_agent_context() -> None:
+    uploaded = Source(name="Factsheet", url="/rag/files/factsheet.pdf")
+
+    assert provided_sources_from_context({"provided_sources": [uploaded]}) == [uploaded]
+    assert provided_sources_from_context({"provided_sources": [uploaded.model_dump()]}) == [
+        uploaded
+    ]
+    assert provided_sources_from_context({"provided_sources": ["invalid"]}) == []
+
+
+def test_only_inline_cited_provided_sources_enter_agent_report_registry() -> None:
+    used = Source(name="Used", url="/rag/files/used.pdf")
+    unused = Source(name="Unused", url="/rag/files/unused.pdf")
+    context = {"provided_sources": [used, unused]}
+
+    assert cited_provided_sources(
+        "Supported fact [Used](/rag/files/used.pdf).",
+        context,
+    ) == [used]
 
 
 def test_no_body_citations_fall_back_to_all_url_sources() -> None:

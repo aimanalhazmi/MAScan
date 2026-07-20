@@ -43,17 +43,19 @@ Your job:
    Skip agents whose dimension doesn't apply to this question.
 4. For each selected agent, write:
    - an objective_context: a robust domain-specific brief for that agent.
-     This is the only user-query context the agent will receive, so preserve
-     every detail that matters for that agent's capabilities: entities,
+     Preserve every detail that matters for that agent's capabilities: entities,
      company details, product description, geography, time horizon, decision
      scope, constraints, assumptions, and what the agent should ignore.
      Tailor the objective_context to the selected agent's domain rather than
      copying the whole user question.
    - 1 to 3 short, specific sub-tasks describing exactly what that agent
      should investigate.
+   - evidence_documents: a list of exact uploaded-document filenames from the
+     rag_search results that this agent needs. Use an empty list when none apply.
 
 Return a JSON object with an "assignments" array. Each element has
-"agent_name" (string), "objective_context" (string), and "tasks" (list of strings).
+"agent_name" (string), "objective_context" (string), "tasks" (list of strings),
+and "evidence_documents" (list of exact filenames).
 Agents you do NOT pick must NOT appear in the output.
 Do not add facts that are not present in the user question, the runtime context,
 or what rag_search returned.
@@ -62,6 +64,12 @@ Treat what rag_search returns as the ground truth about the user's company,
 product, or market, and carry the parts that matter into the objective_context
 of every agent that needs them. Agents cannot search the knowledge base
 themselves, so anything you leave out is lost to them.
+
+Assign each retrieved document only to agents whose tasks need it. Copy its
+filename exactly from rag_search into evidence_documents; do not reconstruct or
+shorten it. If the user explicitly requires an attached or uploaded document,
+at least one suitable agent must receive that filename and a task requiring the
+agent to use and cite its relevant evidence.
 """
 
 LOOKUP_SYSTEM_PROMPT = """\

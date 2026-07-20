@@ -24,7 +24,11 @@ class LegalAgent(BaseAgent):
         self.logger.info(f"Running Mode C (mixed) with {len(tasks)} task(s)")
 
         # LLM with optional tools — decides what else (if anything) to call.
-        result,findings, llm_used_tools = self.run_react_agent(tasks, deterministic_outputs)
+        result, findings, llm_used_tools = self.run_react_agent(
+            tasks,
+            deterministic_outputs,
+            context=context,
+        )
 
         # assemble the report.
         sources = self.collect_sources(deterministic_outputs=deterministic_outputs, react_result=result)
@@ -48,7 +52,8 @@ class LegalAgent(BaseAgent):
         self,
         tasks: list[str],
         deterministic_outputs: dict[str, ToolResult[Any]],
-    ) -> tuple[str, list[str]]:
+        context: dict[str, Any] | None = None,
+    ) -> tuple[dict[str, Any], str, list[str]]:
         """Run a ReAct agent with the optional tools bound.
 
         Prepends deterministic results as context so the LLM doesn't try to
@@ -65,6 +70,10 @@ class LegalAgent(BaseAgent):
             system_prompt=self.config.system_prompt,
         )
 
-        user_prompt = build_user_prompt(tasks, render_tool_outputs(deterministic_outputs))
+        user_prompt = build_user_prompt(
+            tasks,
+            render_tool_outputs(deterministic_outputs),
+            context=context,
+        )
         result = self.invoke_react_with_fallback(agent, llm, user_prompt)
         return result, self.extract_final_answer(result), self.extract_used_tools(result)

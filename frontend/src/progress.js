@@ -73,10 +73,10 @@ export function buildProgressSteps(run) {
     steps.push({
       id: "validator",
       status: "active",
-      text: "Validator is checking claims and citations…",
+      text: "Validator is checking citation pairs…",
     });
   } else if (nodeStatus.validator === "done") {
-    const validationStatus = String(run?.validationStatus || "").toLowerCase();
+    const validationStatus = String(run?.validation?.status || "").toLowerCase();
     let status = "done";
     let text = "Validation is completed.";
     if (validationStatus === "passed") {

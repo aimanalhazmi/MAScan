@@ -11,6 +11,13 @@ class AgentAssignment(BaseModel):
         description="Agent-specific brief preserving the user's intent and constraints.",
     )
     tasks: list[str] = Field(description="Specific sub-tasks assigned to this agent.")
+    evidence_documents: list[str] = Field(
+        default_factory=list,
+        description=(
+            "Exact uploaded-document filenames whose retrieved evidence should be "
+            "provided to this agent."
+        ),
+    )
 
 
 class InformationRequest(BaseModel):
