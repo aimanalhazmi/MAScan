@@ -50,21 +50,42 @@ def test_parser_keeps_all_unique_body_urls_without_a_ten_source_cap() -> None:
     assert document.citations[-1].url == "https://example.com/12"
 
 
-def test_parser_tracks_uncited_claims_separately() -> None:
+def test_parser_ignores_uncited_claims() -> None:
     report = "## Summary\n\nAn important uncited number is 42."
 
     document = parse_attribution_document(report)
 
     assert document.citations == ()
-    assert document.uncited_claims == ("An important uncited number is 42.",)
+    assert document.attributions == ()
 
 
-def test_uploaded_document_bare_citation_counts_as_attribution() -> None:
+def test_uploaded_document_bare_citation_is_outside_public_validation() -> None:
     document = parse_attribution_document(
         "## Summary\n\nEVONIK reported higher earnings [3].\n\n## Sources\n\n3. Factsheet"
     )
 
-    assert document.uncited_claims == ()
-    assert len(document.attributions) == 1
-    assert document.attributions[0].citations[0].number == 3
-    assert document.attributions[0].citations[0].url == "uploaded-document:3"
+    assert document.citations == ()
+    assert document.attributions == ()
+
+
+def test_parser_accepts_safe_uploaded_file_links() -> None:
+    document = parse_attribution_document(
+        "## Summary\n\n"
+        "EVONIK reported higher earnings "
+        "[3](/rag/files/EVONIK%20Q1%202026.pdf)."
+    )
+
+    assert document.citations[0].url == "/rag/files/EVONIK%20Q1%202026.pdf"
+    assert document.attributions[0].claim == "EVONIK reported higher earnings."
+
+
+def test_parser_rejects_arbitrary_or_unsafe_local_links() -> None:
+    document = parse_attribution_document(
+        "## Summary\n\n"
+        "Local [1](/etc/passwd). "
+        "Encoded traversal [2](/rag/files/..%2Fsecret.pdf). "
+        "Null byte [3](/rag/files/report%00.pdf)."
+    )
+
+    assert document.citations == ()
+    assert document.attributions == ()

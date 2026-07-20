@@ -5,7 +5,13 @@ The system prompt itself lives in config.yaml. This module holds prompt
 sections, build task lists, etc.
 """
 
-from mascan.agents.context import render_citation_requirements
+from typing import Any
+
+from mascan.agents.context import (
+    render_agent_context,
+    render_citation_requirements,
+    render_runtime_context,
+)
 from mascan.contracts.tools import ToolResult
 
 
@@ -19,9 +25,15 @@ def render_tool_outputs(outputs: dict[str, ToolResult]) -> str:
     return "\n".join(parts)
 
 
-def build_user_prompt(tasks: list[str], tool_block: str) -> str:
+def build_user_prompt(
+    tasks: list[str],
+    tool_block: str,
+    context: dict[str, Any] | None = None,
+) -> str:
     task_lines = "\n".join(f"- {t}" for t in tasks)
     return (
+        f"{render_agent_context(context)}"
+        f"{render_runtime_context(context)}"
         f"Tasks to analyze:\n{task_lines}\n\n"
         f"Information already gathered:\n{tool_block}\n\n"
         "Write a concise legal and regulatory analysis addressing the tasks "

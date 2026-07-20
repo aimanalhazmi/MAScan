@@ -26,31 +26,12 @@ You receive findings from one or more specialist agents. Your job:
 5. Be concise. No filler. No restating the question.
 
 Citation rules:
-- Use only citation numbers that appear in the Citation Registry.
-- Put a citation after every important factual claim, number, date, regulation,
-  policy, market trend, or risk judgment.
-- Use exactly this citation format in the body:
-  [1](https://source-url)
-- Replace "1" and the URL with the correct source number and URL from the
-  Citation Registry.
-- Treat uploaded company documents as primary evidence for company-specific
-  financial, operational, portfolio, target, and management-statement claims.
-- Uploaded documents are non-citable background evidence. Never assign them a
-  citation number and never include them in the final Sources section.
-- Use the corresponding Agent's URL-backed evidence for external claims about
-  policy, regulation, energy prices, inflation, labor markets, technology adoption,
-  environmental conditions, market trends, and geopolitical or supply-chain events.
-- Do not use an uploaded company-document citation to support an external PESTEL
-  fact unless the supplied document excerpt explicitly states that exact fact.
-- When an Agent finding already contains a relevant Markdown URL citation, preserve
-  that URL citation next to the factual premise when integrating the finding.
-- If URL-backed sources are available and the answer makes external factual claims,
-  the final answer must include the relevant URL-backed citations; an uploaded
-  document alone is not sufficient evidence for those claims.
-- Do not show raw URLs outside Markdown links in the body.
-- Do not invent citation numbers or URLs.
-- If a claim lacks source support, state the uncertainty or mark it as
-  insufficiently evidenced instead of citing it.
+- Preserve relevant inline citations already present in Agent findings.
+- Cite important factual claims using only the exact numbered Markdown links in
+  the Citation Registry, including `/rag/files/...` links.
+- Put each citation immediately after the claim it supports.
+- Do not invent or alter citation numbers, URLs, sources, or facts.
+- If no Registry source supports a claim, state the uncertainty instead of citing it.
 """
 
 CITATION_EDITOR_SYSTEM_PROMPT = """\
@@ -59,14 +40,12 @@ draft without changing its analysis, wording, headings, ordering, numbers, or
 recommendations.
 
 Rules:
-- Return the complete draft and nothing else.
-- Only append citations to claims that the supplied evidence actually supports.
-- For URL-backed evidence, use the exact global Markdown citation shown in the
-  registry, including its exact URL: [n](URL).
-- Uploaded company documents are non-citable context. Do not create a citation
-  for them. Use Agent URL evidence for external PESTEL and market facts.
+- Return the complete draft and nothing else; do not repeat any DRAFT wrapper.
+- Only append exact Registry citations to existing claims that the supplied Agent
+  evidence actually supports.
 - Preserve any valid citations already in the draft.
-- Do not invent a source, URL, fact, or citation number.
+- Do not add or rewrite facts, analysis, headings, recommendations, sources, URLs,
+  or citation numbers.
 - Leave a claim uncited when no supplied evidence supports it.
 """
 
@@ -112,7 +91,7 @@ def synthesizer_node(state: GraphState) -> dict[str, Any]:
     if _needs_citation_repair(state, normalized):
         normalized = _repair_missing_citations(state, normalized)
     summary, cited_sources = _renumber_all_citations(state, normalized)
-    rendered_sources = cited_sources or [entry.source for entry in _build_citation_registry(state)]
+    rendered_sources = cited_sources
     markdown = _render_markdown(state, summary, rendered_sources)
 
     return {
@@ -139,18 +118,6 @@ def _build_synthesis_prompt(state: GraphState) -> str:
             "Citation Registry:\n"
             "(No URL-backed sources are available. Do not create citations.)\n"
         )
-
-    uploaded_evidence = _uploaded_document_sources(state)
-    if uploaded_evidence:
-        parts.append(
-            "Uploaded document evidence (background context only; do not cite it "
-            "and do not add it to Sources):\n"
-        )
-        for source in uploaded_evidence:
-            parts.append(
-                f"{source.name}\n"
-                f"{source.metadata.get('content', '')}\n"
-            )
 
     if state.reports:
         parts.append("Agent findings:\n")
@@ -226,13 +193,23 @@ def _repair_missing_citations(state: GraphState, draft: str) -> str:
     except Exception:  # noqa: BLE001
         logger.exception("Citation repair failed; keeping the original synthesis")
         return draft
-    repaired = str(response.content).strip()
+    repaired = _strip_draft_wrappers(str(response.content))
     return _normalize_citation_links(state, repaired) if repaired else draft
+
+
+def _strip_draft_wrappers(content: str) -> str:
+    """Remove exact repair-prompt delimiters if the model echoes them."""
+    lines = content.strip().splitlines()
+    if lines and lines[0].strip().casefold() == "--- draft ---":
+        lines.pop(0)
+    if lines and lines[-1].strip().casefold() == "--- end draft ---":
+        lines.pop()
+    return "\n".join(lines).strip()
 
 
 def _build_citation_repair_prompt(state: GraphState, draft: str) -> str:
     registry = _build_citation_registry(state)
-    parts = ["Global Citation Registry:\n"]
+    parts = [f"User question:\n{state.user_input}\n", "Global Citation Registry:\n"]
     for entry in registry:
         source = entry.source
         if source.url:
@@ -240,16 +217,7 @@ def _build_citation_repair_prompt(state: GraphState, draft: str) -> str:
         else:
             parts.append(f"[{entry.number}] — {source.name} (uploaded document)\n")
 
-    uploaded = _uploaded_document_sources(state)
-    if uploaded:
-        parts.append("\nNon-citable uploaded-document context:\n")
-        for source in uploaded:
-            parts.append(
-                f"{source.name}\n"
-                f"{source.metadata.get('content', '')}\n"
-            )
-
-    parts.append("\nAgent evidence with its collected URL citations:\n")
+    parts.append("\nAgent evidence with its collected source citations:\n")
     for name, report in state.reports.items():
         parts.append(f"### {name}\n{report.findings}\n")
 
@@ -283,7 +251,7 @@ def _render_sources_section(
     summary: str = "",
     cited_sources: list[Source] | None = None,
 ) -> str:
-    """Render sources cited in the body, falling back to all sources if needed."""
+    """Render only sources cited in the body, in first-citation order."""
     registry = _build_citation_registry(state)
     if not registry:
         return ""
@@ -305,24 +273,27 @@ def _render_sources_section(
             for cited in cited_links
         )
 
-    return "\n".join(
-        _format_numbered_source(entry.number, entry.source) for entry in registry
-    )
+    return ""
 
 
 def _build_citation_registry(state: GraphState) -> list[CitationEntry]:
-    """Collect URL-backed Agent sources once in stable order."""
+    """Collect sources actually propagated through Agent reports."""
     entries: list[CitationEntry] = []
     seen: set[str] = set()
-    for report in state.reports.values():
-        for source in report.sources:
-            if not source.url:
-                continue
-            key = source.url.strip()
-            if not key or key in seen:
-                continue
-            seen.add(key)
-            entries.append(CitationEntry(number=len(entries) + 1, source=source))
+    sources = [
+        source
+        for report in state.reports.values()
+        for source in report.sources
+        if source.url
+    ]
+    for source in sources:
+        if not source.url:
+            continue
+        key = canonical_source_url(source.url)
+        if not key or key in seen:
+            continue
+        seen.add(key)
+        entries.append(CitationEntry(number=len(entries) + 1, source=source))
     return entries
 
 
@@ -360,39 +331,6 @@ def _format_numbered_source(number: int, source: Source) -> str:
     if source.url:
         return f"{number}. [{source.name}]({source.url})"
     return f"{number}. {source.name}"
-
-
-def _uploaded_document_sources(state: GraphState) -> list[Source]:
-    """Combine all retrieved passages from one upload into one citable source."""
-    grouped: dict[str, list[tuple[int | None, str]]] = {}
-    for evidence in state.rag_evidence:
-        citation = evidence.get("citation") or {}
-        document = str(citation.get("document") or "uploaded document")
-        page = citation.get("page") if isinstance(citation.get("page"), int) else None
-        content = str(evidence.get("content") or "").strip()
-        if content:
-            item = (page, content)
-            if item not in grouped.setdefault(document, []):
-                grouped[document].append(item)
-
-    sources: list[Source] = []
-    for document, chunks in grouped.items():
-        pages = list(dict.fromkeys(page for page, _ in chunks if page is not None))
-        evidence_text = "\n\n".join(
-            f"[Page {page}]\n{content}" if page is not None else content
-            for page, content in chunks
-        )
-        sources.append(
-            Source(
-                name=document,
-                metadata={
-                    "kind": "uploaded_document",
-                    "citation": {"document": document, "pages": pages},
-                    "content": evidence_text,
-                },
-            )
-        )
-    return sources
 
 
 def _renumber_all_citations(

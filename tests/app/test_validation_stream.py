@@ -14,10 +14,13 @@ def test_validator_update_is_exposed_over_sse_before_done() -> None:
                 "node": "validator",
                 "update": {
                     "final_markdown": "# Report\n\n## Sources\n\n1. Source",
-                    "validation_status": "passed",
-                    "validation_issues": [],
-                    "validation_markdown": "## Fact Check",
-                    "validation_payload": {"status": "passed", "issues": []},
+                    "validation": {
+                        "status": "passed",
+                        "summary": {"total": 0, "passed": 0, "issues": 0, "failed": 0},
+                        "issues": [],
+                        "checks": [],
+                        "markdown": "## Citation Validation",
+                    },
                 },
             }
         ]
@@ -28,5 +31,5 @@ def test_validator_update_is_exposed_over_sse_before_done() -> None:
     assert payloads[0]["event"] == "node"
     assert payloads[0]["node"] == "validator"
     assert "## Fact Check" not in payloads[0]["update"]["final_markdown"]
-    assert payloads[0]["update"]["validation_markdown"] == "## Fact Check"
+    assert payloads[0]["update"]["validation"]["markdown"] == "## Citation Validation"
     assert payloads[1] == {"event": "done"}
