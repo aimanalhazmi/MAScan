@@ -15,6 +15,11 @@ from mascan.tools.registry import tool_registry
 
 logger = get_logger("orchestrator.planner")
 
+# Registered agent names for the six PESTEL dimensions.
+PESTEL_AGENTS: frozenset[str] = frozenset(
+    {"political", "economics", "social", "technological", "environmental", "legal"}
+)
+
 # Common planner misspellings / singular forms → registered agent names.
 AGENT_NAME_ALIASES: dict[str, str] = {
     "economic": "economics",
@@ -44,6 +49,9 @@ Your job:
 3. Once the user provides sufficient information, decide which agents should investigate it.
    Only pick agents whose dimension is genuinely relevant.
    Skip agents whose dimension doesn't apply to this question.
+   Exception: when the user explicitly asks for a PESTEL analysis or lists the
+   PESTEL headings (Political, Economic, Social, Technological, Environmental,
+   Legal), treat ALL SIX dimensions as relevant and assign all six agents.
 4. For each selected agent, write:
    - an objective_context: a robust domain-specific brief for that agent.
      Preserve every detail that matters for that agent's capabilities: entities,
@@ -55,13 +63,24 @@ Your job:
      should investigate.
    - evidence_documents: a list of exact uploaded-document filenames from the
      rag_search results that this agent needs. Use an empty list when none apply.
+   - salient_factors: 3 to 6 of the MOST decision-relevant factors that this
+     specific subject, industry, era, and geography demand in that agent's
+     dimension. Name concrete factors, not generic category labels: e.g. for a
+     2019 electric-vehicle maker's Economic dimension prefer "battery pack cost
+     per kWh decline" and "EV purchase-incentive phase-out" over "market growth"
+     or "consumer spending". These are coverage targets the agent must
+     investigate and verify with evidence.
 
 Return a JSON object with an "assignments" array. Each element has
 "agent_name" (string), "objective_context" (string), "tasks" (list of strings),
-and "evidence_documents" (list of exact filenames).
+"evidence_documents" (list of exact filenames), and "salient_factors"
+(list of strings).
 Agents you do NOT pick must NOT appear in the output.
-Do not add facts that are not present in the user question, the runtime context,
-or what rag_search returned.
+Do not add unsupported facts to objective_context or tasks: assert nothing about
+the case that is not in the user question, the runtime context, or what rag_search
+returned. salient_factors are the exception — they are candidate factors to
+investigate (hypotheses), so naming well-known factors for the named subject is
+expected and encouraged; the agent will confirm or refute each with evidence.
 
 Treat what rag_search returns as the ground truth about the user's company,
 product, or market, and carry the parts that matter into the objective_context
@@ -138,7 +157,7 @@ def _planner_node(state: GraphState) -> dict[str, Any]:
     llm = get_chat_model(
         model=settings.openai_model_default,
         temperature=0.0,
-        max_tokens=1000,
+        max_tokens=2000,
     )
     knowledge_messages, rag_evidence = search_knowledge_base(llm, user_prompt)
     messages: list[Any] = [
@@ -160,7 +179,42 @@ def _planner_node(state: GraphState) -> dict[str, Any]:
     raw_plan = {a.agent_name: a for a in result.assignments if isinstance(a, AgentAssignment)}
     plan = _filter_to_known_agents(raw_plan, available)
     logger.info(f"Planner selected {len(plan)} agent(s): {sorted(plan.keys())}")
+    _warn_on_incomplete_pestel_coverage(state.user_input, plan, available)
     return {"plan": plan, "rag_evidence": rag_evidence}
+
+
+def looks_like_pestel_request(user_input: str) -> bool:
+    """True when the request explicitly asks for a full PESTEL analysis."""
+    lowered = user_input.lower()
+    if "pestel" in lowered:
+        return True
+    heading_terms = (
+        "political",
+        "economic",
+        "social",
+        "technological",
+        "environmental",
+        "legal",
+    )
+    return sum(1 for term in heading_terms if term in lowered) >= 4
+
+
+def _warn_on_incomplete_pestel_coverage(
+    user_input: str,
+    plan: dict[str, AgentAssignment],
+    available: list[str],
+) -> None:
+    """Log when a PESTEL request leaves one of the six dimensions unassigned."""
+    if not looks_like_pestel_request(user_input):
+        return
+    expected = PESTEL_AGENTS & set(available)
+    missing = sorted(expected - set(plan))
+    if missing:
+        logger.warning(
+            "PESTEL request but planner omitted agent(s) %s; those categories "
+            "will be uncovered in the final report.",
+            missing,
+        )
 
 
 def search_knowledge_base(

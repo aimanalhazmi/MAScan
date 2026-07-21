@@ -35,12 +35,25 @@ def main() -> int:
     )
     parser.add_argument("--model", default=None, help="Override judge model.")
     parser.add_argument("--out", default=None, help="Optional JSON output path.")
+    parser.add_argument(
+        "--grounding",
+        action="store_true",
+        help=(
+            "Also run the separate grounding pass (one extra judge call). "
+            "Secondary diagnostic only; not part of combined quality."
+        ),
+    )
     args = parser.parse_args()
 
     dataset = load_gold_standard(args.gold_standard)
     case = dataset.by_id(args.case)
     response_text = Path(args.response_file).read_text(encoding="utf-8")
-    result = judge_gold_response(case, response_text, model=args.model)
+    result = judge_gold_response(
+        case,
+        response_text,
+        model=args.model,
+        include_grounding=args.grounding,
+    )
 
     payload = result.model_dump(mode="json")
     rendered = json.dumps(payload, indent=2, ensure_ascii=False)

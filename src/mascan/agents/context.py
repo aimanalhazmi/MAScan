@@ -85,7 +85,34 @@ def render_agent_context(context: dict[str, Any] | None) -> str:
                 + "\n"
             )
 
-    return "\n\n".join(parts) + ("\n\n" if parts else "")
+    parts.append(render_salient_factors(values.get("salient_factors")))
+
+    rendered = [part for part in parts if part.strip()]
+    return "\n\n".join(rendered) + ("\n\n" if rendered else "")
+
+
+def render_salient_factors(salient_factors: Any) -> str:
+    """Render planning-time candidate factors as a floor for the agent's own scan.
+
+    Deliberately not a mandate: an exhaustive "cover exactly these" instruction
+    makes a weak factor list actively harmful, because the agent stops scanning
+    for the factors that actually matter on unfamiliar subjects.
+    """
+    if not isinstance(salient_factors, list):
+        return ""
+    factors = [str(factor).strip() for factor in salient_factors if str(factor).strip()]
+    if not factors:
+        return ""
+    factor_lines = "\n".join(f"- {factor}" for factor in factors)
+    return (
+        "Candidate factors identified during planning — treat these as a floor, not "
+        "a ceiling. Investigate each one that proves material for this subject, and "
+        "cover any other factor in your dimension that matters more for this subject "
+        "even if it is not listed. Prefer naming the specific instrument, regulation, "
+        "technology, or cost driver over a generic theme. Drop a listed factor that "
+        "turns out not to apply rather than padding the report with it:\n"
+        f"{factor_lines}\n"
+    )
 
 
 def render_citation_requirements(*agent_rules: str) -> str:

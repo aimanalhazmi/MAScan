@@ -2,7 +2,7 @@
 
 import hashlib
 import json
-from typing import Any, cast
+from typing import Any, Literal, cast
 
 from pydantic import BaseModel, Field, model_validator
 
@@ -39,6 +39,35 @@ Use exactly one category_judgment for each provided category target, preserving
 the target factor text and order.
 """
 
+GROUNDING_JUDGE_SYSTEM_PROMPT = """\
+You are a strict factual-grounding checker for PESTEL market-analysis outputs.
+You receive a gold-standard case, and a list of claims extracted from a submitted
+answer. Decide which claims are ungrounded.
+
+Default to GROUNDED. The gold-standard case is a short summary, not a corpus: it
+cannot possibly restate every true fact about the subject, period, or geography.
+A specific, plausible, period-correct fact is GROUNDED even when the case summary
+never mentions it. Absence from the gold claims is NEVER evidence of a problem.
+
+Mark a claim UNGROUNDED only when one of these is demonstrably true:
+   - contradiction: it conflicts with the case context, the expected output, or a
+     gold claim.
+   - avoid_claim: it restates or endorses an entry in avoid_claims.
+   - inconsistency: it contradicts another claim in the same submitted answer.
+   - false_or_anachronistic: from your own world knowledge it is simply wrong, or
+     it refers to a regulation, organisation, technology, event, or figure that did
+     not exist or did not apply in the case's time frame and geography.
+
+Never mark a claim ungrounded for being specific, quantitative, or named. Naming a
+real regulation, statistic, price, or organisation that fits the period is exactly
+what a good analysis does, and specificity must never be penalised. Do not mark a
+claim merely because you cannot personally verify a figure: only mark it when you
+have positive reason to believe it is wrong.
+
+Quote each ungrounded claim verbatim, give the reason kind, and explain briefly.
+Return an empty list when every claim is grounded.
+"""
+
 
 class ResponseClaimScore(BaseModel):
     response_claim: str
@@ -65,6 +94,43 @@ class _LLMGoldJudgeOutput(BaseModel):
     summary: str
 
 
+class UngroundedClaim(BaseModel):
+    claim: str
+    kind: Literal[
+        "contradiction",
+        "avoid_claim",
+        "inconsistency",
+        "false_or_anachronistic",
+    ]
+    reasoning: str
+
+
+class _LLMGroundingOutput(BaseModel):
+    ungrounded_claims: list[UngroundedClaim] = Field(default_factory=list)
+
+
+class GroundingJudgeResult(BaseModel):
+    """Output of the separate grounding pass.
+
+    Judged in its own call so that adding or tuning the grounding rubric cannot
+    change analytical-depth or categorization scores, which are produced by an
+    untouched prompt and stay comparable across runs.
+    """
+
+    case_id: str
+    ungrounded_claims: list[UngroundedClaim] = Field(default_factory=list)
+    claims_reviewed: int = Field(default=0, ge=0)
+    ungrounded_claim_count: int = Field(default=0, ge=0)
+    grounding_accuracy: float = Field(default=0.0, ge=0.0, le=1.0)
+    judge_model: str
+    grounding_prompt_sha256: str
+
+    @model_validator(mode="after")
+    def populate_counts(self) -> "GroundingJudgeResult":
+        self.ungrounded_claim_count = len(self.ungrounded_claims)
+        return self
+
+
 class GoldJudgeResult(_LLMGoldJudgeOutput):
     case_id: str
     analytical_depth_score: float = Field(..., ge=1.0, le=3.0)
@@ -72,18 +138,27 @@ class GoldJudgeResult(_LLMGoldJudgeOutput):
     categorization_accuracy_present_only: float | None = Field(
         default=None, ge=0.0, le=1.0
     )
+    grounding: GroundingJudgeResult | None = Field(
+        default=None,
+        description=(
+            "Result of the separate grounding pass. None when grounding was not "
+            "assessed for this record."
+        ),
+    )
     judge_model: str
     judge_prompt_sha256: str
     judge_schema_sha256: str
     response_claim_count: int = Field(default=0, ge=0)
+    unsupported_claim_count: int = Field(default=0, ge=0)
     category_targets_evaluated: int = Field(default=0, ge=0)
     category_targets_present: int = Field(default=0, ge=0)
     category_targets_missing: int = Field(default=0, ge=0)
     category_targets_correct: int = Field(default=0, ge=0)
 
     @model_validator(mode="after")
-    def populate_metric_counts(self):
+    def populate_metric_counts(self) -> "GoldJudgeResult":
         self.response_claim_count = len(self.response_claim_scores)
+        self.unsupported_claim_count = len(self.unsupported_or_wrong_claims)
         self.category_targets_evaluated = len(self.category_judgments)
         self.category_targets_present = sum(
             1 for judgment in self.category_judgments if judgment.present
@@ -139,6 +214,19 @@ def compute_analytical_depth(
     )
 
 
+def compute_grounding_accuracy(claims_reviewed: int, ungrounded_count: int) -> float:
+    """Share of reviewed claims the grounding pass did not flag as ungrounded.
+
+    Rate-based rather than a raw count: an unbounded count scales with verbosity,
+    so a terse answer would look artificially well grounded. An answer with no
+    claims earns no grounding credit — grounding is earned by making supported
+    claims, not by staying silent.
+    """
+    if claims_reviewed <= 0:
+        return 0.0
+    return round(max(0.0, 1.0 - ungrounded_count / claims_reviewed), 4)
+
+
 def compute_categorization_accuracy(
     judgments: list[CategoryTargetJudgment],
     *,
@@ -182,6 +270,11 @@ def gold_judge_prompt_sha256() -> str:
     return hashlib.sha256(GOLD_JUDGE_SYSTEM_PROMPT.encode("utf-8")).hexdigest()
 
 
+def grounding_judge_prompt_sha256() -> str:
+    """Hash the grounding rubric so grounding runs are reproducible on their own."""
+    return hashlib.sha256(GROUNDING_JUDGE_SYSTEM_PROMPT.encode("utf-8")).hexdigest()
+
+
 def gold_judge_schema_sha256() -> str:
     """Hash the judge structured-output schema as canonical JSON."""
     canonical = json.dumps(
@@ -220,12 +313,125 @@ def build_gold_judge_user_prompt(case: GoldStandardCase, response_text: str) -> 
     )
 
 
+def build_grounding_judge_user_prompt(
+    case: GoldStandardCase,
+    response_claims: list[str],
+) -> str:
+    """Build the grounding prompt from the case and the already-enumerated claims.
+
+    Reuses the main judge's claim enumeration so both passes share one denominator
+    and the two calls cannot disagree about what the answer actually claimed.
+    """
+    payload = {
+        "case_id": case.case_id,
+        "case_title": case.case_title,
+        "case_subject": case.case_subject,
+        "generation_prompt": case.prompt,
+        "expected_output": _expected_output_payload(case),
+        "gold_claims": [claim.model_dump(mode="json") for claim in case.gold_claims],
+        "avoid_claims": case.avoid_claims,
+    }
+    claim_lines = "\n".join(
+        f"{index}. {claim}" for index, claim in enumerate(response_claims, start=1)
+    )
+    return (
+        "## Gold-standard case\n"
+        f"{json.dumps(payload, indent=2)}\n\n"
+        "## Claims extracted from the submitted answer\n"
+        f"{claim_lines}\n"
+    )
+
+
+def judge_grounding(
+    case: GoldStandardCase,
+    response_claims: list[str],
+    model: str | None = None,
+) -> GroundingJudgeResult:
+    """Run the standalone grounding pass over already-enumerated response claims."""
+    model = model or _default_judge_model()
+    if not response_claims:
+        return GroundingJudgeResult(
+            case_id=case.case_id,
+            claims_reviewed=0,
+            grounding_accuracy=0.0,
+            judge_model=model,
+            grounding_prompt_sha256=grounding_judge_prompt_sha256(),
+        )
+
+    llm = get_chat_model(model=model, temperature=0, max_tokens=2000)
+    structured = llm.with_structured_output(_LLMGroundingOutput)
+    out = cast(
+        _LLMGroundingOutput,
+        structured.invoke(
+            _judge_messages(
+                GROUNDING_JUDGE_SYSTEM_PROMPT,
+                build_grounding_judge_user_prompt(case, response_claims),
+            )
+        ),
+    )
+    return GroundingJudgeResult(
+        case_id=case.case_id,
+        ungrounded_claims=out.ungrounded_claims,
+        claims_reviewed=len(response_claims),
+        grounding_accuracy=compute_grounding_accuracy(
+            len(response_claims), len(out.ungrounded_claims)
+        ),
+        judge_model=model,
+        grounding_prompt_sha256=grounding_judge_prompt_sha256(),
+    )
+
+
+def parse_gold_judge_output(payload: dict[str, Any]) -> "_LLMGoldJudgeOutput":
+    """Validate a raw judge payload produced outside this process.
+
+    Used when a second judge (for inter-rater reliability) is run through an
+    external tool rather than the API, so its output is held to exactly the same
+    schema as the in-process judge.
+    """
+    return _LLMGoldJudgeOutput.model_validate(payload)
+
+
+def build_gold_judge_result(
+    case: GoldStandardCase,
+    out: "_LLMGoldJudgeOutput",
+    *,
+    model: str,
+    grounding: GroundingJudgeResult | None = None,
+) -> GoldJudgeResult:
+    """Assemble the scored result from a raw judge output, whatever produced it."""
+    validate_category_judgment_alignment(case, out.category_judgments)
+    return GoldJudgeResult(
+        case_id=case.case_id,
+        grounding=grounding,
+        response_claim_scores=out.response_claim_scores,
+        category_judgments=out.category_judgments,
+        missing_gold_claims=out.missing_gold_claims,
+        unsupported_or_wrong_claims=out.unsupported_or_wrong_claims,
+        summary=out.summary,
+        analytical_depth_score=compute_analytical_depth(out.response_claim_scores),
+        categorization_accuracy=compute_categorization_accuracy(out.category_judgments)
+        or 0.0,
+        categorization_accuracy_present_only=compute_categorization_accuracy(
+            out.category_judgments, present_only=True
+        ),
+        judge_model=model,
+        judge_prompt_sha256=gold_judge_prompt_sha256(),
+        judge_schema_sha256=gold_judge_schema_sha256(),
+    )
+
+
 def judge_gold_response(
     case: GoldStandardCase,
     response_text: str,
     model: str | None = None,
+    *,
+    include_grounding: bool = False,
 ) -> GoldJudgeResult:
-    """Judge one generated PESTEL response against one gold-standard case."""
+    """Judge one generated PESTEL response against one gold-standard case.
+
+    Grounding is an opt-in second call: it is a reported secondary diagnostic, not
+    part of combined quality, and it must not touch the depth/categorization prompt.
+    """
     model = model or _default_judge_model()
     llm = get_chat_model(model=model, temperature=0, max_tokens=4000)
     structured = llm.with_structured_output(_LLMGoldJudgeOutput)
@@ -239,22 +445,13 @@ def judge_gold_response(
         ),
     )
     validate_category_judgment_alignment(case, out.category_judgments)
-    return GoldJudgeResult(
-        case_id=case.case_id,
-        response_claim_scores=out.response_claim_scores,
-        category_judgments=out.category_judgments,
-        missing_gold_claims=out.missing_gold_claims,
-        unsupported_or_wrong_claims=out.unsupported_or_wrong_claims,
-        summary=out.summary,
-        analytical_depth_score=compute_analytical_depth(out.response_claim_scores),
-        categorization_accuracy=compute_categorization_accuracy(
-            out.category_judgments
+    grounding = (
+        judge_grounding(
+            case,
+            [claim.response_claim for claim in out.response_claim_scores],
+            model=model,
         )
-        or 0.0,
-        categorization_accuracy_present_only=compute_categorization_accuracy(
-            out.category_judgments, present_only=True
-        ),
-        judge_model=model,
-        judge_prompt_sha256=gold_judge_prompt_sha256(),
-        judge_schema_sha256=gold_judge_schema_sha256(),
+        if include_grounding
+        else None
     )
+    return build_gold_judge_result(case, out, model=model, grounding=grounding)

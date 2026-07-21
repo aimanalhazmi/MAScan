@@ -14,13 +14,6 @@ from mascan.eval.gold_analysis import (
 )
 from mascan.eval.gold_experiment import JudgedModelResponse, SystemMetricSummary
 from mascan.eval.gold_report import render_gold_experiment_report
-from mascan.eval.human_calibration import HumanAnswerKeyEntry
-from mascan.eval.human_ratings import (
-    HumanIrrReport,
-    HumanRatingsFile,
-    compute_human_irr_report,
-    validate_complete_human_ratings,
-)
 from mascan.eval.readiness import (
     GoldExperimentManifest,
     ReadinessReport,
@@ -55,29 +48,6 @@ def run_gold_postprocess(
             base,
         )
 
-    human_irr: HumanIrrReport | None = None
-    if manifest.human_calibration and manifest.human_calibration.irr_file:
-        human = manifest.human_calibration
-        if human.ratings_file and human.answer_key_file:
-            ratings = _load_model(human.ratings_file, HumanRatingsFile, base)
-            answer_key = _load_json_list(human.answer_key_file, HumanAnswerKeyEntry, base)
-            if human.packet_file and human.rater_ids:
-                from mascan.eval.human_calibration import HumanCalibrationPacket
-
-                packet = _load_model(human.packet_file, HumanCalibrationPacket, base)
-                validation = validate_complete_human_ratings(
-                    ratings,
-                    packet,
-                    rater_ids=human.rater_ids,
-                )
-                if not validation.is_complete:
-                    raise ValueError(
-                        "Human ratings are incomplete or inconsistent: "
-                        f"{validation.model_dump(mode='json')}"
-                    )
-            human_irr = compute_human_irr_report(ratings, analysis_records, answer_key)
-            _write_json_model(human.irr_file, human_irr, base)
-
     comparisons: list[SystemComparison] = []
     for comparison_manifest in manifest.comparisons:
         comparison = compare_systems(
@@ -99,18 +69,11 @@ def run_gold_postprocess(
                 SystemMetricSummary,
                 base,
             )
-        if human_irr is None and manifest.human_calibration and manifest.human_calibration.irr_file:
-            irr_path = _resolve(base, manifest.human_calibration.irr_file)
-            if irr_path.exists():
-                human_irr = HumanIrrReport.model_validate_json(
-                    irr_path.read_text(encoding="utf-8")
-                )
         _write_text(
             manifest.final_report_file,
             render_gold_experiment_report(
                 summaries,
                 comparisons=comparisons,
-                human_irr=human_irr,
             ),
             base,
         )

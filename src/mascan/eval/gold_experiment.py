@@ -50,6 +50,7 @@ class SystemMetricSummary(BaseModel):
     total_quality_points: float | None = None
     mean_analytical_depth: float | None = None
     mean_categorization_accuracy: float | None = None
+    mean_grounding_accuracy: float | None = None
     mean_combined_quality: float | None = None
     total_missing_gold_claims: int | None = None
     mean_missing_gold_claims: float | None = None
@@ -92,9 +93,20 @@ def prompt_sha256(prompt: str) -> str:
 
 
 def combined_quality_score(judge: GoldJudgeResult) -> float:
-    """Normalize depth and accuracy to [0, 1] and average them."""
+    """Normalize depth and accuracy to [0, 1] and average them.
+
+    Grounding is deliberately NOT a term here. It is judged in a separate pass and
+    reported as a secondary diagnostic, so that the primary metric stays stable and
+    comparable across every run rather than shifting whenever the grounding rubric
+    is tuned.
+    """
     normalized_depth = judge.analytical_depth_score / 3.0
     return round((normalized_depth + judge.categorization_accuracy) / 2.0, 6)
+
+
+def grounding_accuracy_score(judge: GoldJudgeResult) -> float | None:
+    """Grounding rate from the separate pass, or None when it was not assessed."""
+    return judge.grounding.grounding_accuracy if judge.grounding else None
 
 
 def response_lookup(
@@ -172,6 +184,14 @@ def _metric_value(judge: GoldJudgeResult, metric: str) -> float:
         return judge.analytical_depth_score
     if metric == "categorization_accuracy":
         return judge.categorization_accuracy
+    if metric == "grounding_accuracy":
+        grounding = grounding_accuracy_score(judge)
+        if grounding is None:
+            raise ValueError(
+                f"Grounding was not assessed for case {judge.case_id}; "
+                "re-judge with include_grounding=True to compare this metric."
+            )
+        return grounding
     if metric == "combined_quality":
         return combined_quality_score(judge)
     raise ValueError(f"Unknown metric: {metric}")
@@ -189,14 +209,21 @@ def summarize_system(
     if not relevant:
         return SystemMetricSummary(system_id=system_id, n=0)
 
-    depth_scores = [record.judge.analytical_depth_score for record in relevant]
-    accuracy_scores = [record.judge.categorization_accuracy for record in relevant]
-    combined_scores = [combined_quality_score(record.judge) for record in relevant]
-    missing_claim_counts = [
-        len(record.judge.missing_gold_claims) for record in relevant
+    # Narrowed once so every judge-derived metric below is typed non-optional.
+    judges = [record.judge for record in relevant if record.judge is not None]
+
+    depth_scores = [judge.analytical_depth_score for judge in judges]
+    accuracy_scores = [judge.categorization_accuracy for judge in judges]
+    # Only records that actually went through the grounding pass contribute.
+    grounding_scores = [
+        score
+        for score in (grounding_accuracy_score(judge) for judge in judges)
+        if score is not None
     ]
+    combined_scores = [combined_quality_score(judge) for judge in judges]
+    missing_claim_counts = [len(judge.missing_gold_claims) for judge in judges]
     unsupported_claim_counts = [
-        len(record.judge.unsupported_or_wrong_claims) for record in relevant
+        len(judge.unsupported_or_wrong_claims) for judge in judges
     ]
     token_totals = [
         record.response.token_usage.total_tokens
@@ -220,6 +247,11 @@ def summarize_system(
         mean_analytical_depth=round(sum(depth_scores) / len(depth_scores), 6),
         mean_categorization_accuracy=round(
             sum(accuracy_scores) / len(accuracy_scores), 6
+        ),
+        mean_grounding_accuracy=(
+            round(sum(grounding_scores) / len(grounding_scores), 6)
+            if grounding_scores
+            else None
         ),
         mean_combined_quality=round(mean_combined, 6),
         total_missing_gold_claims=sum(missing_claim_counts),

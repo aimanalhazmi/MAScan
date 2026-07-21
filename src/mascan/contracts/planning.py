@@ -18,6 +18,15 @@ class AgentAssignment(BaseModel):
             "provided to this agent."
         ),
     )
+    salient_factors: list[str] = Field(
+        default_factory=list,
+        description=(
+            "3-6 concrete, subject-specific factors this agent must cover for this "
+            "dimension (e.g. named regulations, cost drivers, technologies). These are "
+            "investigation targets/hypotheses the agent should verify with evidence, "
+            "NOT asserted facts about the case."
+        ),
+    )
 
 
 class InformationRequest(BaseModel):

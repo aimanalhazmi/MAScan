@@ -22,15 +22,6 @@ from mascan.eval.gold_judge import (
     gold_judge_schema_sha256,
 )
 from mascan.eval.gold_standard import GoldStandardDataset
-from mascan.eval.human_calibration import HumanAnswerKeyEntry, HumanCalibrationPacket
-from mascan.eval.human_calibration import validate_human_answer_key
-from mascan.eval.human_ratings import (
-    HumanIrrReport,
-    HumanRatingsFile,
-    HumanRatingsTemplate,
-    validate_complete_human_ratings,
-    validate_human_ratings_template,
-)
 from mascan.eval.stats import Alternative
 
 Severity = Literal["error", "warning"]
@@ -40,17 +31,6 @@ class ExperimentSystemManifest(BaseModel):
     system_id: str
     model: str
     response_file: str
-
-
-class HumanCalibrationManifest(BaseModel):
-    packet_file: str
-    answer_key_file: str
-    ratings_template_file: str | None = None
-    ratings_file: str | None = None
-    rater_ids: list[str] = Field(default_factory=list)
-    cases_per_rater: int = 5
-    irr_file: str | None = None
-    expected_case_count: int = 25
 
 
 class ComparisonManifest(BaseModel):
@@ -73,7 +53,6 @@ class GoldExperimentManifest(BaseModel):
     pricing_file: str | None = None
     system_summary_file: str | None = None
     case_trace_file: str | None = None
-    human_calibration: HumanCalibrationManifest | None = None
     comparisons: list[ComparisonManifest] = Field(default_factory=list)
     final_report_file: str | None = None
 
@@ -217,7 +196,6 @@ def validate_experiment_manifest(
             )
 
     judged_records: list[JudgedModelResponse] | None = None
-    judged_path = manifest.priced_judged_file or manifest.judged_file
     if manifest.judged_file:
         judged_records = _load_json_list(
             manifest.judged_file,
@@ -292,15 +270,6 @@ def validate_experiment_manifest(
         )
         if traces is not None:
             _validate_case_traces(traces, manifest, case_ids, issues)
-
-    if manifest.human_calibration:
-        _validate_human_calibration(
-            manifest.human_calibration,
-            base,
-            issues,
-            judged_records if judged_path else None,
-            expected_systems=expected_systems,
-        )
 
     for comparison in manifest.comparisons:
         parsed = _load_model(
@@ -770,112 +739,6 @@ def _validate_case_traces(
             )
 
 
-def _validate_human_calibration(
-    human: HumanCalibrationManifest,
-    base: Path,
-    issues: list[ReadinessIssue],
-    judged_records: list[JudgedModelResponse] | None,
-    *,
-    expected_systems: set[str],
-) -> None:
-    packet = _load_model(human.packet_file, HumanCalibrationPacket, base, issues, "human.packet_file")
-    answer_key = _load_json_list(human.answer_key_file, HumanAnswerKeyEntry, base, issues, "human.answer_key_file")
-    if packet is not None:
-        _expect(len(packet.items) == human.expected_case_count, issues, "human.packet_file", f"Expected {human.expected_case_count} packet cases, found {len(packet.items)}.")
-        _expect(
-            packet.cases_per_rater == human.cases_per_rater,
-            issues,
-            "human.packet_file",
-            (
-                f"Packet cases_per_rater={packet.cases_per_rater} does not match "
-                f"manifest cases_per_rater={human.cases_per_rater}."
-            ),
-        )
-        if human.rater_ids:
-            expected_assignments = len(human.rater_ids) * human.cases_per_rater
-            _expect(
-                len(packet.rater_assignments) == len(human.rater_ids),
-                issues,
-                "human.packet_file",
-                (
-                    f"Expected {len(human.rater_ids)} rater assignments, "
-                    f"found {len(packet.rater_assignments)}."
-                ),
-            )
-            _expect(
-                expected_assignments == human.expected_case_count,
-                issues,
-                "human.packet_file",
-                (
-                    f"Rater assignments should cover {human.expected_case_count} cases "
-                    f"({len(human.rater_ids)} raters x {human.cases_per_rater}), "
-                    f"but manifest expected_case_count disagrees."
-                ),
-            )
-        for item in packet.items:
-            _expect(len(item.outputs) == 3, issues, f"human.packet_file:{item.case_id}", f"Expected 3 anonymized outputs, found {len(item.outputs)}.")
-    if answer_key is not None and packet is not None:
-        _expect(len(answer_key) == human.expected_case_count * 3, issues, "human.answer_key_file", f"Expected {human.expected_case_count * 3} answer-key entries, found {len(answer_key)}.")
-        validation = validate_human_answer_key(
-            packet,
-            answer_key,
-            expected_systems=sorted(expected_systems),
-        )
-        if not validation.is_valid:
-            _add_issue(
-                issues,
-                "error",
-                "human.answer_key_file",
-                "Answer key does not match the human packet: "
-                f"{validation.model_dump(mode='json')}",
-            )
-        if human.rater_ids:
-            assigned_raters = {
-                assignment.rater_id for assignment in packet.rater_assignments
-            }
-            _expect(
-                assigned_raters == set(human.rater_ids),
-                issues,
-                "human.packet_file",
-                (
-                    f"Packet rater assignments {sorted(assigned_raters)} do not match "
-                    f"manifest rater_ids {sorted(human.rater_ids)}."
-                ),
-            )
-    if human.ratings_template_file:
-        template = _load_model(
-            human.ratings_template_file,
-            HumanRatingsTemplate,
-            base,
-            issues,
-            "human.ratings_template_file",
-        )
-        if template is not None and packet is not None and human.rater_ids:
-            validation = validate_human_ratings_template(
-                template,
-                packet,
-                rater_ids=human.rater_ids,
-            )
-            if not validation.is_valid:
-                _add_issue(
-                    issues,
-                    "error",
-                    "human.ratings_template_file",
-                    "Ratings template does not match the human packet: "
-                    f"{validation.model_dump(mode='json')}",
-                )
-    if human.ratings_file:
-        ratings = _load_model(human.ratings_file, HumanRatingsFile, base, issues, "human.ratings_file")
-        if ratings is not None and packet is not None and human.rater_ids:
-            validation = validate_complete_human_ratings(ratings, packet, rater_ids=human.rater_ids)
-            if not validation.is_complete:
-                _add_issue(issues, "error", "human.ratings_file", f"Ratings are incomplete or inconsistent: {validation.model_dump(mode='json')}")
-    if human.irr_file:
-        _load_model(human.irr_file, HumanIrrReport, base, issues, "human.irr_file")
-    if human.irr_file and judged_records is None:
-        _add_issue(issues, "warning", "human.irr_file", "IRR file is present but no judged file was available to cross-check.")
-
-
 def _load_model(
     path: str,
     model_type: type[BaseModel],
@@ -938,19 +801,6 @@ def _fingerprint_manifest_files(
         ]
         if path
     )
-    if manifest.human_calibration:
-        human = manifest.human_calibration
-        paths.extend(
-            path
-            for path in [
-                human.packet_file,
-                human.answer_key_file,
-                human.ratings_template_file,
-                human.ratings_file,
-                human.irr_file,
-            ]
-            if path
-        )
     paths.extend(comparison.file for comparison in manifest.comparisons)
 
     seen = {(fingerprint.artifact, fingerprint.method) for fingerprint in fingerprints}

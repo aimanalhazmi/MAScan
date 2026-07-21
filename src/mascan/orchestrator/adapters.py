@@ -95,6 +95,7 @@ def make_agent_node(agent: BaseAgent) -> Callable[[GraphState], dict[str, Any]]:
                     "user_input": state.user_input,
                     "rag_evidence": assigned_evidence,
                     "provided_sources": provided_sources,
+                    "salient_factors": assignment.salient_factors,
                     # Agents do not receive GraphState directly, so pass runtime metadata here.
                     "runtime": state.runtime_context.model_dump(),
                 },

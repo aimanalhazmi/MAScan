@@ -41,25 +41,20 @@ _STEPS = (
     _StepDefinition(
         3,
         "Metrics",
-        "Score analytical depth on a 1-3 rubric and categorization accuracy as strict target-bucket accuracy.",
+        "Score analytical depth on a 1-3 rubric and categorization accuracy as strict target-bucket accuracy; report grounding accuracy separately as a secondary diagnostic.",
     ),
     _StepDefinition(
         4,
         "LLM-as-a-Judge",
-        "Enumerate causal claims, mechanically average claim-level depth scores, and judge all category targets.",
+        "Enumerate causal claims, mechanically average claim-level depth scores, and judge all category targets; grounding is flagged in an isolated second pass over the same enumerated claims.",
     ),
     _StepDefinition(
         5,
-        "Human Calibration And IRR",
-        "Assign each of 25 cases to one of five raters (5 cases each), then compare human scores against the LLM judge with Cohen kappa.",
-    ),
-    _StepDefinition(
-        6,
         "Trace And Cost Analysis",
         "Report token usage, cost, latency, quality per 1k tokens, and quality per USD.",
     ),
     _StepDefinition(
-        7,
+        6,
         "Statistical Significance",
         "Compare MAScan to both baselines using paired t-test or Wilcoxon signed-rank based on the normality protocol.",
     ),
@@ -102,7 +97,10 @@ def render_methodology_appendix(
         "- Control groups: MAScan, zero-shot same-model, and frontier-model outputs are generated from the same prompt text; prompt hashes are checked before readiness passes.",
         "- Analytical Depth: each distinct causal claim in a response is scored 1, 2, or 3, then averaged mechanically.",
         "- Categorization Accuracy: each gold target factor is counted correct only when present and primarily mapped to its expected PESTEL bucket.",
-        "- Human calibration: all 25 cases are blinded as A/B/C and partitioned across five raters (5 cases each, no overlap); agreement with the LLM judge is measured with pooled and per-rater Cohen kappa.",
+        "- Combined Quality: the unweighted mean of normalized analytical depth and categorization accuracy. This is the primary metric and is unchanged across all runs.",
+        "- Grounding Accuracy: a secondary reported diagnostic, not a term in Combined Quality. It is the share of the enumerated response claims that a separate grounding pass did not flag as ungrounded, where ungrounded means contradicting the case, restating an avoid-claim, contradicting another claim in the same answer, or being false or anachronistic for the case period. Rate-based rather than a raw count so it does not scale with verbosity.",
+        "- Grounding is judged in its own call with its own prompt hash (`grounding_prompt_sha256`), never appended to the depth/categorization prompt. An earlier revision appended it to the shared prompt and silently re-scored analytical depth on all five smoke cases for responses whose text had not changed, so the two rubrics are kept isolated to preserve comparability.",
+        "- The grounding rubric defaults to grounded. The gold-standard case is a short summary rather than a corpus, so it cannot support arbitrary factual particulars; an earlier revision that treated 'not supported by the case evidence' as ungrounded flagged 26 of 27 correct claims on one case and systematically penalised specificity while rewarding vague hedged prose. Absence from the gold claims is therefore never treated as evidence of a grounding problem.",
         "- Cost and trace analysis: priced judged records are flattened into per-case rows with quality, token, latency, and cost diagnostics.",
         "- Significance testing: paired system scores are compared case-by-case; Shapiro-Wilk normality is used when available with the manifest alpha threshold, otherwise Wilcoxon signed-rank is the conservative default.",
         "",
@@ -179,14 +177,12 @@ def _step_for_issue(item: str) -> int:
         return 2
     if item.startswith(("judged_file", "priced_judged_file")):
         return 4
-    if item.startswith(("human.",)):
-        return 5
     if item.startswith(("pricing_file", "system_summary_file", "case_trace_file")):
-        return 6
+        return 5
     if item.startswith(("comparison:",)):
-        return 7
+        return 6
     if item.startswith("final_report_file"):
-        return 7
+        return 6
     return 3
 
 
@@ -210,20 +206,7 @@ def _evidence_for_step(manifest: GoldExperimentManifest, step: int) -> list[str]
         return ["src/mascan/eval/gold_judge.py", "src/mascan/eval/gold_experiment.py"]
     if step == 4:
         return [path for path in [manifest.judged_file, manifest.priced_judged_file] if path]
-    if step == 5 and manifest.human_calibration:
-        human = manifest.human_calibration
-        return [
-            path
-            for path in [
-                human.packet_file,
-                human.answer_key_file,
-                human.ratings_template_file,
-                human.ratings_file,
-                human.irr_file,
-            ]
-            if path
-        ]
-    if step == 6:
+    if step == 5:
         return [
             path
             for path in [
@@ -233,7 +216,7 @@ def _evidence_for_step(manifest: GoldExperimentManifest, step: int) -> list[str]
             ]
             if path
         ]
-    if step == 7:
+    if step == 6:
         return [
             *(comparison.file for comparison in manifest.comparisons),
             *( [manifest.final_report_file] if manifest.final_report_file else [] ),

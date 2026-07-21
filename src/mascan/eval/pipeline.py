@@ -16,17 +16,16 @@ class PipelineCommand(BaseModel):
     outputs: list[str] = Field(default_factory=list)
 
 
-def build_pre_human_commands(
+def build_gold_eval_commands(
     manifest: GoldExperimentManifest,
     *,
     python_executable: str = sys.executable,
     scripts_dir: str | Path = "scripts",
     judge_model: str | None = None,
     allow_missing_price: bool = False,
-    reviewer_out_dir: str | None = None,
     trace_csv_file: str | None = None,
 ) -> list[PipelineCommand]:
-    """Build the ordered command list for the pre-human experiment phase."""
+    """Build the ordered command list for the gold-standard evaluation pipeline."""
     scripts = Path(scripts_dir)
     commands: list[PipelineCommand] = []
 
@@ -150,72 +149,6 @@ def build_pre_human_commands(
             )
         )
 
-    human = manifest.human_calibration
-    if human and human.packet_file and human.answer_key_file:
-        if not manifest.merged_responses_file:
-            raise ValueError("human packet generation requires merged_responses_file")
-        if not human.rater_ids:
-            raise ValueError("human packet generation requires human_calibration.rater_ids")
-        commands.append(
-            PipelineCommand(
-                name="build_human_packet",
-                argv=[
-                    python_executable,
-                    str(scripts / "build_human_calibration_packet.py"),
-                    "--responses",
-                    manifest.merged_responses_file,
-                    "--systems",
-                    *(system.system_id for system in manifest.systems),
-                    "--gold-standard",
-                    manifest.gold_standard_file,
-                    "--raters",
-                    *human.rater_ids,
-                    "--cases-per-rater",
-                    str(human.cases_per_rater),
-                    "--packet-out",
-                    human.packet_file,
-                    "--answer-key-out",
-                    human.answer_key_file,
-                ],
-                outputs=[human.packet_file, human.answer_key_file],
-            )
-        )
-
-        if human.ratings_template_file and human.rater_ids:
-            commands.append(
-                PipelineCommand(
-                    name="build_human_rating_template",
-                    argv=[
-                        python_executable,
-                        str(scripts / "build_human_rating_template.py"),
-                        "--packet",
-                        human.packet_file,
-                        "--raters",
-                        *human.rater_ids,
-                        "--out",
-                        human.ratings_template_file,
-                    ],
-                    outputs=[human.ratings_template_file],
-                )
-            )
-            if reviewer_out_dir:
-                commands.append(
-                    PipelineCommand(
-                        name="export_human_reviewer_files",
-                        argv=[
-                            python_executable,
-                            str(scripts / "export_human_reviewer_files.py"),
-                            "--packet",
-                            human.packet_file,
-                            "--ratings-template",
-                            human.ratings_template_file,
-                            "--out-dir",
-                            reviewer_out_dir,
-                        ],
-                        outputs=[reviewer_out_dir],
-                    )
-                )
-
     for comparison in manifest.comparisons:
         if analysis_judged_file:
             commands.append(
@@ -258,93 +191,9 @@ def build_pre_human_commands(
             report_argv += ["--comparison", comparison.file]
         commands.append(
             PipelineCommand(
-                name="render_report_pre_human",
+                name="render_report",
                 argv=report_argv,
                 outputs=[manifest.final_report_file],
-            )
-        )
-
-    return commands
-
-
-def build_post_human_commands(
-    manifest: GoldExperimentManifest,
-    *,
-    ratings_csv_files: list[str] | None = None,
-    readiness_out: str = "eval_results/readiness_report.json",
-    methodology_out: str | None = None,
-    python_executable: str = sys.executable,
-    scripts_dir: str | Path = "scripts",
-) -> list[PipelineCommand]:
-    """Build the command list for the post-human ratings phase."""
-    scripts = Path(scripts_dir)
-    commands: list[PipelineCommand] = []
-    human = manifest.human_calibration
-
-    if ratings_csv_files:
-        if human is None or human.ratings_file is None:
-            raise ValueError(
-                "ratings_csv_files require manifest.human_calibration.ratings_file"
-            )
-        commands.append(
-            PipelineCommand(
-                name="import_human_ratings_csv",
-                argv=[
-                    python_executable,
-                    str(scripts / "import_human_ratings_csv.py"),
-                    "--csv",
-                    *ratings_csv_files,
-                    "--out",
-                    human.ratings_file,
-                ],
-                outputs=[human.ratings_file],
-            )
-        )
-
-    commands.append(
-        PipelineCommand(
-            name="postprocess_gold_experiment",
-            argv=[
-                python_executable,
-                str(scripts / "postprocess_gold_experiment.py"),
-                "--manifest",
-                "__MANIFEST_PATH__",
-                "--readiness-out",
-                readiness_out,
-            ],
-            outputs=[
-                *[
-                    path
-                    for path in [
-                        manifest.priced_judged_file,
-                        manifest.system_summary_file,
-                        manifest.case_trace_file,
-                        *(comparison.file for comparison in manifest.comparisons),
-                        manifest.final_report_file,
-                        human.irr_file if human else None,
-                        readiness_out,
-                    ]
-                    if path
-                ]
-            ],
-        )
-    )
-
-    if methodology_out:
-        commands.append(
-            PipelineCommand(
-                name="render_methodology_appendix",
-                argv=[
-                    python_executable,
-                    str(scripts / "render_gold_methodology.py"),
-                    "--manifest",
-                    "__MANIFEST_PATH__",
-                    "--readiness",
-                    readiness_out,
-                    "--out",
-                    methodology_out,
-                ],
-                outputs=[methodology_out],
             )
         )
 

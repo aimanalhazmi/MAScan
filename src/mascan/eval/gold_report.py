@@ -4,14 +4,12 @@ from collections.abc import Sequence
 
 from mascan.eval.gold_analysis import SystemComparison
 from mascan.eval.gold_experiment import SystemMetricSummary
-from mascan.eval.human_ratings import HumanIrrReport, KappaSummary
 
 
 def render_gold_experiment_report(
     summaries: Sequence[SystemMetricSummary],
     *,
     comparisons: Sequence[SystemComparison] = (),
-    human_irr: HumanIrrReport | None = None,
 ) -> str:
     lines = [
         "# Gold-Standard PESTEL Evaluation Report",
@@ -95,41 +93,6 @@ def render_gold_experiment_report(
                         f"{', '.join(comparison.paired_case_ids)}"
                     )
 
-    if human_irr is not None:
-        lines += ["", "## Human Calibration IRR", ""]
-        lines += _kappa_lines("Human depth agreement", human_irr.depth_fleiss)
-        lines += _kappa_lines(
-            "Human plus LLM depth agreement",
-            human_irr.depth_fleiss_with_llm,
-        )
-        lines += _kappa_lines(
-            "Pooled human vs LLM depth agreement",
-            human_irr.depth_cohen_pooled,
-        )
-        lines += _kappa_lines(
-            "Pooled human vs LLM weighted depth agreement",
-            human_irr.depth_weighted_cohen_pooled,
-        )
-        lines += _kappa_table(
-            "Human vs LLM depth agreement", human_irr.depth_cohen_by_rater
-        )
-        lines += _kappa_table(
-            "Human vs LLM weighted depth agreement",
-            human_irr.depth_weighted_cohen_by_rater,
-        )
-        lines += _kappa_lines("Human category agreement", human_irr.category_fleiss)
-        lines += _kappa_lines(
-            "Human plus LLM category agreement",
-            human_irr.category_fleiss_with_llm,
-        )
-        lines += _kappa_lines(
-            "Pooled human vs LLM category agreement",
-            human_irr.category_cohen_pooled,
-        )
-        lines += _kappa_table(
-            "Human vs LLM category agreement", human_irr.category_cohen_by_rater
-        )
-
     return "\n".join(lines) + "\n"
 
 
@@ -137,26 +100,3 @@ def _fmt(value: float | None, *, digits: int = 4) -> str:
     if value is None:
         return "-"
     return f"{value:.{digits}f}"
-
-
-def _kappa_lines(title: str, summary: KappaSummary | None) -> list[str]:
-    if summary is None:
-        return [f"**{title}:** not available", ""]
-    kappa = "-" if summary.kappa is None else f"{summary.kappa:.4f}"
-    return [f"**{title}:** kappa={kappa}, n={summary.n_items}", ""]
-
-
-def _kappa_table(title: str, summaries: Sequence[KappaSummary]) -> list[str]:
-    if not summaries:
-        return [f"**{title}:** not available", ""]
-    lines = [
-        f"**{title}**",
-        "",
-        "| Comparison | n | kappa |",
-        "|---|---:|---:|",
-    ]
-    for summary in summaries:
-        kappa = "-" if summary.kappa is None else f"{summary.kappa:.4f}"
-        lines.append(f"| {summary.comparison} | {summary.n_items} | {kappa} |")
-    lines.append("")
-    return lines

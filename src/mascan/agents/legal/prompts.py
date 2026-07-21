@@ -37,7 +37,9 @@ def build_user_prompt(
         f"Tasks to analyze:\n{task_lines}\n\n"
         f"Information already gathered:\n{tool_block}\n\n"
         "Write a concise legal and regulatory analysis addressing the tasks "
-        "above. Distinguish enacted law from proposals, note effective dates "
+        "above. Prefer named instruments (regulations, directives, permits, "
+        "authorizations, fines/penalties) over vague compliance language. "
+        "Distinguish enacted law from proposals, note effective dates "
         "and comment deadlines where known, and call optional tools only if needed.\n\n"
         + render_citation_requirements(
             "For Federal Register evidence, cite the returned official document URL.",

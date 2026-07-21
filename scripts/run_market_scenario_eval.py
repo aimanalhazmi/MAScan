@@ -84,9 +84,9 @@ def main() -> int:
             init_argv.append("--overwrite")
         subprocess.run(init_argv, cwd=base, check=True)
 
-    pre_human_argv = [
+    eval_argv = [
         sys.executable,
-        str(base / "scripts" / "run_gold_pre_human.py"),
+        str(base / "scripts" / "run_gold_eval.py"),
         "--manifest",
         args.manifest,
         "--base-dir",
@@ -99,15 +99,15 @@ def main() -> int:
         str(out_dir / "case_trace.csv"),
     ]
     if args.judge_model:
-        pre_human_argv += ["--judge-model", args.judge_model]
+        eval_argv += ["--judge-model", args.judge_model]
     if args.allow_missing_price:
-        pre_human_argv.append("--allow-missing-price")
+        eval_argv.append("--allow-missing-price")
     if args.execute:
-        pre_human_argv.append("--execute")
+        eval_argv.append("--execute")
     if args.skip_existing:
-        pre_human_argv.append("--skip-existing")
+        eval_argv.append("--skip-existing")
     if args.skip_preflight:
-        pre_human_argv.append("--skip-preflight")
+        eval_argv.append("--skip-preflight")
 
     if not args.execute:
         print(
@@ -120,14 +120,13 @@ def main() -> int:
                         "market_biontech",
                     ],
                     "outputs_dir": DEFAULT_OUT_DIR,
-                    "human_calibration": False,
                     "next": "python scripts/run_market_scenario_eval.py --execute --init-pricing",
                 },
                 indent=2,
             )
         )
 
-    return subprocess.run(pre_human_argv, cwd=base).returncode
+    return subprocess.run(eval_argv, cwd=base).returncode
 
 
 if __name__ == "__main__":

@@ -13,7 +13,6 @@ from pathlib import Path
 from mascan.eval.gold_analysis import SystemComparison
 from mascan.eval.gold_experiment import SystemMetricSummary
 from mascan.eval.gold_report import render_gold_experiment_report
-from mascan.eval.human_ratings import HumanIrrReport
 
 
 def _load_summaries(path: Path) -> list[SystemMetricSummary]:
@@ -36,19 +35,12 @@ def main() -> int:
     parser = argparse.ArgumentParser(description="Render gold experiment Markdown report.")
     parser.add_argument("--summary", required=True, help="system_summary.json")
     parser.add_argument("--comparison", action="append", default=[])
-    parser.add_argument("--human-irr", default=None)
     parser.add_argument("--out", required=True)
     args = parser.parse_args()
 
-    human_irr = (
-        HumanIrrReport.model_validate_json(Path(args.human_irr).read_text(encoding="utf-8"))
-        if args.human_irr
-        else None
-    )
     report = render_gold_experiment_report(
         _load_summaries(Path(args.summary)),
         comparisons=_load_comparisons(args.comparison),
-        human_irr=human_irr,
     )
     Path(args.out).write_text(report, encoding="utf-8")
     return 0

@@ -1,6 +1,5 @@
 """Preflight checks before running the paid gold-standard experiment pipeline."""
 
-import csv
 import importlib.util
 import os
 import sys
@@ -11,15 +10,8 @@ from pydantic import BaseModel, Field
 
 from mascan.eval.costing import PricingTable, validate_pricing_table
 from mascan.eval.gold_standard import GoldStandardDataset
-from mascan.eval.human_calibration import HumanCalibrationPacket
-from mascan.eval.human_ratings import (
-    HumanRatingsFile,
-    human_ratings_from_csv_rows,
-    validate_complete_human_ratings,
-)
 from mascan.eval.readiness import GoldExperimentManifest
 
-PreflightPhase = Literal["pre_human", "post_human"]
 Severity = Literal["error", "warning"]
 
 
@@ -31,7 +23,6 @@ class PreflightIssue(BaseModel):
 
 class GoldPreflightReport(BaseModel):
     is_ready: bool
-    phase: PreflightPhase
     errors: int
     warnings: int
     issues: list[PreflightIssue] = Field(default_factory=list)
@@ -43,7 +34,6 @@ def render_gold_preflight_markdown(report: GoldPreflightReport) -> str:
     lines = [
         "# Gold Experiment Preflight Report",
         "",
-        f"- Phase: `{report.phase}`",
         f"- Status: {status}",
         f"- Errors: {report.errors}",
         f"- Warnings: {report.warnings}",
@@ -68,7 +58,7 @@ def render_gold_preflight_markdown(report: GoldPreflightReport) -> str:
     return "\n".join(lines).rstrip() + "\n"
 
 
-PRE_HUMAN_REQUIRED_MODULES = (
+REQUIRED_MODULES = (
     "dotenv",
     "langchain",
     "langchain_core",
@@ -86,44 +76,28 @@ MASCAN_TOOL_MODULES = (
     "yfinance",
 )
 
-POST_HUMAN_REQUIRED_MODULES = (
-    "pydantic",
-)
-
 
 def run_gold_preflight(
     manifest: GoldExperimentManifest,
     *,
     base_dir: str | Path = ".",
-    phase: PreflightPhase = "pre_human",
-    ratings_csv_files: list[str] | None = None,
 ) -> GoldPreflightReport:
-    """Validate inputs/environment before running a real experiment phase."""
+    """Validate inputs/environment before running the paid experiment pipeline."""
     base = Path(base_dir)
     issues: list[PreflightIssue] = []
 
-    _check_python_version(
-        issues,
-        severity="error" if phase == "pre_human" else "warning",
-    )
-    _check_modules(
-        PRE_HUMAN_REQUIRED_MODULES if phase == "pre_human" else POST_HUMAN_REQUIRED_MODULES,
-        issues,
-    )
-    if phase == "pre_human":
-        _check_modules(MASCAN_TOOL_MODULES, issues, severity="warning")
-        _check_openai_key(base, issues)
-        _check_mascan_tool_credentials(base, issues)
-        _check_gold_standard(manifest, base, issues)
-        _check_pricing_table(manifest, base, issues)
-    else:
-        _check_post_human_inputs(manifest, base, ratings_csv_files, issues)
+    _check_python_version(issues, severity="error")
+    _check_modules(REQUIRED_MODULES, issues)
+    _check_modules(MASCAN_TOOL_MODULES, issues, severity="warning")
+    _check_openai_key(base, issues)
+    _check_mascan_tool_credentials(base, issues)
+    _check_gold_standard(manifest, base, issues)
+    _check_pricing_table(manifest, base, issues)
 
     errors = sum(1 for issue in issues if issue.severity == "error")
     warnings = sum(1 for issue in issues if issue.severity == "warning")
     return GoldPreflightReport(
         is_ready=errors == 0,
-        phase=phase,
         errors=errors,
         warnings=warnings,
         issues=issues,
@@ -144,8 +118,8 @@ def _check_python_version(
             (
                 "pyproject.toml declares Python >=3.12,<3.13; current runtime is "
                 f"{version.major}.{version.minor}.{version.micro}. "
-                "Use a Python 3.12 environment for the paid pre-human model "
-                "collection and judging phase."
+                "Use a Python 3.12 environment for the paid gold evaluation "
+                "model collection and judging pipeline."
             ),
         )
 
@@ -155,7 +129,7 @@ def _preflight_action(issue: PreflightIssue) -> str:
     message = issue.message
     if item == "python_version":
         return (
-            "Run the paid pre-human phase from an activated Python 3.12 "
+            "Run the gold evaluation pipeline from an activated Python 3.12 "
             "environment, then rerun preflight."
         )
     if item.startswith("dependency:"):
@@ -185,16 +159,6 @@ def _preflight_action(issue: PreflightIssue) -> str:
         return "Check the manifest `gold_standard_file` path and JSON schema."
     if item.startswith("source_pdf:"):
         return "Restore or correct the referenced PDF path in the gold-standard dataset."
-    if item == "human_calibration":
-        return "Add the `human_calibration` section to the experiment manifest."
-    if item == "human.packet_file":
-        return "Create or restore the human packet before importing returned ratings."
-    if item == "human.rater_ids":
-        return "Define the expected human rater IDs in the manifest."
-    if item == "human.ratings_file":
-        return "Provide returned rater CSV files or create the manifest ratings JSON file."
-    if item == "ratings_csv":
-        return "Fix the returned ratings CSV files and rerun post-human preflight."
     return "Fix the listed issue and rerun preflight."
 
 
@@ -357,173 +321,6 @@ def _check_pricing_table(
             "warning",
             "pricing_file",
             f"Pricing table is missing citation metadata field: {field}",
-        )
-
-
-def _check_post_human_inputs(
-    manifest: GoldExperimentManifest,
-    base: Path,
-    ratings_csv_files: list[str] | None,
-    issues: list[PreflightIssue],
-) -> None:
-    human = manifest.human_calibration
-    if human is None:
-        _add_issue(
-            issues,
-            "error",
-            "human_calibration",
-            "Manifest is missing human_calibration.",
-        )
-        return
-    packet = _load_human_packet(human.packet_file, base, issues)
-    if ratings_csv_files:
-        rows: list[dict[str, str]] = []
-        missing_csv = False
-        for csv_file in ratings_csv_files:
-            csv_path = _resolve(base, csv_file)
-            if not csv_path.exists():
-                missing_csv = True
-                _add_issue(
-                    issues,
-                    "error",
-                    "ratings_csv",
-                    f"Missing returned rater CSV: {csv_file}",
-                )
-                continue
-            try:
-                with csv_path.open(newline="", encoding="utf-8") as handle:
-                    reader = csv.DictReader(handle)
-                    rows.extend(dict(row) for row in reader)
-            except Exception as exc:
-                _add_issue(
-                    issues,
-                    "error",
-                    "ratings_csv",
-                    f"Could not read returned rater CSV {csv_file}: {exc}",
-                )
-        if not missing_csv and rows:
-            try:
-                ratings = human_ratings_from_csv_rows(rows)
-            except Exception as exc:
-                _add_issue(
-                    issues,
-                    "error",
-                    "ratings_csv",
-                    f"Could not parse returned ratings CSV rows: {exc}",
-                )
-            else:
-                _validate_returned_ratings(
-                    ratings,
-                    packet,
-                    human.rater_ids,
-                    issues,
-                    "ratings_csv",
-                )
-        elif not missing_csv:
-            _add_issue(
-                issues,
-                "error",
-                "ratings_csv",
-                "Returned ratings CSV files contain no rating rows.",
-            )
-    elif human.ratings_file:
-        ratings_path = _resolve(base, human.ratings_file)
-        if not ratings_path.exists():
-            _add_issue(
-                issues,
-                "error",
-                "human.ratings_file",
-                (
-                    "No --ratings-csv files were provided and manifest ratings_file "
-                    f"does not exist: {human.ratings_file}"
-                ),
-            )
-            return
-        try:
-            ratings = HumanRatingsFile.model_validate_json(
-                ratings_path.read_text(encoding="utf-8")
-            )
-        except Exception as exc:
-            _add_issue(
-                issues,
-                "error",
-                "human.ratings_file",
-                f"Could not parse human ratings file {human.ratings_file}: {exc}",
-            )
-        else:
-            _validate_returned_ratings(
-                ratings,
-                packet,
-                human.rater_ids,
-                issues,
-                "human.ratings_file",
-            )
-    else:
-        _add_issue(
-            issues,
-            "error",
-            "human.ratings_file",
-            "No --ratings-csv files were provided and manifest ratings_file is not defined.",
-        )
-
-
-def _load_human_packet(
-    packet_file: str,
-    base: Path,
-    issues: list[PreflightIssue],
-) -> HumanCalibrationPacket | None:
-    packet_path = _resolve(base, packet_file)
-    if not packet_path.exists():
-        _add_issue(
-            issues,
-            "error",
-            "human.packet_file",
-            f"Missing human packet: {packet_file}",
-        )
-        return None
-    try:
-        return HumanCalibrationPacket.model_validate_json(
-            packet_path.read_text(encoding="utf-8")
-        )
-    except Exception as exc:
-        _add_issue(
-            issues,
-            "error",
-            "human.packet_file",
-            f"Could not parse human packet {packet_file}: {exc}",
-        )
-        return None
-
-
-def _validate_returned_ratings(
-    ratings: HumanRatingsFile,
-    packet: HumanCalibrationPacket | None,
-    rater_ids: list[str],
-    issues: list[PreflightIssue],
-    item: str,
-) -> None:
-    if packet is None:
-        return
-    if not rater_ids:
-        _add_issue(
-            issues,
-            "error",
-            "human.rater_ids",
-            "Manifest must define expected rater_ids before validating returned ratings.",
-        )
-        return
-    validation = validate_complete_human_ratings(
-        ratings,
-        packet,
-        rater_ids=rater_ids,
-    )
-    if not validation.is_complete:
-        _add_issue(
-            issues,
-            "error",
-            item,
-            "Returned human ratings are incomplete or inconsistent: "
-            f"{validation.model_dump(mode='json')}",
         )
 
 
