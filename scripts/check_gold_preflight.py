@@ -1,4 +1,4 @@
-"""Check environment/input prerequisites before running gold experiment phases."""
+"""Check environment/input prerequisites before running gold experiment."""
 
 if __package__:
     from . import _bootstrap  # noqa: F401
@@ -17,17 +17,6 @@ def main() -> int:
     parser = argparse.ArgumentParser(description="Check gold experiment preflight.")
     parser.add_argument("--manifest", required=True)
     parser.add_argument("--base-dir", default=".")
-    parser.add_argument(
-        "--phase",
-        choices=["pre_human", "post_human"],
-        default="pre_human",
-    )
-    parser.add_argument(
-        "--ratings-csv",
-        nargs="*",
-        default=None,
-        help="Returned rater CSVs for post_human preflight.",
-    )
     parser.add_argument("--out", default=None)
     parser.add_argument(
         "--markdown-out",
@@ -37,12 +26,7 @@ def main() -> int:
     args = parser.parse_args()
 
     manifest = load_experiment_manifest(args.manifest)
-    report = run_gold_preflight(
-        manifest,
-        base_dir=args.base_dir,
-        phase=args.phase,
-        ratings_csv_files=args.ratings_csv,
-    )
+    report = run_gold_preflight(manifest, base_dir=args.base_dir)
     rendered = report.model_dump_json(indent=2)
     if args.out:
         Path(args.out).parent.mkdir(parents=True, exist_ok=True)

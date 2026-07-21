@@ -1,4 +1,4 @@
-"""Run or print the post-human phase of the gold-standard experiment."""
+"""Run or print the gold-standard evaluation pipeline."""
 
 if __package__:
     from . import _bootstrap  # noqa: F401
@@ -10,11 +10,7 @@ import json
 import sys
 from pathlib import Path
 
-from mascan.eval.pipeline import (
-    bind_manifest_path,
-    build_post_human_commands,
-    run_pipeline_commands,
-)
+from mascan.eval.pipeline import build_gold_eval_commands, run_pipeline_commands
 from mascan.eval.preflight import render_gold_preflight_markdown, run_gold_preflight
 from mascan.eval.readiness import load_experiment_manifest
 
@@ -22,30 +18,24 @@ from mascan.eval.readiness import load_experiment_manifest
 def main() -> int:
     parser = argparse.ArgumentParser(
         description=(
-            "Import returned human ratings, regenerate final analysis artifacts, "
-            "render methodology, and run readiness. Defaults to dry-run."
+            "Collect model outputs, judge them, price/summarize/trace them, "
+            "run paired comparisons, and render the evaluation report. "
+            "Defaults to dry-run."
         )
     )
     parser.add_argument("--manifest", required=True)
     parser.add_argument("--base-dir", default=".")
+    parser.add_argument("--judge-model", default=None)
+    parser.add_argument("--allow-missing-price", action="store_true")
     parser.add_argument(
-        "--ratings-csv",
-        nargs="*",
+        "--trace-csv-out",
         default=None,
-        help="Optional filled rater CSV files to import before postprocess.",
-    )
-    parser.add_argument(
-        "--readiness-out",
-        default="eval_results/readiness_report.json",
-    )
-    parser.add_argument(
-        "--methodology-out",
-        default="eval_results/gold_methodology_appendix.md",
+        help="Optional CSV path for per-case trace rows.",
     )
     parser.add_argument(
         "--execute",
         action="store_true",
-        help="Actually run commands. Omit for dry-run command preview.",
+        help="Actually run API/model commands. Omit for dry-run command preview.",
     )
     parser.add_argument(
         "--skip-existing",
@@ -70,14 +60,11 @@ def main() -> int:
     args = parser.parse_args()
 
     manifest = load_experiment_manifest(args.manifest)
-    commands = bind_manifest_path(
-        build_post_human_commands(
-            manifest,
-            ratings_csv_files=args.ratings_csv,
-            readiness_out=args.readiness_out,
-            methodology_out=args.methodology_out,
-        ),
-        manifest_path=args.manifest,
+    commands = build_gold_eval_commands(
+        manifest,
+        judge_model=args.judge_model,
+        allow_missing_price=args.allow_missing_price,
+        trace_csv_file=args.trace_csv_out,
     )
 
     if not args.execute:
@@ -85,12 +72,7 @@ def main() -> int:
         return 0
 
     if not args.skip_preflight:
-        report = run_gold_preflight(
-            manifest,
-            base_dir=args.base_dir,
-            phase="post_human",
-            ratings_csv_files=args.ratings_csv,
-        )
+        report = run_gold_preflight(manifest, base_dir=args.base_dir)
         rendered = report.model_dump_json(indent=2)
         if args.preflight_out:
             out_path = Path(args.preflight_out)
