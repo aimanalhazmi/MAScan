@@ -3,18 +3,22 @@ from typing import Any
 from langgraph.graph import END, START, StateGraph
 
 from mascan.contracts.metrics import AgentCallMetrics, ComponentMetrics, TokenUsage
+from mascan.contracts.validation import ValidationReport, ValidationSummary
 from mascan.orchestrator.graph import agents_passthrough, run
 from mascan.orchestrator.planner import planner_node
 from mascan.orchestrator.state import GraphState
 from mascan.orchestrator.synthesizer import synthesizer_node
-from mascan.orchestrator.validator import ValidationResult, validator_node
+from mascan.orchestrator.validator import validator_node
 
 
 def test_parent_components_return_owned_metrics(mocker: Any) -> None:
     mocker.patch("mascan.orchestrator.planner.agent_registry.all_names", return_value=[])
     mocker.patch(
         "mascan.orchestrator.validator.run_validation",
-        return_value=ValidationResult(issues=[], overall_note="Evidence is consistent."),
+        return_value=ValidationReport(
+            status="passed",
+            summary=ValidationSummary(total=0, passed=0, issues=0, failed=0),
+        ),
     )
 
     planner_update = planner_node(GraphState(user_input="question"))
@@ -91,7 +95,7 @@ def test_run_sums_component_tokens_and_measures_wall_time_independently(
                 },
             ),
         },
-        "validation_payload": {"status": "passed"},
+        "validation": {"status": "passed"},
     }
     graph = mocker.Mock()
     graph.invoke.return_value = state

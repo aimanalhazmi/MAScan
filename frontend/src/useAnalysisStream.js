@@ -23,10 +23,7 @@ export function emptyRun() {
     runDurationSeconds: null,
     finalMarkdown: "",
     summary: "",
-    validationStatus: "",
-    validationIssues: [],
-    validationMarkdown: "",
-    validationPayload: {},
+    validation: {},
     clarification: null,
     clarifications: [], // answered question/answer pairs, kept for the graph
     error: "",
@@ -189,10 +186,7 @@ export function reduce(prev, ev) {
 
   if (node === "validator") {
     run.nodeStatus.validator = "done";
-    run.validationStatus = update.validation_status || run.validationStatus;
-    run.validationIssues = update.validation_issues || run.validationIssues;
-    run.validationMarkdown = update.validation_markdown || run.validationMarkdown;
-    run.validationPayload = update.validation_payload || run.validationPayload;
+    run.validation = update.validation || run.validation;
     return run;
   }
 

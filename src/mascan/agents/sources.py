@@ -26,7 +26,7 @@ SKIP_RECURSE_KEYS: frozenset[str] = frozenset(
     {"markdown", "selftext", "snippet", "text", "body", "content", "html"}
 )
 URL_RE = re.compile(r"https?://[^\s\"'\)\]]+")
-MARKDOWN_LINK_RE = re.compile(r"\[([^\]]+)\]\((https?://[^)\s]+)\)")
+MARKDOWN_LINK_RE = re.compile(r"\[([^\]]+)\]\(([^)\s]+)\)")
 MAX_LABEL_CHARS = 160
 
 
@@ -125,6 +125,35 @@ def dedupe_sources(sources: list[Source]) -> list[Source]:
         if key not in seen:
             seen[key] = source
     return list(seen.values())
+
+
+def provided_sources_from_context(context: dict[str, Any] | None) -> list[Source]:
+    """Return orchestrator-provided sources that agents may cite directly."""
+    values = (context or {}).get("provided_sources")
+    if not isinstance(values, list):
+        return []
+
+    sources: list[Source] = []
+    for value in values:
+        try:
+            source = value if isinstance(value, Source) else Source.model_validate(value)
+        except (TypeError, ValueError):
+            continue
+        if source.url:
+            sources.append(source)
+    return dedupe_sources(sources)
+
+
+def cited_provided_sources(
+    findings: str,
+    context: dict[str, Any] | None,
+) -> list[Source]:
+    """Keep only provided sources whose exact links appear in Agent findings."""
+    return [
+        source
+        for source in provided_sources_from_context(context)
+        if source.url and f"]({source.url})" in findings
+    ]
 
 
 def canonical_source_url(url: str | None) -> str:

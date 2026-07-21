@@ -1,118 +1,454 @@
 from contextvars import ContextVar
+from types import SimpleNamespace
 
 import pytest
+from pydantic import ValidationError
 
-from mascan.contracts.reports import AgentReport, Source
 from mascan.contracts.tools import ToolResult
+from mascan.contracts.validation import (
+    CitationCheck,
+    ValidationCitation,
+    ValidationIssue,
+    ValidationReport,
+    ValidationSummary,
+)
 from mascan.orchestrator.attribution import parse_attribution_document
 from mascan.orchestrator.graph import state_to_report
 from mascan.orchestrator.state import GraphState
 from mascan.orchestrator.validator import (
-    CitationEvaluation,
+    FACT_CHECK_SYSTEM_PROMPT,
+    RELEVANCE_SYSTEM_PROMPT,
+    FactCheckJudgeResult,
+    RelevanceJudgeResult,
     SourceCheck,
-    ValidationIssue,
-    ValidationResult,
-    build_validation_prompt,
     evaluate_citation_pairs,
+    evaluate_fetched_pair,
     fetch_cited_sources,
-    issues_from_citation_evaluations,
-    render_issue_citations,
+    issues_from_checks,
     render_validation_markdown,
-    sanitize_report_issues,
+    run_validation,
+    summarize_checks,
+    validation_status,
     validator_node,
 )
 
 
-def make_state() -> GraphState:
-    report = AgentReport(
-        agent_name="economics",
-        findings="GDP grew according to the supplied release.",
-        sources=[Source(name="GDP release", url="https://example.com/gdp")],
-        confidence=0.9,
-        rendered_markdown="GDP grew.",
-    )
+class FakeModel:
+    def __init__(self, result: object) -> None:
+        self.result = result
+        self.calls = 0
+
+    def invoke(self, messages: object) -> object:
+        self.calls += 1
+        return self.result
+
+
+def make_state(
+    markdown: str = "## Summary\n\nGDP grew [1](https://example.com/gdp).",
+) -> GraphState:
     return GraphState(
         user_input="Assess growth",
-        reports={"economics": report},
-        failures={"social": "source unavailable"},
-        final_summary="GDP grew [1](https://example.com/gdp).",
-        final_markdown="# Final Report\n\nGDP grew [1](https://example.com/gdp).",
+        final_summary="GDP grew.",
+        final_markdown=markdown,
     )
 
 
-def test_validation_markdown_passes_without_issues() -> None:
-    rendered = render_validation_markdown(
-        ValidationResult(issues=[], overall_note="Claims match the supplied evidence.")
+def make_attribution():
+    document = parse_attribution_document(
+        "## Summary\n\nGDP grew [1](https://example.com/gdp)."
+    )
+    return document.attributions[0], document.citations[0]
+
+
+def test_prompts_define_separate_staged_judges() -> None:
+    assert "partially_relevant" in RELEVANCE_SYSTEM_PROMPT
+    assert "Fact Check" not in RELEVANCE_SYSTEM_PROMPT
+    assert "not whether the source proves the claim" in RELEVANCE_SYSTEM_PROMPT
+    assert "partially_supported" in FACT_CHECK_SYSTEM_PROMPT
+    assert "Missing support is not contradiction" in FACT_CHECK_SYSTEM_PROMPT
+    assert "every distinct material factual premise" in FACT_CHECK_SYSTEM_PROMPT
+
+
+@pytest.mark.parametrize("subtype", ["partially_relevant", "unrelated", "uncertain"])
+def test_relevance_issue_stops_before_fact_check(subtype: str) -> None:
+    attribution, citation = make_attribution()
+    relevance = FakeModel(
+        RelevanceJudgeResult(relevant_content=subtype, explanation="Scope does not match.")
+    )
+    fact_check = FakeModel(
+        FactCheckJudgeResult(fact_check="supported", explanation="Should not run.")
     )
 
-    assert "**Status:** passed" in rendered
-    assert "No obvious factual issues" in rendered
+    check = evaluate_fetched_pair(
+        relevance,
+        fact_check,
+        attribution,
+        citation,
+        {"markdown": "Source evidence"},
+    )
+    issue = issues_from_checks([check])[0]
+
+    assert check.status == "issue"
+    assert check.stopped_after == "relevant_content"
+    assert check.fact_check is None
+    assert fact_check.calls == 0
+    assert issue.category == "relevant_content"
+    assert issue.subtype == subtype
 
 
-def test_validation_markdown_renders_issue_citations() -> None:
+@pytest.mark.parametrize(
+    "subtype",
+    ["partially_supported", "unsupported", "contradicted", "uncertain"],
+)
+def test_fact_check_runs_only_after_relevance_passes(subtype: str) -> None:
+    attribution, citation = make_attribution()
+    relevance = FakeModel(
+        RelevanceJudgeResult(relevant_content="relevant", explanation="Same topic.")
+    )
+    fact_check = FakeModel(
+        FactCheckJudgeResult(fact_check=subtype, explanation="Fact check failed.")
+    )
+
+    check = evaluate_fetched_pair(
+        relevance,
+        fact_check,
+        attribution,
+        citation,
+        {"markdown": "Source evidence"},
+    )
+    issue = issues_from_checks([check])[0]
+
+    assert check.status == "issue"
+    assert check.relevant_content == "relevant"
+    assert check.fact_check == subtype
+    assert check.stopped_after == "fact_check"
+    assert fact_check.calls == 1
+    assert issue.category == "fact_check"
+    assert issue.subtype == subtype
+
+
+def test_supported_pair_passes_without_an_issue() -> None:
+    attribution, citation = make_attribution()
+    check = evaluate_fetched_pair(
+        FakeModel(RelevanceJudgeResult(relevant_content="relevant", explanation="Same topic.")),
+        FakeModel(FactCheckJudgeResult(fact_check="supported", explanation="Claim matches.")),
+        attribution,
+        citation,
+        {"markdown": "GDP grew."},
+    )
+
+    assert check.status == "passed"
+    assert issues_from_checks([check]) == []
+
+
+def test_inaccessible_source_stops_without_creating_models() -> None:
+    document = parse_attribution_document(
+        "## Summary\n\nGDP grew [1](https://example.com/gdp)."
+    )
+    checks = evaluate_citation_pairs(
+        document,
+        [
+            SourceCheck(
+                citation_numbers=[1],
+                requested_url="https://example.com/gdp",
+                status="inaccessible",
+                checked_at="2026-07-18T00:00:00+00:00",
+                error="HTTP 404",
+            )
+        ],
+        {},
+    )
+
+    assert checks[0].stopped_after == "link_works"
+    assert checks[0].relevant_content is None
+    assert checks[0].fact_check is None
+    issue = issues_from_checks(checks)[0]
+    assert issue.category == "inaccessible_source"
+    assert issue.subtype is None
+
+
+def test_operational_source_failure_is_not_an_inaccessible_issue() -> None:
+    document = parse_attribution_document(
+        "## Summary\n\nGDP grew [1](https://example.com/gdp)."
+    )
+    checks = evaluate_citation_pairs(
+        document,
+        [
+            SourceCheck(
+                citation_numbers=[1],
+                requested_url="https://example.com/gdp",
+                status="failed",
+                checked_at="2026-07-18T00:00:00+00:00",
+                error="document_antibot",
+            )
+        ],
+        {},
+    )
+
+    assert checks[0].status == "failed"
+    assert checks[0].stopped_after == "link_works"
+    assert issues_from_checks(checks) == []
+
+
+def test_repeated_source_is_validated_once_per_claim_citation_pair() -> None:
+    document = parse_attribution_document(
+        "## Summary\n\n"
+        "First claim [1](https://example.com/source).\n\n"
+        "Second claim [1](https://example.com/source)."
+    )
+    canonical_url = document.citations[0].canonical_url
+    relevance = FakeModel(
+        RelevanceJudgeResult(relevant_content="unrelated", explanation="Wrong topic.")
+    )
+    fact_check = FakeModel(
+        FactCheckJudgeResult(fact_check="supported", explanation="Should not run.")
+    )
+
+    checks = evaluate_citation_pairs(
+        document,
+        [
+            SourceCheck(
+                citation_numbers=[1],
+                requested_url="https://example.com/source",
+                status="fetched",
+                checked_at="2026-07-20T00:00:00+00:00",
+            )
+        ],
+        {canonical_url: {"markdown": "Source evidence"}},
+        relevance_model=relevance,
+        fact_check_model=fact_check,
+    )
+
+    assert [check.claim for check in checks] == ["First claim.", "Second claim."]
+    assert all(check.stopped_after == "relevant_content" for check in checks)
+    assert all(check.fact_check is None for check in checks)
+    assert relevance.calls == 2
+    assert fact_check.calls == 0
+    assert len(issues_from_checks(checks)) == 2
+
+
+def test_issue_schema_rejects_category_subtype_mismatch() -> None:
+    with pytest.raises(ValidationError):
+        ValidationIssue(
+            category="relevant_content",
+            subtype="unsupported",
+            claim="Claim",
+            passage="Claim [1](https://example.com).",
+            citation=ValidationCitation(number=1, url="https://example.com"),
+            explanation="Wrong subtype family.",
+        )
+
+
+def test_source_fetch_deduplicates_urls_without_a_cap() -> None:
+    paragraphs = [
+        f"Claim {number} [{number}](https://example.com/{number})."
+        for number in range(1, 13)
+    ]
+    paragraphs.append("Repeated source [13](https://example.com/1).")
+    document = parse_attribution_document("## Summary\n\n" + "\n\n".join(paragraphs))
+
+    class FakeSourceFetch:
+        def __init__(self) -> None:
+            self.calls: list[str] = []
+
+        def run(self, url: str) -> ToolResult[dict[str, object]]:
+            self.calls.append(url)
+            return ToolResult(
+                success=True,
+                source="source_fetch:test",
+                data={
+                    "final_url": url,
+                    "title": url,
+                    "markdown": "Evidence",
+                    "checked_at": "2026-07-18T00:00:00+00:00",
+                },
+            )
+
+    tool = FakeSourceFetch()
+    checks, fetched = fetch_cited_sources(document, tool=tool)
+
+    assert len(tool.calls) == 12
+    assert len(set(tool.calls)) == 12
+    assert len(checks) == 12
+    assert len(fetched) == 12
+
+
+def test_uploaded_file_uses_rag_evidence_without_source_fetch(
+    tmp_path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    document_name = "EVONIK Q1 2026.pdf"
+    (tmp_path / document_name).write_bytes(b"%PDF-1.4 retained original")
+    monkeypatch.setattr(
+        "mascan.orchestrator.validator.get_settings",
+        lambda: SimpleNamespace(rag_upload_dir=str(tmp_path)),
+    )
+    state = GraphState(
+        user_input="Use the attached EVONIK factsheet",
+        final_markdown=(
+            "## Summary\n\nAdjusted EBITDA increased "
+            "[1](/rag/files/EVONIK%20Q1%202026.pdf)."
+        ),
+        rag_evidence=[
+            {
+                "content": "Adjusted EBITDA increased in Q1 2026.",
+                "citation": {"document": document_name, "page": 4},
+            }
+        ],
+    )
+    parsed = parse_attribution_document(state.final_markdown)
+
+    checks, fetched = fetch_cited_sources(parsed, state=state)
+    evaluated = evaluate_citation_pairs(
+        parsed,
+        checks,
+        fetched,
+        relevance_model=FakeModel(
+            RelevanceJudgeResult(relevant_content="relevant", explanation="Same topic.")
+        ),
+        fact_check_model=FakeModel(
+            FactCheckJudgeResult(fact_check="supported", explanation="Claim matches.")
+        ),
+    )
+
+    assert checks[0].status == "fetched"
+    assert "[Page 4]" in fetched[parsed.citations[0].canonical_url]["markdown"]
+    assert evaluated[0].status == "passed"
+
+
+def test_uploaded_file_is_inaccessible_only_when_original_is_missing(
+    tmp_path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    document_name = "factsheet.pdf"
+    monkeypatch.setattr(
+        "mascan.orchestrator.validator.get_settings",
+        lambda: SimpleNamespace(rag_upload_dir=str(tmp_path)),
+    )
+    state = GraphState(
+        user_input="Use the attachment",
+        final_markdown=(
+            "## Summary\n\nCompany fact [1](/rag/files/factsheet.pdf)."
+        ),
+    )
+    parsed = parse_attribution_document(state.final_markdown)
+
+    missing_checks, missing_fetched = fetch_cited_sources(parsed, state=state)
+    missing_evaluated = evaluate_citation_pairs(
+        parsed,
+        missing_checks,
+        missing_fetched,
+    )
+
+    assert missing_checks[0].status == "inaccessible"
+    assert issues_from_checks(missing_evaluated)[0].category == "inaccessible_source"
+
+    (tmp_path / document_name).write_bytes(b"%PDF-1.4 retained original")
+    no_evidence_checks, no_evidence_fetched = fetch_cited_sources(parsed, state=state)
+    no_evidence_evaluated = evaluate_citation_pairs(
+        parsed,
+        no_evidence_checks,
+        no_evidence_fetched,
+    )
+
+    assert no_evidence_checks[0].status == "failed"
+    assert issues_from_checks(no_evidence_evaluated) == []
+
+
+def test_summary_and_status_preserve_partial_failures() -> None:
+    citation = ValidationCitation(number=1, url="https://example.com")
+    checks = [
+        CitationCheck(
+            status="passed",
+            claim="Claim",
+            passage="Passage",
+            citation=citation,
+            link_works=True,
+            relevant_content="relevant",
+            fact_check="supported",
+            stopped_after="fact_check",
+            explanation="Supported.",
+        ),
+        CitationCheck(
+            status="failed",
+            claim="Other claim",
+            passage="Other passage",
+            citation=citation,
+            link_works=True,
+            stopped_after="relevant_content",
+            explanation="Judge failed.",
+            error="RuntimeError: unavailable",
+        ),
+    ]
+
+    summary = summarize_checks(checks)
+
+    assert summary.model_dump() == {"total": 2, "passed": 1, "issues": 0, "failed": 1}
+    assert validation_status(summary) == "warnings"
+    assert validation_status(ValidationSummary(total=1, passed=0, issues=0, failed=1)) == (
+        "failed_to_validate"
+    )
+
+
+def test_no_citations_returns_an_explicit_empty_result() -> None:
+    report = run_validation(make_state("## Summary\n\nNo citation."))
+
+    assert report.status == "passed"
+    assert report.summary.total == 0
+    assert "No citation pairs" in report.markdown
+
+
+def test_validation_markdown_renders_new_category_and_subtype() -> None:
     issue = ValidationIssue(
-        category="source_mismatch",
-        severity="high",
-        claim="GDP fell [1](https://example.com/gdp).",
-        explanation="The agent reported growth.",
-        relevant_agents=["economics"],
+        category="fact_check",
+        subtype="contradicted",
+        claim="GDP fell.",
+        passage="GDP fell [1](https://example.com/gdp).",
+        citation=ValidationCitation(number=1, url="https://example.com/gdp"),
+        explanation="The source reports growth.",
     )
-    rendered = render_validation_markdown(
-        ValidationResult(issues=[issue], overall_note="One contradiction was found.")
+    report = ValidationReport(
+        status="warnings",
+        summary=ValidationSummary(total=1, passed=0, issues=1, failed=0),
+        issues=[issue],
     )
 
-    assert "**Status:** warnings" in rendered
+    rendered = render_validation_markdown(report)
+
+    assert "## Citation Validation" in rendered
+    assert "fact_check / contradicted" in rendered
     assert "[1](https://example.com/gdp)" in rendered
-    assert "Relevant evidence: economics" in rendered
 
 
-def test_citation_gap_is_explicitly_marked_missing() -> None:
-    issue = ValidationIssue(
-        category="citation_gap",
-        severity="medium",
-        claim="GDP will double next year.",
-        explanation="No source number is attached.",
-    )
-
-    assert render_issue_citations(issue) == "missing"
-
-
-def test_validation_prompt_contains_report_sources_and_failures() -> None:
-    prompt = build_validation_prompt(make_state())
-
-    assert "Final report to validate" in prompt
-    assert "GDP grew [1](https://example.com/gdp)" in prompt
-    assert "GDP release: https://example.com/gdp" in prompt
-    assert "social: source unavailable" in prompt
-
-
-def test_validator_keeps_fact_check_separate_and_exposes_payload(
+def test_validator_node_preserves_report_and_emits_one_validation_object(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    result = ValidationResult(issues=[], overall_note="Evidence is consistent.")
-    monkeypatch.setattr("mascan.orchestrator.validator.run_validation", lambda state: result)
+    report = ValidationReport(
+        status="passed",
+        summary=ValidationSummary(total=0, passed=0, issues=0, failed=0),
+        markdown="## Citation Validation",
+    )
+    monkeypatch.setattr("mascan.orchestrator.validator.run_validation", lambda state: report)
 
-    update = validator_node(make_state())
+    state = make_state()
+    update = validator_node(state)
 
-    assert update["validation_status"] == "passed"
-    assert update["validation_payload"]["overall_note"] == "Evidence is consistent."
-    assert update["final_markdown"] == make_state().final_markdown
-    assert "## Fact Check" not in update["final_markdown"]
-    assert "## Fact Check" in update["validation_markdown"]
+    assert update["final_markdown"] == state.final_markdown
+    assert update["validation"]["status"] == "passed"
+    assert "validation_status" not in update
+    assert "Citation Validation" not in update["final_markdown"]
 
 
 def test_validator_failure_does_not_discard_final_report(monkeypatch: pytest.MonkeyPatch) -> None:
-    def fail(state: GraphState) -> ValidationResult:
+    def fail(state: GraphState) -> ValidationReport:
         raise RuntimeError("model unavailable")
 
     monkeypatch.setattr("mascan.orchestrator.validator.run_validation", fail)
+    state = make_state()
 
-    update = validator_node(make_state())
+    update = validator_node(state)
 
-    assert update["final_markdown"] == make_state().final_markdown
-    assert "**Status:** failed to validate" not in update["final_markdown"]
-    assert "**Status:** failed to validate" in update["validation_markdown"]
-    assert update["validation_payload"]["error"] == "RuntimeError: model unavailable"
+    assert update["final_markdown"] == state.final_markdown
+    assert update["validation"]["status"] == "failed_to_validate"
+    assert update["validation"]["error"] == "RuntimeError: model unavailable"
 
 
 def test_citation_workers_inherit_the_validator_measurement_context(
@@ -122,30 +458,26 @@ def test_citation_workers_inherit_the_validator_measurement_context(
     owner.set("validator")
     seen_owners: list[str] = []
 
-    def judge(model, attribution, citation, source, excerpt):
+    def judge(relevance_model, fact_check_model, attribution, citation, source):
         seen_owners.append(owner.get())
-        return CitationEvaluation(
+        return CitationCheck(
+            status="passed",
             claim=attribution.claim,
             passage=attribution.passage,
-            citation_number=citation.number,
-            url=citation.url,
+            citation=ValidationCitation(number=citation.number, url=citation.url),
             link_works=True,
             relevant_content="relevant",
             fact_check="supported",
+            stopped_after="fact_check",
             explanation="Supported by the excerpt.",
-            status="completed",
         )
 
-    monkeypatch.setattr(
-        "mascan.orchestrator.validator.get_citation_validation_model",
-        lambda: object(),
-    )
-    monkeypatch.setattr("mascan.orchestrator.validator._judge_pair_with_retries", judge)
+    monkeypatch.setattr("mascan.orchestrator.validator.evaluate_fetched_pair", judge)
     document = parse_attribution_document(
-        "GDP grew [1](https://example.com/gdp)."
+        "## Summary\n\nGDP grew [1](https://example.com/gdp)."
     )
 
-    evaluations = evaluate_citation_pairs(
+    checks = evaluate_citation_pairs(
         document,
         [
             SourceCheck(
@@ -154,7 +486,7 @@ def test_citation_workers_inherit_the_validator_measurement_context(
                 final_url="https://example.com/gdp",
                 title="GDP release",
                 status="fetched",
-                checked_at="2026-07-15T00:00:00+00:00",
+                checked_at="2026-07-18T00:00:00+00:00",
             )
         ],
         {
@@ -164,195 +496,27 @@ def test_citation_workers_inherit_the_validator_measurement_context(
                 "markdown": "GDP grew.",
             }
         },
+        relevance_model=object(),
+        fact_check_model=object(),
     )
 
-    assert [evaluation.status for evaluation in evaluations] == ["completed"]
+    assert [check.status for check in checks] == ["passed"]
     assert seen_owners == ["validator"]
 
 
-def test_final_report_metadata_contains_validation_payload() -> None:
+def test_final_report_keeps_validation_inside_metadata() -> None:
+    validation = ValidationReport(
+        status="passed",
+        summary=ValidationSummary(total=0, passed=0, issues=0, failed=0),
+    )
     report = state_to_report(
         {
             "user_input": "Question",
             "final_summary": "Summary",
             "final_markdown": "# Final Report",
-            "validation_payload": {"status": "passed", "issues": []},
+            "validation": validation,
         }
     )
 
-    assert report.summary == "Summary"
-    assert report.metadata == {"validation": {"status": "passed", "issues": []}}
-
-
-def test_cited_passage_cannot_be_reported_as_citation_gap() -> None:
-    document = parse_attribution_document(
-        "## Summary\n\nThe EU targets ten million tonnes by 2030 [1](https://example.com/eu)."
-    )
-    issue = ValidationIssue(
-        category="citation_gap",
-        severity="high",
-        claim="The EU targets ten million tonnes by 2030.",
-        explanation="No citation was copied into the claim field.",
-    )
-
-    assert sanitize_report_issues([issue], document) == []
-
-
-def test_pairwise_source_mismatch_becomes_structured_issue() -> None:
-    evaluation = CitationEvaluation(
-        claim="The EU target is ten million tonnes.",
-        passage="The EU target is ten million tonnes [1](https://example.com/eu).",
-        citation_number=1,
-        url="https://example.com/eu",
-        link_works=True,
-        relevant_content="relevant",
-        fact_check="unsupported",
-        explanation="The page discusses hydrogen but does not state this target.",
-        status="completed",
-    )
-
-    issues = issues_from_citation_evaluations([evaluation])
-
-    assert len(issues) == 1
-    assert issues[0].category == "source_mismatch"
-    assert issues[0].severity == "medium"
-    assert render_issue_citations(issues[0]) == "[1](https://example.com/eu)"
-
-
-def test_pairwise_partial_support_is_a_low_severity_warning() -> None:
-    evaluation = CitationEvaluation(
-        claim="Energy costs rose and doubled.",
-        passage="Energy costs rose and doubled [1](https://example.com/energy).",
-        citation_number=1,
-        url="https://example.com/energy",
-        link_works=True,
-        relevant_content="relevant",
-        fact_check="partially_supported",
-        explanation="The source reports an increase but does not support the doubling claim.",
-        status="completed",
-    )
-
-    issues = issues_from_citation_evaluations([evaluation])
-
-    assert len(issues) == 1
-    assert issues[0].category == "source_mismatch"
-    assert issues[0].severity == "low"
-
-
-def test_citation_judge_prompt_separates_facts_from_recommendations() -> None:
-    from mascan.orchestrator.validator import CITATION_JUDGE_SYSTEM_PROMPT
-
-    assert "externally verifiable factual premises" in CITATION_JUDGE_SYSTEM_PROMPT
-    assert "does not need to" in CITATION_JUDGE_SYSTEM_PROMPT
-    assert "partially_supported" in CITATION_JUDGE_SYSTEM_PROMPT
-    assert "Never use contradicted merely because support is missing" in CITATION_JUDGE_SYSTEM_PROMPT
-
-
-def test_source_fetch_queue_has_no_ten_url_cap_and_deduplicates() -> None:
-    paragraphs = [
-        f"Claim {number} [{number}](https://example.com/{number})."
-        for number in range(1, 13)
-    ]
-    paragraphs.append("Repeated source [13](https://example.com/1).")
-    document = parse_attribution_document(
-        "## Summary\n\n" + "\n\n".join(paragraphs)
-    )
-
-    class FakeSourceFetch:
-        def __init__(self) -> None:
-            self.calls: list[str] = []
-
-        def run(self, url: str) -> ToolResult[dict[str, object]]:
-            self.calls.append(url)
-            return ToolResult(
-                success=True,
-                source="source_fetch:test",
-                data={
-                    "requested_url": url,
-                    "final_url": url,
-                    "title": url,
-                    "markdown": "Evidence",
-                    "checked_at": "2026-07-14T00:00:00+00:00",
-                },
-            )
-
-    tool = FakeSourceFetch()
-
-    checks, fetched = fetch_cited_sources(document, tool=tool)
-
-    assert len(tool.calls) == 12
-    assert len(set(tool.calls)) == 12
-    assert len(checks) == 12
-    assert len(fetched) == 12
-
-
-def test_fact_check_multidigit_items_use_commonmark_indentation() -> None:
-    issues = [
-        ValidationIssue(
-            category="citation_gap",
-            severity="medium",
-            claim=f"Uncited claim {number}.",
-            explanation="An important external fact needs evidence.",
-        )
-        for number in range(1, 11)
-    ]
-
-    rendered = render_validation_markdown(
-        ValidationResult(issues=issues, overall_note="Review required.")
-    )
-
-    assert "9. **medium / citation_gap**\n   - Claim:" in rendered
-    assert "10. **medium / citation_gap**\n    - Claim:" in rendered
-
-
-def test_validation_result_accepts_any_number_of_issues() -> None:
-    issues = [
-        ValidationIssue(
-            category="citation_gap",
-            severity="low" if number < 5 else "high",
-            claim=f"Claim {number}",
-            explanation="Review required.",
-        )
-        for number in range(11)
-    ]
-
-    parsed = ValidationResult(issues=issues, overall_note="Review completed.")
-    assert len(parsed.issues) == 11
-
-
-def test_report_validator_prompt_does_not_require_citations_for_recommendations() -> None:
-    from mascan.orchestrator.validator import VALIDATOR_SYSTEM_PROMPT
-
-    assert "Strategic recommendations" in VALIDATOR_SYSTEM_PROMPT
-    assert "Rough cost allocations" in VALIDATOR_SYSTEM_PROMPT
-    assert "do not require their own citation" in VALIDATOR_SYSTEM_PROMPT
-
-
-def test_uploaded_document_citation_is_not_sent_to_source_fetch() -> None:
-    document = parse_attribution_document(
-        "## Summary\n\nCompany revenue rose [1]. External fact [2](https://example.com/fact)."
-    )
-
-    class FakeSourceFetch:
-        def __init__(self) -> None:
-            self.calls: list[str] = []
-
-        def run(self, url: str) -> ToolResult[dict[str, object]]:
-            self.calls.append(url)
-            return ToolResult(
-                success=True,
-                source="source_fetch:test",
-                data={
-                    "requested_url": url,
-                    "final_url": url,
-                    "title": "Fact",
-                    "markdown": "External evidence",
-                    "checked_at": "2026-07-14T00:00:00+00:00",
-                },
-            )
-
-    tool = FakeSourceFetch()
-    checks, _ = fetch_cited_sources(document, tool=tool)
-
-    assert tool.calls == ["https://example.com/fact"]
-    assert len(checks) == 1
+    assert report.metadata["validation"]["status"] == "passed"
+    assert not hasattr(report, "validation")

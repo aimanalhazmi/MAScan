@@ -58,6 +58,10 @@ class LegalAgent(GraphBackedAgent):
             system_prompt=self.config.system_prompt,
         )
 
-        user_prompt = build_user_prompt(tasks, render_tool_outputs(deterministic_outputs))
+        user_prompt = build_user_prompt(
+            tasks,
+            render_tool_outputs(deterministic_outputs),
+            context=context,
+        )
         result = self.invoke_react_with_fallback(agent, llm, user_prompt)
         return result, self.extract_final_answer(result), self.extract_used_tools(result)

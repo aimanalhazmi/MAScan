@@ -9,6 +9,7 @@ from langgraph.types import Command, interrupt
 
 from mascan.agents.registry import agent_registry
 from mascan.contracts import FinalReport
+from mascan.contracts.validation import ValidationReport
 from mascan.core.logging import configure_logging, get_logger
 from mascan.core.metrics import aggregate_component_token_usage
 from mascan.orchestrator.adapters import make_agent_node
@@ -194,6 +195,13 @@ def interrupt_question(result: dict[str, Any]) -> str | None:
 
 def state_to_report(state_dict: dict[str, Any]) -> FinalReport:
     """Convert the graph's final state dict into a FinalReport."""
+    validation = state_dict.get("validation")
+    if isinstance(validation, ValidationReport):
+        validation_payload = validation.model_dump(mode="json")
+    elif isinstance(validation, dict):
+        validation_payload = validation
+    else:
+        validation_payload = {}
     return FinalReport(
         user_input=state_dict.get("user_input", ""),
         summary=state_dict.get("final_summary", ""),
@@ -202,7 +210,7 @@ def state_to_report(state_dict: dict[str, Any]) -> FinalReport:
         agent_reports=state_dict.get("reports", {}),
         failures=state_dict.get("failures", {}),
         component_metrics=state_dict.get("component_metrics", {}),
-        metadata={"validation": state_dict.get("validation_payload", {})},
+        metadata={"validation": validation_payload},
     )
 
 def route_planner(state: GraphState) -> str:

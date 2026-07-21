@@ -10,6 +10,7 @@ from langgraph.errors import GraphRecursionError
 
 from mascan.agents.config import AgentConfig
 from mascan.agents.sources import (
+    cited_provided_sources,
     cited_tools,
     dedupe_sources,
     normalize_agent_citations,
@@ -182,9 +183,13 @@ class BaseAgent(ABC):
             context=context,
             deterministic_outputs=deterministic_outputs,
         )
+        citable_sources = [
+            *report.sources,
+            *cited_provided_sources(report.findings, context),
+        ]
         cited_findings, ordered_sources = normalize_agent_citations(
             report.findings,
-            report.sources,
+            citable_sources,
         )
         called_tools = list(report.metadata.get("llm_chosen_tools") or [])
         referenced_tools = cited_tools(cited_findings, ordered_sources)

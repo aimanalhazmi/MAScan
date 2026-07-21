@@ -4,7 +4,7 @@ import { withoutFactCheck } from "../markdown.js";
 import MarkdownContent from "./MarkdownContent";
 
 // Inspector for a clicked graph node: the plan for the planner, the agent's
-// report for an agent, the final report, or the validator's Fact Check.
+// report for an agent, the final report, or citation validation.
 export default function NodeDetail({ run, nodeId, onClose }) {
   const [tab, setTab] = useState("output");
   if (!nodeId) return null;
@@ -143,8 +143,8 @@ function renderBody(run, nodeId) {
   }
 
   if (nodeId === "validator") {
-    if (!run.validationMarkdown) return <Empty status={run.nodeStatus.validator} />;
-    return <MarkdownContent>{run.validationMarkdown}</MarkdownContent>;
+    if (!run.validation?.markdown) return <Empty status={run.nodeStatus.validator} />;
+    return <MarkdownContent>{run.validation.markdown}</MarkdownContent>;
   }
 
   const report = run.reports[nodeId];

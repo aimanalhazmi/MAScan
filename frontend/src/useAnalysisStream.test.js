@@ -146,20 +146,22 @@ test("validator completion preserves the synthesis and stores details separately
     event: "node",
     node: "validator",
     update: {
-      final_markdown: "# Draft\n\n## Fact Check",
-      validation_status: "warnings",
-      validation_issues: [{ category: "citation_gap" }],
-      validation_markdown: "## Fact Check",
-      validation_payload: { status: "warnings" },
+      final_markdown: "# Draft",
+      validation: {
+        status: "warnings",
+        issues: [{ category: "fact_check", subtype: "unsupported" }],
+        markdown: "## Citation Validation",
+      },
     },
   });
 
   assert.equal(run.nodeStatus.validator, "done");
   assert.equal(run.finalMarkdown, "# Draft");
-  assert.equal(run.validationStatus, "warnings");
-  assert.deepEqual(run.validationIssues, [{ category: "citation_gap" }]);
-  assert.equal(run.validationMarkdown, "## Fact Check");
-  assert.deepEqual(run.validationPayload, { status: "warnings" });
+  assert.equal(run.validation.status, "warnings");
+  assert.deepEqual(run.validation.issues, [
+    { category: "fact_check", subtype: "unsupported" },
+  ]);
+  assert.equal(run.validation.markdown, "## Citation Validation");
 });
 
 
@@ -226,10 +228,10 @@ test("progress moves from synthesis completion to validation", () => {
 
   assert.deepEqual(buildProgressSteps(run), [
     { id: "synthesizer", status: "done", text: "The final report is completed." },
-    { id: "validator", status: "active", text: "Validator is checking claims and citations…" },
+    { id: "validator", status: "active", text: "Validator is checking citation pairs…" },
   ]);
 
   run.nodeStatus.validator = "done";
-  run.validationStatus = "warnings";
+  run.validation = { status: "warnings" };
   assert.equal(buildProgressSteps(run)[1].text, "Validation completed with warnings.");
 });

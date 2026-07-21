@@ -7,6 +7,7 @@ from pydantic import BaseModel, Field
 from mascan.contracts.metrics import ComponentMetrics, merge_component_metrics
 from mascan.contracts.planning import AgentAssignment, InformationRequest
 from mascan.contracts.reports import AgentReport, Source
+from mascan.contracts.validation import ValidationReport
 
 
 def merge_dicts(left: dict, right: dict) -> dict:
@@ -75,15 +76,9 @@ class GraphState(BaseModel):
         default_factory=list,
         description="Sources in final-body citation order, including uploaded documents.",
     )
-    validation_status: str = Field("", description="Final report validation status.")
-    validation_issues: list[dict[str, Any]] = Field(
-        default_factory=list,
-        description="Structured validation issues found in the final report.",
-    )
-    validation_markdown: str = Field("", description="Rendered Fact Check section.")
-    validation_payload: dict[str, Any] = Field(
-        default_factory=dict,
-        description="Full structured validation result.",
+    validation: ValidationReport | None = Field(
+        default=None,
+        description="Citation-pair validation result.",
     )
 
     iteration: int = 0
