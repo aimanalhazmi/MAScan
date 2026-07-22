@@ -117,7 +117,8 @@ class ScholarSearchTool(BaseTool):
 
         base_url = self.api_url or self.DEFAULT_API_URL
         response = self._request(url=f"{base_url}/paper/search", params=params)
-        return response.json().get("data", [])
+        data: list[dict[str, Any]] = response.json().get("data", [])
+        return data
 
 
     # Interaction with the Semantic Scholar API is rate-limited, so we need to ensure we don't exceed the allowed request rate.
@@ -127,7 +128,7 @@ class ScholarSearchTool(BaseTool):
 
     REQUEST_INTERVAL = 1.2  # Minimum interval between requests (Semantic Scholar allows 1/sec cumulative)
 
-    def _wait_for_slot(self):
+    def _wait_for_slot(self) -> None:
         """Waits for the next available request slot based on the rate limit."""
         with self._lock:
             now = time.monotonic()
@@ -172,3 +173,7 @@ class ScholarSearchTool(BaseTool):
                 # Retry-After on 429, else exponential backoff
                 retry_after = getattr(e.response, "headers", {}).get("Retry-After") if e.response is not None else None
                 time.sleep(float(retry_after) if retry_after else 2 ** attempt)
+
+        # Unreachable for max_retries >= 1 (loop returns or re-raises); guards
+        # against a caller passing max_retries <= 0 and satisfies the return type.
+        raise RuntimeError("Scholar request retry loop exhausted without a response.")

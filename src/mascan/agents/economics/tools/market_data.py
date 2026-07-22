@@ -228,7 +228,7 @@ class WeeklyStockPricesTool(BaseTool):
                 "weekly_prices": weekly_prices,
             }
 
-            result =  ToolResult(
+            result: ToolResult[Any] = ToolResult(
                 success=True,
                 data=data,
                 source=f"yfinance:{ticker}",

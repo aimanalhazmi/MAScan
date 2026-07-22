@@ -80,7 +80,8 @@ class XSearchTool(BaseTool):
         posts: list[dict[str, Any]] = []
         for item in items:
             post_id = item.get("id")
-            author = item.get("author") if isinstance(item.get("author"), dict) else {}
+            raw_author = item.get("author")
+            author = raw_author if isinstance(raw_author, dict) else {}
             screen_name = author.get("screenName")
             if screen_name and post_id:
                 url = f"https://x.com/{screen_name}/status/{post_id}"

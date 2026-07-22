@@ -10,7 +10,7 @@ from mascan.contracts.reports import AgentReport, Source
 from mascan.contracts.validation import ValidationReport
 
 
-def merge_dicts(left: dict, right: dict) -> dict:
+def merge_dicts(left: dict[str, Any], right: dict[str, Any]) -> dict[str, Any]:
     return {**left, **right}
 
 

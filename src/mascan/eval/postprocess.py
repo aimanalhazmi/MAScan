@@ -1,6 +1,7 @@
 """One-command offline post-processing for gold-standard experiment artifacts."""
 
 import json
+from collections.abc import Sequence
 from pathlib import Path
 
 from pydantic import BaseModel
@@ -87,11 +88,11 @@ def _required(value: str | None, name: str) -> str:
     return value
 
 
-def _load_model(path: str, model_type: type[BaseModel], base: Path):
+def _load_model[M: BaseModel](path: str, model_type: type[M], base: Path) -> M:
     return model_type.model_validate_json(_resolve(base, path).read_text(encoding="utf-8"))
 
 
-def _load_json_list(path: str, model_type: type[BaseModel], base: Path):
+def _load_json_list[M: BaseModel](path: str, model_type: type[M], base: Path) -> list[M]:
     payload = json.loads(_resolve(base, path).read_text(encoding="utf-8"))
     if not isinstance(payload, list):
         raise ValueError(f"{path} must contain a JSON list")
@@ -104,7 +105,7 @@ def _write_json_model(path: str, model: BaseModel, base: Path) -> None:
     resolved.write_text(model.model_dump_json(indent=2) + "\n", encoding="utf-8")
 
 
-def _write_json_list(path: str, models: list[BaseModel], base: Path) -> None:
+def _write_json_list(path: str, models: Sequence[BaseModel], base: Path) -> None:
     resolved = _resolve(base, path)
     resolved.parent.mkdir(parents=True, exist_ok=True)
     resolved.write_text(

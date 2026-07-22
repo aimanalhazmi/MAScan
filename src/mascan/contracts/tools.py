@@ -4,10 +4,9 @@ from typing import Any, Generic, TypeVar
 
 from pydantic import BaseModel, Field
 
-
 T = TypeVar("T")
 
-class ToolResult(BaseModel, Generic[T]):
+class ToolResult(BaseModel, Generic[T]):  # noqa: UP046  # keep explicit Generic[T]; PEP 695 modernization deferred
     """Uniform contract returned by every BaseTool."""
     success: bool
     data: T | None = None

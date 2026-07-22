@@ -17,7 +17,7 @@ class StubMacroAPITool(BaseTool):
     name = "stub_macro_api"
     description = "Fetch macroeconomic indicators (stub — replace with FRED/World Bank/OECD)."
 
-    def run(self, query: str, **_: Any) -> ToolResult:
+    def run(self, query: str, **_: Any) -> ToolResult[Any]:
         try:
             data = self.fetch_impl(query=query)
             return ToolResult(

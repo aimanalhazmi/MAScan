@@ -81,7 +81,7 @@ def build_graph() -> Any:
 
     graph.add_node("planner", planner_node)
     graph.add_node("handle_info_request", handle_info_request)
-    graph.add_node("agents", agents_passthrough)
+    graph.add_node("agents", agents_passthrough)  # type: ignore[arg-type]  # plain dict-returning node
     graph.add_node("synthesizer", synthesizer_node)
     graph.add_node("validator", validator_node)
 
@@ -93,7 +93,7 @@ def build_graph() -> Any:
         )
 
     for agent in agents:
-        graph.add_node(agent.name, make_agent_node(agent))
+        graph.add_node(agent.name, make_agent_node(agent))  # type: ignore[arg-type]  # plain dict-returning node
 
     # Edges
     graph.add_edge(START, "planner")
@@ -190,7 +190,8 @@ def interrupt_question(result: dict[str, Any]) -> str | None:
     interrupts = result.get("__interrupt__")
     if not interrupts:
         return None
-    return interrupts[0].value
+    question: str | None = interrupts[0].value
+    return question
 
 
 def state_to_report(state_dict: dict[str, Any]) -> FinalReport:

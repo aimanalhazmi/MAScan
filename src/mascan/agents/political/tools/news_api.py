@@ -1,4 +1,4 @@
-from typing import ClassVar
+from typing import Any, ClassVar
 
 from newsdataapi import NewsDataApiClient
 from pydantic import BaseModel, Field
@@ -34,7 +34,7 @@ class NewsDataSearchTool(BaseTool):
         language: str | None = None,
         category: str = "politics",
         size: int = 10,
-    ) -> ToolResult:
+    ) -> ToolResult[Any]:
         """
         Search latest political news.
 
@@ -51,7 +51,7 @@ class NewsDataSearchTool(BaseTool):
             settings = get_settings()
 
             api = NewsDataApiClient(
-                apikey=settings.NEWSDATA_API_KEY
+                apikey=settings.news_api_key or ""
             )
 
             params = {
@@ -66,7 +66,7 @@ class NewsDataSearchTool(BaseTool):
             if language:
                 params["language"] = language
 
-            response = api.news_api(**params)
+            response = api.news_api(**params)  # type: ignore[attr-defined]
 
             raw_articles = response.get("results", [])
             articles = []

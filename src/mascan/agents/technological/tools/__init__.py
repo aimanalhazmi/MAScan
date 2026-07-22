@@ -1,8 +1,8 @@
 """Tools used ONLY by the technological agent."""
 
 from mascan.agents.technological.tools.scholar import ScholarSearchTool
-from mascan.tools.registry import tool_registry
 from mascan.core.settings import get_settings
+from mascan.tools.registry import tool_registry
 
 _settings = get_settings()
 

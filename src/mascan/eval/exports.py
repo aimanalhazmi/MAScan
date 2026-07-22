@@ -7,17 +7,21 @@ import json
 from collections.abc import Sequence
 
 from mascan.eval.fingerprints import model_sha256
-from mascan.eval.gold_judge import GOLD_JUDGE_SYSTEM_PROMPT
-from mascan.eval.gold_judge import build_gold_judge_user_prompt
-from mascan.eval.gold_judge import gold_judge_output_schema
-from mascan.eval.gold_judge import gold_judge_prompt_sha256
-from mascan.eval.gold_judge import gold_judge_schema_sha256
-from mascan.eval.gold_standard import GoldStandardDataset, PESTEL_HEADINGS
-from mascan.eval.gold_standard import EXPECTED_OUTPUT_FIELDS
-from mascan.eval.gold_standard import GoldStandardCoverageReport
-from mascan.eval.gold_standard import GoldStandardCase
-from mascan.eval.gold_standard import validate_gold_standard_coverage
-
+from mascan.eval.gold_judge import (
+    GOLD_JUDGE_SYSTEM_PROMPT,
+    build_gold_judge_user_prompt,
+    gold_judge_output_schema,
+    gold_judge_prompt_sha256,
+    gold_judge_schema_sha256,
+)
+from mascan.eval.gold_standard import (
+    EXPECTED_OUTPUT_FIELDS,
+    PESTEL_HEADINGS,
+    GoldStandardCase,
+    GoldStandardCoverageReport,
+    GoldStandardDataset,
+    validate_gold_standard_coverage,
+)
 
 PROMPT_PACK_CSV_FIELDS = ["case_id", "case_title", "source_pdf", "prompt"]
 GOLD_STANDARD_MANIFEST_CSV_FIELDS = [
@@ -274,7 +278,9 @@ def render_gold_standard_manifest_markdown(
         "| Case | Prompt SHA-256 | Expected Output SHA-256 | Claims | Targets | Anchors | Sections | Buckets |",
         "|---|---|---|---:|---:|---:|---|---|",
     ]
-    for row in payload["cases"]:
+    cases = payload["cases"]
+    assert isinstance(cases, list)
+    for row in cases:
         assert isinstance(row, dict)
         lines.append(
             "| "

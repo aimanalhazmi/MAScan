@@ -3,7 +3,6 @@ from uuid import uuid4
 
 from mascan.eval.postprocess import run_gold_postprocess
 from mascan.eval.readiness import load_experiment_manifest
-
 from tests.eval._gold_fixtures import build_complete_gold_run_fixture
 
 

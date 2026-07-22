@@ -1,8 +1,7 @@
 from pathlib import Path
 from uuid import uuid4
 
-from mascan.eval.gold_analysis import SystemComparison
-from mascan.eval.gold_analysis import case_trace_records
+from mascan.eval.gold_analysis import SystemComparison, case_trace_records
 from mascan.eval.gold_experiment import (
     JudgedModelResponse,
     MetricPairRecord,

@@ -154,8 +154,9 @@ class WebSearchTool(BaseTool):
     @classmethod
     def _truncate_markdown(cls, markdown: str) -> str:
         """Cap a single page's markdown so a few long pages can't overflow context."""
-        return cls.truncate_text(
+        truncated: str = cls.truncate_text(
             markdown,
             cls.MAX_MARKDOWN_CHARS,
             marker="\n\n[...truncated...]",
         )
+        return truncated

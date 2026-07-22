@@ -58,7 +58,7 @@ def test_news_clamps_oversized_call_without_failing(mocker: Any) -> None:
     client.news_api.return_value = {"results": articles}
     mocker.patch(
         "mascan.agents.political.tools.news_api.get_settings"
-    ).return_value.NEWSDATA_API_KEY = "test"
+    ).return_value.news_api_key = "test"
 
     result = NewsDataSearchTool().run(query="policy", size=50)
 

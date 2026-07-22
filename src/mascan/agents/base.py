@@ -2,7 +2,7 @@
 
 import time
 from abc import ABC, abstractmethod
-from typing import Any, ClassVar, cast
+from typing import Any, ClassVar
 
 from langchain_core.language_models import BaseChatModel
 from langchain_core.messages import HumanMessage, SystemMessage
@@ -99,7 +99,7 @@ class BaseAgent(ABC):
 
         module_file = inspect.getfile(cls)
         config_path = Path(module_file).parent / "config.yaml"
-        return cast(AgentConfig, AgentConfig.from_yaml(config_path))
+        return AgentConfig.from_yaml(config_path)
 
     @staticmethod
     def extract_final_answer(result: dict[str, Any]) -> str:

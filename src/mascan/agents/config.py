@@ -24,7 +24,7 @@ class AgentConfig(BaseModel):
     )
 
     @classmethod
-    def from_yaml(cls, path: Path | str):
+    def from_yaml(cls, path: Path | str) -> "AgentConfig":
         """Load and validate an agent config from a YAML file."""
         path = Path(path)
         if not path.exists():

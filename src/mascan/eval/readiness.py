@@ -8,8 +8,7 @@ from pydantic import BaseModel, Field
 
 from mascan.eval.costing import PricingTable, validate_pricing_table
 from mascan.eval.fingerprints import ArtifactFingerprint, file_sha256, model_sha256
-from mascan.eval.gold_analysis import SystemComparison
-from mascan.eval.gold_analysis import CaseTraceRecord
+from mascan.eval.gold_analysis import CaseTraceRecord, SystemComparison
 from mascan.eval.gold_experiment import (
     JudgedModelResponse,
     ModelResponseRecord,
@@ -739,13 +738,13 @@ def _validate_case_traces(
             )
 
 
-def _load_model(
+def _load_model[M: BaseModel](
     path: str,
-    model_type: type[BaseModel],
+    model_type: type[M],
     base: Path,
     issues: list[ReadinessIssue],
     item: str,
-):
+) -> M | None:
     resolved = _resolve(base, path)
     if not resolved.exists():
         _add_issue(issues, "error", item, f"Missing file: {path}")
@@ -757,13 +756,13 @@ def _load_model(
         return None
 
 
-def _load_json_list(
+def _load_json_list[M: BaseModel](
     path: str,
-    model_type: type[BaseModel],
+    model_type: type[M],
     base: Path,
     issues: list[ReadinessIssue],
     item: str,
-):
+) -> list[M] | None:
     resolved = _resolve(base, path)
     if not resolved.exists():
         _add_issue(issues, "error", item, f"Missing file: {path}")

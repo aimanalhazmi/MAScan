@@ -127,6 +127,6 @@ def test_eur_lex_escapes_quotes_in_query(mocker: Any) -> None:
     result = EurLexTool().run(query="workers' rights")
 
     assert result.success is True
-    
+
     sparql = captured["params"]["query"]
     assert "workers" in sparql

@@ -206,7 +206,7 @@ def _exact_signed_rank_p_value(
             for score, count in counts.items()
             if min(score, total - score) <= observed_extremity
         )
-    return favourable / outcomes
+    return float(favourable / outcomes)
 
 
 def wilcoxon_signed_rank_test(
@@ -263,7 +263,7 @@ def wilcoxon_signed_rank_test(
 
 def _try_shapiro_p_value(values: Sequence[float]) -> float | None:
     try:
-        from scipy import stats as scipy_stats  # type: ignore[import-not-found]
+        from scipy import stats as scipy_stats
     except ModuleNotFoundError:
         return None
     result = scipy_stats.shapiro(values)

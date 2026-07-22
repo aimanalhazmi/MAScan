@@ -1,8 +1,8 @@
+from mascan.eval.fingerprints import ArtifactFingerprint
 from mascan.eval.methodology import (
     build_methodology_checklist,
     render_methodology_appendix,
 )
-from mascan.eval.fingerprints import ArtifactFingerprint
 from mascan.eval.readiness import (
     GoldExperimentManifest,
     ReadinessIssue,

@@ -1,5 +1,5 @@
 import json
-from typing import Any
+from typing import Any, cast
 
 from langchain_core.language_models import BaseChatModel
 from langchain_core.messages import HumanMessage, SystemMessage, ToolMessage
@@ -170,7 +170,7 @@ def _planner_node(state: GraphState) -> dict[str, Any]:
         *knowledge_messages,
     ]
 
-    result: PlanModel = llm.with_structured_output(PlanModel).invoke(messages)
+    result = cast(PlanModel, llm.with_structured_output(PlanModel).invoke(messages))
 
     if isinstance(result.assignments, InformationRequest):
         logger.info(f"Planner requested more information: {result.assignments.question}")
@@ -281,10 +281,10 @@ def clarify_intent(user_prompt: str, settings: Any) -> str | None:
         max_tokens=200,
     )
     structured_llm = llm.with_structured_output(IntentCheck)
-    result: IntentCheck = structured_llm.invoke([
+    result = cast(IntentCheck, structured_llm.invoke([
         SystemMessage(content=CLARIFY_SYSTEM_PROMPT),
         HumanMessage(content=user_prompt),
-    ])
+    ]))
     question = result.question.strip()
     return question if result.needs_clarification and question else None
 

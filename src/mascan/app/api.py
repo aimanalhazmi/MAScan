@@ -182,7 +182,7 @@ async def rag_ingest(request: IngestRequest) -> dict[str, int]:
 
 
 @app.post("/rag/upload")
-async def rag_upload(file: UploadFile = File(...)) -> dict[str, Any]:
+async def rag_upload(file: UploadFile = File(...)) -> dict[str, Any]:  # noqa: B008  # FastAPI requires File(...) as a default
     """Upload a .pdf, .md, or .txt file and ingest it. Returns chunks stored.
 
     PDFs are parsed page-by-page (text + figure images); md/txt go through the
