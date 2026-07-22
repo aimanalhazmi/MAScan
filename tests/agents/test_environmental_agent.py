@@ -99,7 +99,9 @@ def test_environmental_agent_run_returns_report(mocker: Any) -> None:
         ]
     }
     fake_agent = mocker.Mock()
-    fake_agent.invoke.return_value = fake_result
+    # The ReAct loop is driven via agent.stream(..., stream_mode="values"), which
+    # yields successive state snapshots; the last one is used as the final result.
+    fake_agent.stream.return_value = [fake_result]
     mocker.patch("mascan.agents.environmental.agent.get_chat_model")
     mocker.patch("mascan.agents.environmental.agent.create_agent", return_value=fake_agent)
 
@@ -111,4 +113,4 @@ def test_environmental_agent_run_returns_report(mocker: Any) -> None:
     assert report.metadata["mode"] == "B — LLM-driven"
     assert report.metadata["llm_chosen_tools"] == []
     assert "## Environmental Analysis" in report.rendered_markdown
-    fake_agent.invoke.assert_called_once()
+    fake_agent.stream.assert_called_once()

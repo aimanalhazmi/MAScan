@@ -66,6 +66,7 @@ def test_agent_node_passes_runtime_context_to_agent() -> None:
         "user_input": "Analyze AAPL",
         "rag_evidence": [],
         "provided_sources": [],
+        "salient_factors": [],
         "runtime": {
             "current_date": "2026-06-02",
             "timezone": "Europe/Berlin",

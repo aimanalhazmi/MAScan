@@ -16,7 +16,6 @@ def test_run_gold_postprocess_regenerates_derived_artifacts():
         "judged_all_priced.json",
         "system_summary.json",
         "case_trace.json",
-        "human_irr.json",
         "mascan_vs_zero_shot.json",
         "mascan_vs_frontier.json",
         "gold_experiment_report.md",

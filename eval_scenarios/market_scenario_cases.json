@@ -14,7 +14,7 @@
   "cases": [
     {
       "case_id": "market_evonik",
-      "source_pdf": "eval_papers/market-analysis-scenarios.pdf",
+      "source_pdf": "eval_scenarios/market-analysis-scenarios.pdf",
       "case_title": "Evonik — remaining competitive in European specialty chemicals",
       "case_subject": "Evonik prioritizing strategic investments to remain competitive in Europe amid high energy costs, global low-cost competition, supply-chain disruption, and slow AI adoption",
       "prompt": "Conduct a PESTEL-based market analysis for Evonik prioritizing strategic investments to remain competitive in Europe amid high energy costs, global low-cost competition, supply-chain disruption, and slow AI adoption in internal processes. Evonik operates mainly in specialty chemicals. Use a current European industrial context. Return exactly these headings: Political, Economic, Social, Technological, Environmental, Legal, Strategic implications. Under each PESTEL heading, provide concise bullets that connect the external factor to direct business impact for Evonik. Under Strategic implications, provide clear growth opportunities within the chemical sector, a recommended strategic roadmap with prioritized investment areas, the opportunities and risks associated with each investment area, and rough cost estimates where feasible. Do not mention this dataset or the source document.",
@@ -123,7 +123,7 @@
     },
     {
       "case_id": "market_volkswagen",
-      "source_pdf": "eval_papers/market-analysis-scenarios.pdf",
+      "source_pdf": "eval_scenarios/market-analysis-scenarios.pdf",
       "case_title": "Volkswagen — strategic transformation of production, workforce, and investments",
       "case_subject": "Volkswagen restructuring global production, workforce, and investment portfolio over five to ten years amid China decline, European underutilization, trade rules, and stalled EV/software transition",
       "prompt": "Conduct a PESTEL-based market analysis for Volkswagen restructuring global production, workforce, and investment portfolio over the next five to ten years to restore competitiveness while minimizing strategic and societal risks. Background: declining revenues, sharp decline in China, underused European factories, global trade regulations, stalled EV transition due to software delays and legacy systems. Return exactly these headings: Political, Economic, Social, Technological, Environmental, Legal, Strategic implications. Under each PESTEL heading, provide concise bullets that connect the external factor to direct business impact for Volkswagen. Under Strategic implications, provide a clear transformation path with concrete actions, present different strategic options, assess financial/reputational/political risks for each, and draft a roadmap explaining steps, decisions, and consequences. Do not mention this dataset or the source document.",
@@ -232,7 +232,7 @@
     },
     {
       "case_id": "market_biontech",
-      "source_pdf": "eval_papers/market-analysis-scenarios.pdf",
+      "source_pdf": "eval_scenarios/market-analysis-scenarios.pdf",
       "case_title": "BioNTech — from pandemic success to long-term oncology leader",
       "case_subject": "BioNTech allocating financial resources, R&D investments, and partnerships over the next decade after post-COVID revenue decline and leadership change",
       "prompt": "Conduct a PESTEL-based market analysis for BioNTech allocating financial resources, R&D investments, and strategic partnerships over the next decade to become a leading global biotechnology company after the COVID pandemic. Background: post-pandemic revenue decline, collapsed COVID vaccine market, founder departures, and high R&D spend that becomes a financial risk if pipeline results are weak. Return exactly these headings: Political, Economic, Social, Technological, Environmental, Legal, Strategic implications. Under each PESTEL heading, provide concise bullets that connect the external factor to direct business impact for BioNTech. Under Strategic implications, provide actionable steps with financial risk/opportunity assessment, multiple scenarios under different market conditions, a recommended investment roadmap across sectors, and a concise competitor overview with advantages and disadvantages. Do not mention this dataset or the source document.",

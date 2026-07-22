@@ -79,4 +79,9 @@ def test_run_clamps_oversized_result_count_without_failing(mocker: Any) -> None:
     assert result.success
     assert len(result.data) == 5
     assert result.metadata["limit_applied"] is True
-    fake_client.search.assert_called_once_with(query="anything", limit=5)
+    assert fake_client.search.call_count == 1
+    call = fake_client.search.call_args
+    assert call.kwargs["query"] == "anything"
+    assert call.kwargs["limit"] == 5
+    # Firecrawl only scrapes result pages when search is given scrape_options.
+    assert call.kwargs["scrape_options"].formats == ["markdown"]

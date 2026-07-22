@@ -1,10 +1,10 @@
+import json
 from typing import Any
+
+from langchain_core.messages import ToolMessage
 
 from mascan.agents.registry import agent_registry
 from mascan.agents.social.agent import (
-    ALWAYS_CALL_TOOLS,
-    OPTIONAL_TOOLS,
-    WEB_RESULTS_PER_QUERY,
     SocialAgent,
     SocialEvidencePlan,
 )
@@ -30,10 +30,6 @@ def test_social_agent_loads_reddit_world_bank_x_and_web_tools() -> None:
     assert "world_bank_social_indicators" in agent.tools
     assert "x_search" in agent.tools
     assert "web_search" in agent.tools
-
-
-def test_social_always_calls_web_search_and_world_bank() -> None:
-    assert ALWAYS_CALL_TOOLS == ("web_search", "world_bank_social_indicators")
 
 
 def test_social_agent_run_returns_report(mocker: Any) -> None:
@@ -88,6 +84,26 @@ def test_social_agent_run_returns_report(mocker: Any) -> None:
             metadata={"tool": "reddit_search"},
         )
     ]
+    # The report's Sources are harvested from the ReAct result's tool messages
+    # (via collect_sources -> sources_from_react), so the react_result must carry
+    # the reddit post link the assertions expect.
+    react_result = {
+        "messages": [
+            ToolMessage(
+                content=json.dumps(
+                    [
+                        {
+                            "id": "abc123",
+                            "title": "r/electricvehicles: EV battery recycling concerns",
+                            "url": "https://reddit.com/r/electricvehicles/comments/abc123",
+                        }
+                    ]
+                ),
+                name="reddit_search",
+                tool_call_id="a",
+            ),
+        ]
+    }
     mocker.patch.object(
         agent,
         "gather_deterministic",
@@ -96,7 +112,12 @@ def test_social_agent_run_returns_report(mocker: Any) -> None:
     mocker.patch.object(
         agent,
         "run_react_agent",
-        return_value=("Social sentiment findings", ["reddit_search"], llm_sources),
+        return_value=(
+            react_result,
+            "Social sentiment findings",
+            ["reddit_search"],
+            llm_sources,
+        ),
     )
 
     report = agent.run(tasks=["consumer sentiment around EV battery recycling"])
@@ -106,14 +127,15 @@ def test_social_agent_run_returns_report(mocker: Any) -> None:
     assert report.tasks == ["consumer sentiment around EV battery recycling"]
     assert report.findings == "Social sentiment findings"
     assert report.metadata["mode"] == "mixed"
-    assert report.metadata["deterministic_tools"] == [
-        "web_search",
-        "world_bank_social_indicators",
-    ]
+    # Social has no config.always_call_tools; World Bank is gathered via the
+    # agent's overridden gather_deterministic, so this metadata list is empty.
+    assert report.metadata["deterministic_tools"] == []
     assert report.metadata["llm_chosen_tools"] == ["reddit_search"]
     assert "## Social Analysis" in report.rendered_markdown
     # The LLM-chosen tools render in their own section, not mixed into Sources.
-    assert "**Tools the LLM chose to call:**\n- reddit_search" in report.rendered_markdown
+    # (world_bank is prepended via default_display_tools, so don't assume adjacency.)
+    assert "**Tools the LLM chose to call:**" in report.rendered_markdown
+    assert "- reddit_search" in report.rendered_markdown
     # Sources are real article-level links, not tool names.
     assert [source.url for source in report.sources] == [
         "https://example.com/ev-battery-recycling",
@@ -187,7 +209,10 @@ def test_social_gather_deterministic_skips_reddit_and_x(mocker: Any) -> None:
         data=[],
         source="world_bank:social_indicators",
     )
-    agent.tools = {
+    # gather_deterministic rebuilds self.tools from always_call_tools + optional_tools,
+    # so inject the mocks there rather than on agent.tools.
+    agent.always_call_tools = {}
+    agent.optional_tools = {
         "web_search": web_search,
         "world_bank_social_indicators": world_bank,
         "reddit_search": reddit,
@@ -204,26 +229,12 @@ def test_social_gather_deterministic_skips_reddit_and_x(mocker: Any) -> None:
 
     outputs = agent.gather_deterministic(["Analyze Germany and United States labour trends"])
 
+    # Only World Bank is gathered deterministically; web_search/reddit/x are LLM-decided.
     world_bank.run.assert_called_once_with(country_codes=["DEU", "USA"])
-    assert web_search.run.call_count == 2
-    web_search.run.assert_any_call(
-        query="germany ev battery recycling consumer sentiment",
-        max_results=WEB_RESULTS_PER_QUERY,
-    )
+    web_search.run.assert_not_called()
     reddit.run.assert_not_called()
     x_search.run.assert_not_called()
-    assert not any(key.startswith(("reddit_search", "x_search")) for key in outputs)
-
-
-def test_social_get_optional_tools_offers_reddit_and_x() -> None:
-    """The LLM-decided ReAct loop is offered the optional tools when enabled."""
-    import mascan.agents.social  # noqa: F401
-
-    agent = SocialAgent()
-    agent.config.options = {"enable_reddit": True, "enable_x": True}
-    optional = agent.get_optional_tools()
-
-    assert {tool.name for tool in optional} == set(OPTIONAL_TOOLS)
+    assert list(outputs) == ["world_bank_social_indicators"]
 
 
 def test_social_get_optional_tools_respects_flags() -> None:
@@ -233,7 +244,12 @@ def test_social_get_optional_tools_respects_flags() -> None:
     agent.config.options = {"enable_reddit": True, "enable_x": False}
     optional = agent.get_optional_tools()
 
-    assert {tool.name for tool in optional} == {"reddit_search"}
+    # web_search and world_bank are always offered; only x_search is gated off here.
+    assert {tool.name for tool in optional} == {
+        "web_search",
+        "world_bank_social_indicators",
+        "reddit_search",
+    }
 
 
 def test_x_search_without_tokens_returns_failure(mocker: Any) -> None:

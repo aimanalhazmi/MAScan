@@ -1,7 +1,6 @@
 from mascan.eval.gold_analysis import SystemComparison
 from mascan.eval.gold_experiment import MetricPairRecord, SystemMetricSummary
 from mascan.eval.gold_report import render_gold_experiment_report
-from mascan.eval.human_ratings import HumanIrrReport, KappaSummary
 from mascan.eval.stats import PairedTestResult
 
 
@@ -55,32 +54,6 @@ def test_render_gold_experiment_report_includes_core_sections():
                 ),
             )
         ],
-        human_irr=HumanIrrReport(
-            depth_fleiss=KappaSummary(
-                metric="analytical_depth",
-                comparison="human_fleiss",
-                n_items=18,
-                kappa=0.62,
-            ),
-            depth_fleiss_with_llm=KappaSummary(
-                metric="analytical_depth",
-                comparison="human_llm_fleiss",
-                n_items=18,
-                kappa=0.58,
-            ),
-            depth_cohen_pooled=KappaSummary(
-                metric="analytical_depth",
-                comparison="pooled_humans_vs_llm",
-                n_items=72,
-                kappa=0.6,
-            ),
-            depth_weighted_cohen_pooled=KappaSummary(
-                metric="analytical_depth",
-                comparison="pooled_humans_vs_llm_quadratic_weighted",
-                n_items=72,
-                kappa=0.72,
-            ),
-        ),
     )
 
     assert "# Gold-Standard PESTEL Evaluation Report" in report
@@ -95,7 +68,3 @@ def test_render_gold_experiment_report_includes_core_sections():
     assert "assumed_non_parametric alpha=0.0500" in report
     assert "Missing gold claims" in report
     assert "Unsupported/wrong claims" in report
-    assert "Human Calibration IRR" in report
-    assert "Human plus LLM depth agreement" in report
-    assert "Pooled human vs LLM depth agreement" in report
-    assert "Pooled human vs LLM weighted depth agreement" in report
