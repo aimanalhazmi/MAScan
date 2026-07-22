@@ -1,4 +1,5 @@
 from typing import Any, ClassVar
+from urllib.parse import urlparse
 
 from firecrawl import Firecrawl
 from firecrawl.v2.types import ScrapeOptions
@@ -114,26 +115,28 @@ class WebSearchTool(BaseTool):
 
         formatted_results = []
         for doc in (getattr(response, "web", None) or [])[:bounded_results]:
-            title = getattr(doc, "title", "No Title")
-            url = getattr(doc, "url", "")
-
-            markdown_content = getattr(doc, "markdown", "")
-
             # Firecrawl returns metadata as a plain dict for unscraped hits and as
             # a DocumentMetadata model once scraping is enabled, so read both. The
-            # scraped shape often carries the only usable url.
-            title = self._metadata_value(doc, "title") or title
-            url = self._metadata_value(doc, "url") or url
+            # scraped shape often carries the only usable url/title.
+            url = self._metadata_value(doc, "url") or getattr(doc, "url", "") or ""
+            title = self._metadata_value(doc, "title") or getattr(doc, "title", None)
+            markdown_content = getattr(doc, "markdown", "")
 
             formatted_results.append(
                 {
-                    "title": title,
+                    # Fall back to the domain (not a literal "No Title") when a page
+                    # exposes no title, so citations stay meaningful.
+                    "title": title or self._domain_title(url),
                     "url": url,
                     "markdown": self._truncate_markdown(markdown_content),
                 }
             )
 
         return formatted_results
+
+    @staticmethod
+    def _domain_title(url: str) -> str:
+        return urlparse(url).netloc.removeprefix("www.") or "Untitled source"
 
     @staticmethod
     def _metadata_value(doc: Any, key: str) -> str | None:

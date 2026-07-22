@@ -67,8 +67,12 @@ class BaseTool(ABC):
 
         @functools.wraps(self.run)
         def invoke(**call_kwargs: Any) -> Any:
+            self.logger.info("call args=%s", call_kwargs)
             result = self.run(**call_kwargs)
-            if not result.success:
+            if result.success:
+                self.logger.info("success (source=%s)", result.source)
+            else:
+                self.logger.warning("failed: %s", result.error)
                 return f"Tool {self.name!r} failed: {result.error}"
             if isinstance(result.data, BaseModel):
                 return result.data.model_dump(mode="json")
