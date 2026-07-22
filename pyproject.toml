@@ -35,6 +35,8 @@ dependencies = [
     "pymupdf>=1.28.0",
     "python-multipart>=0.0.32",
     "openpyxl>=3.1.5",
+    "rdt-cli>=0.4.1",
+    "twitter-cli>=0.8.5",
 ]
 
 [project.optional-dependencies]
@@ -70,9 +72,3 @@ ignore = ["E501"]
 python_version = "3.12"
 strict = true
 ignore_missing_imports = true
-
-[dependency-groups]
-dev = [
-    "rdt-cli>=0.4.1",
-    "twitter-cli>=0.8.5",
-]

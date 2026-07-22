@@ -1,7 +1,7 @@
 from mascan.orchestrator.attribution import parse_attribution_document
 
 
-def test_parser_uses_summary_ast_and_backward_attribution() -> None:
+def test_parser_uses_summary_ast_without_backward_attribution() -> None:
     report = """\
 # Final Report
 
@@ -28,7 +28,6 @@ Fake citation [9](https://fake.example/code)
         "https://example.org/market",
     ]
     assert [attribution.claim for attribution in document.attributions] == [
-        "The EU has a renewable target.",
         "Hydrogen production should increase.",
         "A second claim.",
     ]

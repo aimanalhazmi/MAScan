@@ -42,6 +42,7 @@ class XSearchTool(BaseTool):
         try:
             bounded_results = max(1, min(max_results, self.MAX_RESULTS))
             client = TwitterClient(auth_token, ct0)
+            self._repair_client_transaction(client)
             tweets = client.fetch_search(query, count=bounded_results, product="Top")
             items = tweets_to_data(tweets)
             selected = items[: self.MAX_RESULTS]
@@ -70,6 +71,32 @@ class XSearchTool(BaseTool):
         except Exception as exc:
             self.logger.exception("x_search failed for query=%r", query)
             return self._failure(query, str(exc))
+
+    def _repair_client_transaction(self, client: Any) -> None:
+        """Retry twitter-cli transaction setup from /home when its root-page setup fails."""
+        if getattr(client, "_client_transaction", None) is not None:
+            return
+        try:
+            import bs4
+            from twitter_cli.client import _gen_ct_headers, _get_cffi_session
+            from x_client_transaction import ClientTransaction
+            from x_client_transaction.utils import get_ondemand_file_url
+
+            session = _get_cffi_session()
+            headers = _gen_ct_headers()
+            home_page = session.get("https://x.com/home", headers=headers, timeout=10)
+            home_page.raise_for_status()
+            home_page_response = bs4.BeautifulSoup(home_page.content, "html.parser")
+            ondemand_url = get_ondemand_file_url(response=home_page_response)
+            ondemand_file = session.get(ondemand_url, headers=headers, timeout=10)
+            ondemand_file.raise_for_status()
+            client._client_transaction = ClientTransaction(
+                home_page_response=home_page_response,
+                ondemand_file_response=ondemand_file.text,
+            )
+            self.logger.info("Recovered twitter-cli transaction setup from x.com/home")
+        except Exception as exc:  # Preserve twitter-cli's original request fallback.
+            self.logger.warning("twitter-cli transaction recovery failed: %s", exc)
 
     # Cap post text so a batch of tweets cannot overflow the model context
     # window once they accumulate in the ReAct message history.

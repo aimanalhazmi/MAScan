@@ -99,78 +99,9 @@ Rules:
 - Leave a claim uncited when no supplied evidence supports it.
 """
 
-COVERAGE_REPAIR_SYSTEM_PROMPT = """\
-You are a PESTEL filing editor. Your job is to aggressively REFILE existing
-evidence into the correct headings without inventing new content.
-
-You receive a draft report plus agent evidence. Do this:
-
-1. MOVE / REFILE first (highest priority):
-   - Scan the draft AND agent findings for claims already present.
-   - Place each claim under the correct heading:
-     - Legal: fines, penalties, permits, authorizations, named regulations/directives
-     - Economic: prices, demand, costs, incentives, efficiency/operating-cost savings
-     - Social: jobs/employment, tourism, education, community, demographics, rural change
-     - Political: policy, government pressure, subsidies, geopolitics
-     - Technological: named tech, digital systems, infrastructure, R&D adoption
-     - Environmental: emissions, waste, water/resource stress, climate, pollution
-   - If a claim appears under the wrong heading, move it (do not leave a duplicate).
-   - If agent findings already contain a theme that is missing from the correct
-     heading, paraphrase that existing agent text into one bullet under the right
-     heading. Do not generalize beyond what the agent said.
-   - Use the Coverage checklist (when present) as an additional, non-exhaustive set
-     of factors to verify: for each checklist factor the agent findings support but
-     the draft omits, paraphrase the supporting agent text into one bullet under the
-     heading that factor genuinely belongs to (not the heading of the agent that
-     raised it). Never add a checklist factor that no agent finding supports, and
-     never drop an evidenced factor just because it is absent from the checklist.
-
-2. REMOVE speculative unsupported bullets (for example invented regional tensions,
-   generic health/urbanization stats, product-mix trends, or automation benefits
-   with no agent support). Prefer dropping them over rewriting into new claims.
-
-3. Do NOT invent facts, numbers, regulations, citations, or new strategic actions.
-   Do NOT add filler to "complete" a heading when agent evidence lacks that theme.
-   A short evidence-gap note is allowed only when the heading would otherwise be empty.
-
-4. Keep heading order:
-   Political, Economic, Social, Technological, Environmental, Legal,
-   Strategic implications.
-   Strategic implications may only restate supported risks/opportunities already
-   present after refiling.
-
-5. Preserve valid citations. When moving/paraphrasing an evidenced claim, keep or
-   attach [n](URL) from the Citation Registry when a matching source exists.
-
-6. Return the complete revised draft and nothing else.
-"""
-
-PESTEL_HEADINGS: tuple[str, ...] = (
-    "Political",
-    "Economic",
-    "Social",
-    "Technological",
-    "Environmental",
-    "Legal",
-)
-
-# Heuristic theme cues used only to decide whether coverage repair should run.
-_HEADING_THEME_CUES: dict[str, tuple[str, ...]] = {
-    "Political": ("policy", "government", "subsid", "geopolitic", "political"),
-    "Economic": ("price", "demand", "cost", "incentive", "efficien", "saving"),
-    "Social": ("job", "labor", "labour", "tourism", "education", "community", "demographic"),
-    "Technological": ("innov", "digital", "infrastruct", "r&d", "technolog", "battery", "microgrid"),
-    "Environmental": ("emission", "waste", "water", "climate", "pollut", "aquifer", "co2"),
-    "Legal": ("regulation", "directive", "permit", "authoriz", "fine", "penalt", "litigation", "law"),
-}
-
 HTML_SOURCE_REF_PATTERN = re.compile(r'href=["\']#source-(\d+)["\']')
 MARKDOWN_SOURCE_REF_PATTERN = re.compile(r"\[(\d+)\]\(([^)]+)\)")
 NUMBERED_CITATION_PATTERN = re.compile(r"\[(\d+)\](?:\(([^)\s]+)\))?")
-_HEADING_SPLIT_PATTERN = re.compile(
-    r"(?im)^(?:#{2,3}\s*)?(Political|Economic|Social|Technological|Environmental|Legal|"
-    r"Strategic implications)\s*$"
-)
 
 
 @dataclass(frozen=True)
@@ -214,9 +145,6 @@ def _synthesizer_node(state: GraphState) -> dict[str, Any]:
     normalized = _normalize_citation_links(state, str(response.content))
     if _needs_citation_repair(state, normalized):
         normalized = _repair_missing_citations(state, normalized)
-    if _needs_coverage_repair(normalized):
-        normalized = _repair_theme_coverage(state, normalized)
-        normalized = _normalize_citation_links(state, normalized)
     summary, cited_sources = _renumber_all_citations(state, normalized)
     rendered_sources = cited_sources
     markdown = _render_markdown(state, summary, rendered_sources)
@@ -371,76 +299,6 @@ def _strip_draft_wrappers(content: str) -> str:
     if lines and lines[-1].strip().casefold() == "--- end draft ---":
         lines.pop()
     return "\n".join(lines).strip()
-
-
-def _needs_coverage_repair(draft: str) -> bool:
-    """Return True for PESTEL drafts that should get a refiling pass."""
-    sections = _split_pestel_sections(draft)
-    pestel_present = sum(1 for heading in PESTEL_HEADINGS if heading in sections)
-    # Full(ish) PESTEL drafts always get a move/file pass so misplaced claims
-    # are corrected even when each heading already looks "theme-full".
-    if pestel_present >= 5:
-        return True
-    if pestel_present < 4:
-        return False
-    for heading in PESTEL_HEADINGS:
-        body = sections.get(heading, "")
-        if not body.strip():
-            return True
-        cues = _HEADING_THEME_CUES[heading]
-        lowered = body.lower()
-        if not any(cue in lowered for cue in cues):
-            return True
-    return False
-
-
-def _split_pestel_sections(draft: str) -> dict[str, str]:
-    """Split a draft into heading -> body text for PESTEL sections."""
-    matches = list(_HEADING_SPLIT_PATTERN.finditer(draft))
-    if not matches:
-        return {}
-    sections: dict[str, str] = {}
-    for index, match in enumerate(matches):
-        heading = match.group(1)
-        start = match.end()
-        end = matches[index + 1].start() if index + 1 < len(matches) else len(draft)
-        sections[heading] = draft[start:end]
-    return sections
-
-
-def _repair_theme_coverage(state: GraphState, draft: str) -> str:
-    """Best-effort pass to fix misplaced/missing PESTEL themes from agent evidence."""
-    settings = get_settings()
-    llm = get_chat_model(
-        model=settings.openai_model_default,
-        temperature=0.0,
-        max_tokens=4000,
-    )
-    try:
-        response = llm.invoke(
-            [
-                SystemMessage(content=COVERAGE_REPAIR_SYSTEM_PROMPT),
-                HumanMessage(content=_build_coverage_repair_prompt(state, draft)),
-            ]
-        )
-    except Exception:  # noqa: BLE001
-        logger.exception("Coverage repair failed; keeping the current synthesis")
-        return draft
-    repaired = str(response.content).strip()
-    return repaired or draft
-
-
-def _build_coverage_repair_prompt(state: GraphState, draft: str) -> str:
-    parts = [
-        "Repair PESTEL theme coverage and category placement using only the "
-        "evidence below.\n",
-    ]
-    parts.append(_build_synthesis_prompt(state))
-    parts.append(
-        f"\nDraft to return with coverage/category fixes:\n--- DRAFT ---\n{draft}\n"
-        "--- END DRAFT ---"
-    )
-    return "\n".join(parts)
 
 
 def _build_citation_repair_prompt(state: GraphState, draft: str) -> str:

@@ -1,4 +1,7 @@
+import json
 from typing import Any
+
+from langchain_core.messages import ToolMessage
 
 from mascan.agents.political.agent import PoliticalAgent
 from mascan.agents.registry import agent_registry
@@ -47,3 +50,43 @@ def test_political_agent_run_returns_report(mocker: Any) -> None:
     assert [source.url for source in report.sources] == ["https://example.com"]
     assert report.sources[0].name == "Policy update"
     assert "[Policy update](https://example.com)" in report.rendered_markdown
+
+
+def test_political_agent_collects_news_article_sources(mocker: Any) -> None:
+    agent = PoliticalAgent()
+    article_url = "https://news.example/policy-update"
+    react_result = {
+        "messages": [
+            ToolMessage(
+                content=json.dumps(
+                    {
+                        "articles": [
+                            {
+                                "title": "Policy update",
+                                "url": article_url,
+                            }
+                        ]
+                    }
+                ),
+                name="news_api",
+                tool_call_id="news-call",
+            )
+        ]
+    }
+    mocker.patch.object(agent, "gather_deterministic", return_value={})
+    mocker.patch.object(
+        agent,
+        "run_react_agent",
+        return_value=(
+            react_result,
+            f"A policy update was announced [Policy update]({article_url}).",
+            ["news_api"],
+        ),
+    )
+
+    report = agent.run(tasks=["Assess political policy changes"])
+
+    assert [source.url for source in report.sources] == [article_url]
+    assert report.sources[0].name == "Policy update"
+    assert f"[1]({article_url})" in report.findings
+    assert f"1. [Policy update]({article_url})" in report.rendered_markdown

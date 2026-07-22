@@ -55,8 +55,7 @@ def parse_attribution_document(markdown: str) -> AttributionDocument:
 
     Markdown AST traversal restricts matching to real paragraph/list-item inline
     nodes. Fenced code and report sections outside Summary are therefore ignored.
-    A citation at the end of a passage is attributed backwards to preceding
-    uncited sentences in that same passage.
+    Only the sentence containing a citation is attributed to that source.
     """
     body = extract_summary_body(markdown)
     tokens = MarkdownIt("commonmark").parse(body)
@@ -95,10 +94,6 @@ def parse_attribution_document(markdown: str) -> AttributionDocument:
                 for ref in refs_by_number.get(number, [])
             ]
             sentence_refs.append(_dedupe_refs(refs))
-
-        if sentence_refs and sentence_refs[-1]:
-            trailing_refs = sentence_refs[-1]
-            sentence_refs = [refs or trailing_refs for refs in sentence_refs]
 
         for sentence, refs in zip(sentences, sentence_refs, strict=True):
             claim = _clean_claim(sentence)

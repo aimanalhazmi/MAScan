@@ -1,3 +1,6 @@
+from typing import Any
+
+from mascan.contracts.planning import AgentAssignment
 from mascan.contracts.reports import AgentReport, Source
 from mascan.orchestrator.state import GraphState
 from mascan.orchestrator.synthesizer import (
@@ -12,6 +15,7 @@ from mascan.orchestrator.synthesizer import (
     _renumber_all_citations,
     _renumber_citation_links,
     _strip_draft_wrappers,
+    _synthesizer_node,
 )
 
 
@@ -65,6 +69,67 @@ def test_synthesis_prompt_contains_registry_and_no_url_guidance() -> None:
 
     empty_prompt = _build_synthesis_prompt(GraphState(user_input="Question"))
     assert "No URL-backed sources are available" in empty_prompt
+
+
+def test_synthesis_prompt_keeps_planner_coverage_checklist() -> None:
+    state = make_state().model_copy(
+        update={
+            "plan": {
+                "political": AgentAssignment(
+                    agent_name="political",
+                    objective_context="Assess policy exposure.",
+                    tasks=["Assess industrial policy."],
+                    salient_factors=["EU industrial subsidies"],
+                )
+            }
+        }
+    )
+
+    prompt = _build_synthesis_prompt(state)
+
+    assert "Coverage checklist" in prompt
+    assert "EU industrial subsidies" in prompt
+
+
+def test_full_pestel_draft_uses_only_initial_synthesis_call(mocker: Any) -> None:
+    draft = """\
+## Political
+- Policy evidence [1](https://example.com/a).
+## Economic
+- Cost evidence.
+## Social
+- Labor evidence.
+## Technological
+- Technology evidence.
+## Environmental
+- Emissions evidence.
+## Legal
+- Regulation evidence.
+## Strategic implications
+- Prioritize the supported response.
+"""
+    model = mocker.Mock()
+    model.invoke.return_value = mocker.Mock(content=draft)
+    mocker.patch(
+        "mascan.orchestrator.synthesizer.get_settings"
+    ).return_value.openai_model_default = "test-model"
+    get_model = mocker.patch(
+        "mascan.orchestrator.synthesizer.get_chat_model",
+        return_value=model,
+    )
+
+    result = _synthesizer_node(make_state())
+
+    get_model.assert_called_once_with(
+        model="test-model",
+        temperature=0.3,
+        max_tokens=4000,
+    )
+    model.invoke.assert_called_once()
+    assert "--- DRAFT ---" not in result["final_summary"]
+    assert "--- END DRAFT ---" not in result["final_summary"]
+    assert "--- DRAFT ---" not in result["final_markdown"]
+    assert "--- END DRAFT ---" not in result["final_markdown"]
 
 
 def test_legacy_html_citations_are_normalized_and_renumbered() -> None:

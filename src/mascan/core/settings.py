@@ -66,6 +66,9 @@ class Settings(BaseSettings):
     firecrawl_api_url: str | None = Field(
         None, description="Base URL of a self-hosted Firecrawl."
     )
+    news_api_key: str | None = Field(
+        None, description="NewsData.io API key used by the Political agent."
+    )
 
     #  Social agent — X/Twitter cookie secrets (kept in env, not config.yaml)
     twitter_auth_token: str | None = Field(

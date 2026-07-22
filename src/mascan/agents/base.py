@@ -143,6 +143,11 @@ class BaseAgent(ABC):
                 "ReAct reached recursion limit %s; forcing a tool-free final report.",
                 self.config.max_llm_iterations,
             )
+            if messages and getattr(messages[-1], "tool_calls", None):
+                self.logger.warning(
+                    "Dropping the final unanswered tool-call message before fallback."
+                )
+                messages.pop()
             final = llm.invoke(
                 [
                     SystemMessage(content=self.config.system_prompt),
