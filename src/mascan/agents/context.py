@@ -74,9 +74,7 @@ def render_agent_context(context: dict[str, Any] | None) -> str:
             content = str(source.metadata.get("content") or "").strip()
             if not content:
                 continue
-            rendered_sources.append(
-                f"### [{source.name}]({source.url})\n{content}"
-            )
+            rendered_sources.append(f"### [{source.name}]({source.url})\n{content}")
         if rendered_sources:
             parts.append(
                 "Uploaded document evidence supplied by the planner. Use only excerpts "

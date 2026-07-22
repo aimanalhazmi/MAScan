@@ -99,9 +99,7 @@ def validate_pricing_table(
             and price.prompt_usd_per_1m_tokens == 0.0
             and price.completion_usd_per_1m_tokens == 0.0
         ),
-        duplicate_models=sorted(
-            model for model, count in model_counts.items() if count > 1
-        ),
+        duplicate_models=sorted(model for model, count in model_counts.items() if count > 1),
         missing_metadata=missing_metadata,
     )
 
@@ -114,9 +112,7 @@ def estimate_response_cost_usd(
     if usage.prompt_tokens is None or usage.completion_tokens is None:
         return None
     prompt_cost = usage.prompt_tokens * pricing.prompt_usd_per_1m_tokens / 1_000_000
-    completion_cost = (
-        usage.completion_tokens * pricing.completion_usd_per_1m_tokens / 1_000_000
-    )
+    completion_cost = usage.completion_tokens * pricing.completion_usd_per_1m_tokens / 1_000_000
     return round(prompt_cost + completion_cost, 8)
 
 
@@ -139,11 +135,7 @@ def apply_pricing_to_responses(
         cost = estimate_response_cost_usd(record.token_usage, pricing)
         priced.append(
             record.model_copy(
-                update={
-                    "token_usage": record.token_usage.model_copy(
-                        update={"cost_usd": cost}
-                    )
-                }
+                update={"token_usage": record.token_usage.model_copy(update={"cost_usd": cost})}
             )
         )
     return priced

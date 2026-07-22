@@ -426,13 +426,9 @@ def test_validate_experiment_manifest_rejects_stale_case_trace_without_audit_cou
     report = validate_experiment_manifest(manifest, base_dir=tmp_path)
 
     assert report.is_ready is False
+    assert any("missing missing_gold_claim_count" in issue.message for issue in report.issues)
     assert any(
-        "missing missing_gold_claim_count" in issue.message
-        for issue in report.issues
-    )
-    assert any(
-        "missing unsupported_or_wrong_claim_count" in issue.message
-        for issue in report.issues
+        "missing unsupported_or_wrong_claim_count" in issue.message for issue in report.issues
     )
 
 
@@ -502,9 +498,7 @@ def test_validate_experiment_manifest_rejects_stale_judge_fingerprints():
     _write(tmp_path / "case_1.pdf", "%PDF")
 
     response = _response("mascan", "m1")
-    judge = _judge("mascan").model_copy(
-        update={"judge_prompt_sha256": "0" * 64}
-    )
+    judge = _judge("mascan").model_copy(update={"judge_prompt_sha256": "0" * 64})
     _write_json(
         tmp_path / "judged.json",
         [
@@ -531,7 +525,4 @@ def test_validate_experiment_manifest_rejects_stale_judge_fingerprints():
     report = validate_experiment_manifest(manifest, base_dir=tmp_path)
 
     assert report.is_ready is False
-    assert any(
-        "judge_prompt_sha256 does not match" in issue.message
-        for issue in report.issues
-    )
+    assert any("judge_prompt_sha256 does not match" in issue.message for issue in report.issues)

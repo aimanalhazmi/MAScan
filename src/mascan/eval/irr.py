@@ -18,9 +18,7 @@ def cohen_kappa(
         raise ValueError("at least one paired rating is required")
 
     categories = (
-        list(labels)
-        if labels is not None
-        else sorted(set(rater_a) | set(rater_b))  # type: ignore[type-var]  # labels are sortable at runtime
+        list(labels) if labels is not None else sorted(set(rater_a) | set(rater_b))  # type: ignore[type-var]  # labels are sortable at runtime
     )
     if not categories:
         raise ValueError("at least one category label is required")
@@ -134,9 +132,7 @@ def fleiss_kappa(
         item_agreements.append(agreement / (n_raters * (n_raters - 1)))
 
     observed = sum(item_agreements) / n_items
-    expected = sum(
-        (category_totals[label] / (n_items * n_raters)) ** 2 for label in categories
-    )
+    expected = sum((category_totals[label] / (n_items * n_raters)) ** 2 for label in categories)
 
     if expected == 1.0:
         return 1.0 if observed == 1.0 else 0.0

@@ -129,8 +129,7 @@ def validate_experiment_manifest(
         prompt_hashes = {case.case_id: prompt_sha256(case.prompt) for case in gold.cases}
         category_targets = {
             case.case_id: [
-                (target.factor, target.correct_category)
-                for target in case.category_targets
+                (target.factor, target.correct_category) for target in case.category_targets
             ]
             for case in gold.cases
         }
@@ -215,9 +214,7 @@ def validate_experiment_manifest(
             )
 
     if manifest.pricing_file:
-        pricing = _load_model(
-            manifest.pricing_file, PricingTable, base, issues, "pricing_file"
-        )
+        pricing = _load_model(manifest.pricing_file, PricingTable, base, issues, "pricing_file")
         if pricing is not None:
             _validate_pricing_table(pricing, manifest, issues)
 
@@ -323,8 +320,7 @@ def validate_experiment_manifest(
             )
             if parsed.score_pairs and parsed.paired_case_ids:
                 _expect(
-                    [pair.case_id for pair in parsed.score_pairs]
-                    == parsed.paired_case_ids,
+                    [pair.case_id for pair in parsed.score_pairs] == parsed.paired_case_ids,
                     issues,
                     f"comparison:{comparison.file}",
                     "score_pairs case IDs must match paired_case_ids in order.",
@@ -363,11 +359,31 @@ def _validate_response_records(
     item: str,
 ) -> None:
     found_case_ids = {record.case_id for record in records}
-    _expect(len(records) == expected_case_count, issues, item, f"Expected {expected_case_count} response records, found {len(records)}.")
-    _expect(all(record.system_id == system_id for record in records), issues, item, f"All records must use system_id={system_id}.")
-    _expect(all(record.model == model for record in records), issues, item, f"All records must use model={model}.")
+    _expect(
+        len(records) == expected_case_count,
+        issues,
+        item,
+        f"Expected {expected_case_count} response records, found {len(records)}.",
+    )
+    _expect(
+        all(record.system_id == system_id for record in records),
+        issues,
+        item,
+        f"All records must use system_id={system_id}.",
+    )
+    _expect(
+        all(record.model == model for record in records),
+        issues,
+        item,
+        f"All records must use model={model}.",
+    )
     if case_ids:
-        _expect(found_case_ids == case_ids, issues, item, f"Response case IDs do not match gold standard. Missing={sorted(case_ids - found_case_ids)} extra={sorted(found_case_ids - case_ids)}")
+        _expect(
+            found_case_ids == case_ids,
+            issues,
+            item,
+            f"Response case IDs do not match gold standard. Missing={sorted(case_ids - found_case_ids)} extra={sorted(found_case_ids - case_ids)}",
+        )
     _validate_record_prompt_hashes(records, prompt_hashes, issues, item)
     for record in records:
         if record.error:
@@ -469,8 +485,18 @@ def _validate_merged_responses(
     expected_models = {system.system_id: system.model for system in manifest.systems}
     expected_total = manifest.expected_case_count * len(expected_systems)
     keys = {(record.case_id, record.system_id) for record in records}
-    _expect(len(records) == expected_total, issues, "merged_responses_file", f"Expected {expected_total} merged records, found {len(records)}.")
-    _expect(len(keys) == len(records), issues, "merged_responses_file", "Duplicate case/system records found.")
+    _expect(
+        len(records) == expected_total,
+        issues,
+        "merged_responses_file",
+        f"Expected {expected_total} merged records, found {len(records)}.",
+    )
+    _expect(
+        len(keys) == len(records),
+        issues,
+        "merged_responses_file",
+        "Duplicate case/system records found.",
+    )
     if case_ids and expected_systems:
         missing = [
             f"{case_id}|{system_id}"
@@ -478,7 +504,9 @@ def _validate_merged_responses(
             for system_id in sorted(expected_systems)
             if (case_id, system_id) not in keys
         ]
-        _expect(not missing, issues, "merged_responses_file", f"Missing merged records: {missing[:10]}")
+        _expect(
+            not missing, issues, "merged_responses_file", f"Missing merged records: {missing[:10]}"
+        )
     for record in records:
         expected_model = expected_models.get(record.system_id)
         if expected_model:
@@ -503,7 +531,12 @@ def _validate_judged_records(
     expected_models = {system.system_id: system.model for system in manifest.systems}
     expected_total = manifest.expected_case_count * len(expected_systems)
     keys = {(record.response.case_id, record.response.system_id) for record in records}
-    _expect(len(records) == expected_total, issues, item, f"Expected {expected_total} judged records, found {len(records)}.")
+    _expect(
+        len(records) == expected_total,
+        issues,
+        item,
+        f"Expected {expected_total} judged records, found {len(records)}.",
+    )
     _expect(len(keys) == len(records), issues, item, "Duplicate judged case/system records found.")
     if case_ids and expected_systems:
         missing = [
@@ -529,9 +562,19 @@ def _validate_judged_records(
                 item,
             )
         if record.error:
-            _add_issue(issues, "error", item, f"{record.response.case_id}|{record.response.system_id} has judge error: {record.error}")
+            _add_issue(
+                issues,
+                "error",
+                item,
+                f"{record.response.case_id}|{record.response.system_id} has judge error: {record.error}",
+            )
         elif record.judge is None:
-            _add_issue(issues, "error", item, f"{record.response.case_id}|{record.response.system_id} is missing judge output.")
+            _add_issue(
+                issues,
+                "error",
+                item,
+                f"{record.response.case_id}|{record.response.system_id} is missing judge output.",
+            )
         else:
             _validate_judge_fingerprints(record.judge, record, issues, item)
             _validate_judged_category_targets(

@@ -70,9 +70,7 @@ def test_social_agent_run_returns_report(mocker: Any) -> None:
                 "country_code": "WLD",
                 "country_codes": ["WLD"],
                 "indicator_count": 1,
-                "source_urls": [
-                    "https://api.worldbank.org/v2/country/WLD/indicator/SP.POP.TOTL"
-                ],
+                "source_urls": ["https://api.worldbank.org/v2/country/WLD/indicator/SP.POP.TOTL"],
             },
         ),
     }
@@ -223,7 +221,10 @@ def test_social_gather_deterministic_skips_reddit_and_x(mocker: Any) -> None:
         "plan_evidence",
         return_value=SocialEvidencePlan(
             country_codes=["DEU", "USA"],
-            web_queries=["germany ev battery recycling consumer sentiment", "recycling social risk"],
+            web_queries=[
+                "germany ev battery recycling consumer sentiment",
+                "recycling social risk",
+            ],
         ),
     )
 
@@ -408,8 +409,7 @@ def test_world_bank_social_indicators_formats_latest_values(mocker: Any) -> None
     assert result.data[0]["country_name"] == "World"
     assert result.data[0]["value"] == 8000000000
     assert result.data[0]["api_url"] == (
-        "https://api.worldbank.org/v2/country/WLD/indicator/SP.POP.TOTL"
-        "?format=json&per_page=5"
+        "https://api.worldbank.org/v2/country/WLD/indicator/SP.POP.TOTL?format=json&per_page=5"
     )
     assert result.data[0]["url"] == (
         "https://data.worldbank.org/indicator/SP.POP.TOTL?locations=1W"

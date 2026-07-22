@@ -28,9 +28,7 @@ Question: {question}
 """
 
 
-async def rerank(
-    question: str, chunks: list[RetrievedChunk], top_k: int
-) -> list[RetrievedChunk]:
+async def rerank(question: str, chunks: list[RetrievedChunk], top_k: int) -> list[RetrievedChunk]:
     """Reorder chunks by LLM-judged relevance and return the top_k.
 
     Falls back to the input order (truncated to top_k) if the LLM output cannot

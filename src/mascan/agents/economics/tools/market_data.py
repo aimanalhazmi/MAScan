@@ -125,7 +125,7 @@ class WeeklyStockPricesTool(BaseTool):
             metadata["limit_applied"] = date_limit_applied or rows_limited
         return result.model_copy(update={"data": data, "metadata": metadata})
 
-    def get_stock_prices(self, ticker: str, start_date: str, end_date:str) -> str:
+    def get_stock_prices(self, ticker: str, start_date: str, end_date: str) -> str:
         """Fetches weekly stock prices and fundamentals from Yahoo Finance.
 
         Args:

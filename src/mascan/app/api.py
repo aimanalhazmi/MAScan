@@ -40,14 +40,16 @@ from mascan.rag.store import list_documents, on_rag_loop
 configure_logging()
 logger = get_logger("app.api")
 
+
 class AnalyzeRequest(BaseModel):
     """Payload accepted by POST /analyze."""
+
     query: str = Field(..., min_length=1, description="The user's question.")
+
 
 class HealthResponse(BaseModel):
     status: str = "ok"
     version: str = "0.1.0"
-
 
 
 def sse_event(payload: dict[str, Any]) -> str:
@@ -97,7 +99,13 @@ def sse_from_events(events: Iterator[dict[str, Any]], thread_id: str) -> Iterato
         }
     )
 
-app = FastAPI(title="MAScan API", description="HTTP interface to the MAScan multi-agent orchestrator.", version="0.1.0")
+
+app = FastAPI(
+    title="MAScan API",
+    description="HTTP interface to the MAScan multi-agent orchestrator.",
+    version="0.1.0",
+)
+
 
 @app.post("/analyze", response_model=FinalReport)
 async def analyze(request: AnalyzeRequest) -> FinalReport:
@@ -115,6 +123,7 @@ async def analyze(request: AnalyzeRequest) -> FinalReport:
         sorted(report.failures.keys()),
     )
     return report
+
 
 @app.post("/analyze/stream")
 def analyze_stream(request: AnalyzeRequest) -> StreamingResponse:
@@ -141,6 +150,7 @@ def analyze_stream(request: AnalyzeRequest) -> StreamingResponse:
 
 class ResumeRequest(BaseModel):
     """Payload for POST /analyze/resume: answer a pending clarification."""
+
     thread_id: str = Field(..., min_length=1, description="thread_id from the clarification event.")
     answer: str = Field(..., min_length=1, description="The user's clarification answer.")
 
@@ -160,11 +170,16 @@ def analyze_resume(request: ResumeRequest) -> StreamingResponse:
             yield sse_event({"event": "error", "message": f"{type(exc).__name__}: {exc}"})
 
     return StreamingResponse(event_generator(), media_type="text/event-stream", headers=SSE_HEADERS)
+
+
 class IngestRequest(BaseModel):
     """Payload for POST /rag/ingest: plain text → chunked, embedded, stored."""
+
     text: str = Field(..., min_length=1, description="Raw text to ingest.")
     source: str = Field("api", description="Where the text entered from.")
-    document: str = Field(..., min_length=1, description="Citation document id (e.g. filename/url).")
+    document: str = Field(
+        ..., min_length=1, description="Citation document id (e.g. filename/url)."
+    )
 
 
 @app.post("/rag/ingest")

@@ -130,11 +130,7 @@ def test_pre_human_preflight_accepts_required_inputs(monkeypatch):
 
     assert report.is_ready is True
     assert report.errors == 0
-    assert {
-        issue.message
-        for issue in report.issues
-        if issue.item == "pricing_file"
-    } == {
+    assert {issue.message for issue in report.issues if issue.item == "pricing_file"} == {
         "Pricing table is missing citation metadata field: source_url",
         "Pricing table is missing citation metadata field: captured_at",
     }
@@ -178,8 +174,7 @@ def test_pre_human_preflight_blocks_wrong_python(monkeypatch):
 
     assert report.is_ready is False
     assert any(
-        issue.severity == "error" and issue.item == "python_version"
-        for issue in report.issues
+        issue.severity == "error" and issue.item == "python_version" for issue in report.issues
     )
 
 

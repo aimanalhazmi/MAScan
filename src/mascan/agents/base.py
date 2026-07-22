@@ -67,8 +67,12 @@ class BaseAgent(ABC):
                 f"Config name {self.config.name!r} does not match agent class name {self.name!r}."
             )
 
-        self.always_call_tools: dict[str, BaseTool] = tool_registry.get_many(self.config.always_call_tools)
-        self.optional_tools: dict[str, BaseTool] = tool_registry.get_many(self.config.optional_tools)
+        self.always_call_tools: dict[str, BaseTool] = tool_registry.get_many(
+            self.config.always_call_tools
+        )
+        self.optional_tools: dict[str, BaseTool] = tool_registry.get_many(
+            self.config.optional_tools
+        )
         self.tools: dict[str, BaseTool] = {**self.always_call_tools, **self.optional_tools}
         self.logger = get_logger(f"agents.{self.name}")
 
@@ -360,7 +364,5 @@ class GraphBackedAgent(BaseAgent):
         """Extract the standard agent report from a completed graph state."""
         report = final_state.get("report") if isinstance(final_state, dict) else None
         if not isinstance(report, AgentReport):
-            raise RuntimeError(
-                f"{type(self).__name__} graph completed without an AgentReport."
-            )
+            raise RuntimeError(f"{type(self).__name__} graph completed without an AgentReport.")
         return report

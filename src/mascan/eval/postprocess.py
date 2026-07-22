@@ -29,7 +29,9 @@ def run_gold_postprocess(
 ) -> ReadinessReport:
     """Regenerate derived offline artifacts and return a readiness report."""
     base = Path(base_dir)
-    judged = _load_json_list(_required(manifest.judged_file, "judged_file"), JudgedModelResponse, base)
+    judged = _load_json_list(
+        _required(manifest.judged_file, "judged_file"), JudgedModelResponse, base
+    )
 
     analysis_records = judged
     if manifest.pricing_file and manifest.priced_judged_file:

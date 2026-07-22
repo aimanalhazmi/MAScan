@@ -30,6 +30,7 @@ class RuntimeContext(BaseModel):
 
 class GraphState(BaseModel):
     """State carried through the orchestrator graph."""
+
     user_input: str
     # Runtime metadata available throughout a single graph execution.
     runtime_context: RuntimeContext = Field(default_factory=RuntimeContext.from_system)
@@ -53,9 +54,7 @@ class GraphState(BaseModel):
         description="Successful agent reports keyed by agent name.",
     )
 
-    component_metrics: Annotated[
-        dict[str, ComponentMetrics], merge_component_metrics
-    ] = Field(
+    component_metrics: Annotated[dict[str, ComponentMetrics], merge_component_metrics] = Field(
         default_factory=dict,
         description="Accumulated execution metrics keyed by owning component.",
     )

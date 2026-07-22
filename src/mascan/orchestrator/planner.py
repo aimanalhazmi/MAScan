@@ -127,7 +127,6 @@ specific enough to act on.
 """
 
 
-
 def planner_node(state: GraphState) -> dict[str, Any]:
     """Measure one planner execution and return its state update."""
     return measure_component("planner", lambda: _planner_node(state))
@@ -226,10 +225,12 @@ def search_knowledge_base(
         return [], []
 
     tool = tool_registry.get("rag_search")
-    decision = llm.bind_tools([tool.as_langchain_tool()]).invoke([
-        SystemMessage(content=LOOKUP_SYSTEM_PROMPT),
-        HumanMessage(content=user_prompt),
-    ])
+    decision = llm.bind_tools([tool.as_langchain_tool()]).invoke(
+        [
+            SystemMessage(content=LOOKUP_SYSTEM_PROMPT),
+            HumanMessage(content=user_prompt),
+        ]
+    )
 
     calls = getattr(decision, "tool_calls", None) or []
     if not calls:
@@ -281,10 +282,15 @@ def clarify_intent(user_prompt: str, settings: Any) -> str | None:
         max_tokens=200,
     )
     structured_llm = llm.with_structured_output(IntentCheck)
-    result = cast(IntentCheck, structured_llm.invoke([
-        SystemMessage(content=CLARIFY_SYSTEM_PROMPT),
-        HumanMessage(content=user_prompt),
-    ]))
+    result = cast(
+        IntentCheck,
+        structured_llm.invoke(
+            [
+                SystemMessage(content=CLARIFY_SYSTEM_PROMPT),
+                HumanMessage(content=user_prompt),
+            ]
+        ),
+    )
     question = result.question.strip()
     return question if result.needs_clarification and question else None
 

@@ -17,9 +17,7 @@ class RecordingAgent:
             tasks=["Analyze AAPL"],
             findings="agent report",
             rendered_markdown="agent report",
-            component_metrics={
-                self.name: ComponentMetrics(run_count=1, duration_seconds=1.25)
-            },
+            component_metrics={self.name: ComponentMetrics(run_count=1, duration_seconds=1.25)},
         )
 
     def run(
@@ -110,9 +108,7 @@ def test_agent_node_passes_raw_upload_evidence_and_citable_file_source() -> None
     assert agent.context["user_input"] == state.user_input
     provided = agent.context["provided_sources"]
     assert len(provided) == 1
-    assert provided[0].url == (
-        "/rag/files/EVONIK%20Q1%202026%20Factsheet%20%26%20Update.pdf"
-    )
+    assert provided[0].url == ("/rag/files/EVONIK%20Q1%202026%20Factsheet%20%26%20Update.pdf")
     assert provided[0].metadata["citation"]["pages"] == [4]
     assert "Adjusted EBITDA" in provided[0].metadata["content"]
     assert "another upload" not in provided[0].metadata["content"]

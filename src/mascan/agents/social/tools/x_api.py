@@ -46,8 +46,7 @@ class XSearchTool(BaseTool):
             items = tweets_to_data(tweets)
             selected = items[: self.MAX_RESULTS]
             text_truncated = any(
-                isinstance(item.get("text"), str)
-                and len(item["text"]) > self.MAX_TEXT_CHARS
+                isinstance(item.get("text"), str) and len(item["text"]) > self.MAX_TEXT_CHARS
                 for item in selected
             )
             posts = self._format_posts(selected)

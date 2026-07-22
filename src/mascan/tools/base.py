@@ -69,7 +69,6 @@ class BaseTool(ABC):
             this tool's class attributes.
         """
 
-
         @functools.wraps(self.run)
         def invoke(**call_kwargs: Any) -> Any:
             self.logger.info("call args=%s", call_kwargs)

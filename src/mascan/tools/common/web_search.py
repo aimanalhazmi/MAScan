@@ -83,9 +83,7 @@ class WebSearchTool(BaseTool):
                 api_url=self.api_url,
             )
         if not self.api_key:
-            raise ValueError(
-                "FIRECRAWL_API_KEY is required when FIRECRAWL_API_URL is not set."
-            )
+            raise ValueError("FIRECRAWL_API_KEY is required when FIRECRAWL_API_URL is not set.")
         # Cloud mode: omit api_url entirely. Passing api_url=None crashes the SDK.
         return Firecrawl(api_key=self.api_key)
 
@@ -111,7 +109,9 @@ class WebSearchTool(BaseTool):
             )
         except AttributeError as exc:
             # None response when the HTTP request fails without a response obj
-            raise ConnectionError(f"Firecrawl search failed (likely network/server error): {exc}") from exc
+            raise ConnectionError(
+                f"Firecrawl search failed (likely network/server error): {exc}"
+            ) from exc
 
         formatted_results = []
         for doc in (getattr(response, "web", None) or [])[:bounded_results]:
@@ -144,11 +144,7 @@ class WebSearchTool(BaseTool):
         metadata = getattr(doc, "metadata", None)
         if not metadata:
             return None
-        value = (
-            metadata.get(key)
-            if isinstance(metadata, dict)
-            else getattr(metadata, key, None)
-        )
+        value = metadata.get(key) if isinstance(metadata, dict) else getattr(metadata, key, None)
         return str(value) if value else None
 
     @classmethod

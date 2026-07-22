@@ -24,8 +24,7 @@ def test_legal_agent_exposes_eur_lex_as_optional_tool() -> None:
 def test_legal_agent_run_returns_report(mocker: Any) -> None:
     agent = LegalAgent()
     fed_url = (
-        "https://www.federalregister.gov/documents/2026/01/02/"
-        "2026-00001/consumer-data-privacy-rule"
+        "https://www.federalregister.gov/documents/2026/01/02/2026-00001/consumer-data-privacy-rule"
     )
     deterministic_outputs = {
         "federal_register": ToolResult(

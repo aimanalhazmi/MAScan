@@ -30,9 +30,7 @@ class RagSearchTool(BaseTool):
     def run(self, query: str, k: int = 5, **_: Any) -> ToolResult[list[dict[str, Any]]]:
         try:
             bounded_k = max(1, min(k, self.MAX_RESULTS))
-            chunks = run_sync(
-                get_retriever().retrieve(RetrievalQuery(query=query, k=bounded_k))
-            )
+            chunks = run_sync(get_retriever().retrieve(RetrievalQuery(query=query, k=bounded_k)))
             floor = get_settings().rag_min_score
             matching = [c for c in chunks if c.score >= floor]
             relevant = matching[: self.MAX_RESULTS]
@@ -56,9 +54,7 @@ class RagSearchTool(BaseTool):
                     "count": len(relevant),
                     "retrieved": len(chunks),
                     "limit_applied": (
-                        k != bounded_k
-                        or len(matching) > self.MAX_RESULTS
-                        or text_truncated
+                        k != bounded_k or len(matching) > self.MAX_RESULTS or text_truncated
                     ),
                 },
             )

@@ -165,9 +165,7 @@ def fetch_cited_sources(
                 numbers.append(citation.number)
 
     web_citations = [
-        citation
-        for citation in document.citations
-        if uploaded_document_name(citation.url) is None
+        citation for citation in document.citations if uploaded_document_name(citation.url) is None
     ]
     results: dict[str, Any] = {}
     if web_citations:
@@ -241,10 +239,7 @@ def fetch_cited_sources(
                     citation_numbers=numbers,
                     requested_url=citation.url,
                     status="failed" if failure_kind == "operational" else "inaccessible",
-                    checked_at=str(
-                        metadata.get("checked_at")
-                        or datetime.now(UTC).isoformat()
-                    ),
+                    checked_at=str(metadata.get("checked_at") or datetime.now(UTC).isoformat()),
                     error=getattr(value, "error", None) or "Source fetch returned no result",
                 )
             )
@@ -303,8 +298,7 @@ def resolve_uploaded_source(
         )
 
     markdown = "\n\n".join(
-        f"[Page {page}]\n{content}" if page is not None else content
-        for page, content in passages
+        f"[Page {page}]\n{content}" if page is not None else content for page, content in passages
     )
     data = {
         "requested_url": citation.url,
@@ -338,9 +332,7 @@ def evaluate_citation_pairs(
     pairs = unique_attribution_pairs(document)
     if not pairs:
         return []
-    check_by_url = {
-        canonical_source_url(check.requested_url): check for check in source_checks
-    }
+    check_by_url = {canonical_source_url(check.requested_url): check for check in source_checks}
     results: dict[int, CitationCheck] = {}
     pending: list[tuple[int, Attribution, CitationRef, dict[str, Any]]] = []
 

@@ -60,8 +60,7 @@ def test_world_bank_environmental_indicators_formats_latest_values(mocker: Any) 
     assert record["date"] == "2022"
     assert record["value"] == 59.4
     assert record["api_url"] == (
-        "https://api.worldbank.org/v2/country/BRA/indicator/AG.LND.FRST.ZS"
-        "?format=json&per_page=60"
+        "https://api.worldbank.org/v2/country/BRA/indicator/AG.LND.FRST.ZS?format=json&per_page=60"
     )
     assert record["url"] == "https://data.worldbank.org/indicator/AG.LND.FRST.ZS"
 

@@ -19,10 +19,7 @@ class NewsDataSearchInput(BaseModel):
 class NewsDataSearchTool(BaseTool):
     name = "news_api"
 
-    description = (
-        "Search latest political and geopolitical news articles "
-        "using NewsData.io."
-    )
+    description = "Search latest political and geopolitical news articles using NewsData.io."
     input_schema: ClassVar[type[BaseModel] | None] = NewsDataSearchInput
     MAX_RESULTS: ClassVar[int] = 10
     MAX_DESCRIPTION_CHARS: ClassVar[int] = 1_000
@@ -50,9 +47,7 @@ class NewsDataSearchTool(BaseTool):
             bounded_size = max(1, min(size, self.MAX_RESULTS))
             settings = get_settings()
 
-            api = NewsDataApiClient(
-                apikey=settings.news_api_key or ""
-            )
+            api = NewsDataApiClient(apikey=settings.news_api_key or "")
 
             params = {
                 "q": query,

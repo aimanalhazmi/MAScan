@@ -171,8 +171,7 @@ def test_extract_llm_sources_surfaces_market_data() -> None:
 
     line = format_source_line(summary)
     assert line == (
-        "- [Yahoo Finance company summary: BMW.DE]"
-        "(https://finance.yahoo.com/quote/BMW.DE)"
+        "- [Yahoo Finance company summary: BMW.DE](https://finance.yahoo.com/quote/BMW.DE)"
     )
 
 

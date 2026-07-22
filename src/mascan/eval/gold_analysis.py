@@ -99,16 +99,12 @@ def case_trace_records(
                     usage.total_tokens,
                 ),
                 quality_per_usd=_quality_per_usd(combined, usage.cost_usd),
-                response_claim_count=(
-                    judge.response_claim_count if judge is not None else None
-                ),
+                response_claim_count=(judge.response_claim_count if judge is not None else None),
                 missing_gold_claim_count=(
                     len(judge.missing_gold_claims) if judge is not None else None
                 ),
                 unsupported_or_wrong_claim_count=(
-                    len(judge.unsupported_or_wrong_claims)
-                    if judge is not None
-                    else None
+                    len(judge.unsupported_or_wrong_claims) if judge is not None else None
                 ),
                 category_targets_evaluated=(
                     judge.category_targets_evaluated if judge is not None else None
@@ -141,9 +137,7 @@ def compare_systems(
     treatment_scores = [pair.treatment_score for pair in pairs]
     control_scores = [pair.control_score for pair in pairs]
     if not treatment_scores:
-        raise ValueError(
-            f"No paired scores found for {treatment_system} vs {control_system}"
-        )
+        raise ValueError(f"No paired scores found for {treatment_system} vs {control_system}")
     result = compare_paired_scores(
         treatment_scores,
         control_scores,

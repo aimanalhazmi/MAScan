@@ -66,10 +66,7 @@ def test_search_impl_truncates_each_result(mocker: Any) -> None:
 def test_run_clamps_oversized_result_count_without_failing(mocker: Any) -> None:
     tool = WebSearchTool(api_key="test")
     response = mocker.Mock()
-    response.web = [
-        _Doc(str(index), f"https://example.com/{index}", "body")
-        for index in range(6)
-    ]
+    response.web = [_Doc(str(index), f"https://example.com/{index}", "body") for index in range(6)]
     fake_client = mocker.Mock()
     fake_client.search.return_value = response
     tool.client = fake_client

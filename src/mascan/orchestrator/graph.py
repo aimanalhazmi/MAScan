@@ -166,7 +166,9 @@ def stream(query: str, thread_id: str | None = None) -> Iterator[dict[str, Any]]
     configure_logging()
     graph = build_graph()
     config = {"configurable": {"thread_id": thread_id or str(uuid4())}}
-    yield from _emit(graph.stream(GraphState(user_input=query), config=config, stream_mode="updates"))
+    yield from _emit(
+        graph.stream(GraphState(user_input=query), config=config, stream_mode="updates")
+    )
 
 
 def resume(thread_id: str, answer: str) -> Iterator[dict[str, Any]]:
@@ -213,6 +215,7 @@ def state_to_report(state_dict: dict[str, Any]) -> FinalReport:
         component_metrics=state_dict.get("component_metrics", {}),
         metadata={"validation": validation_payload},
     )
+
 
 def route_planner(state: GraphState) -> str:
     """Route from planner based on whether it needs more info or can proceed to agents."""

@@ -14,8 +14,13 @@ from mascan.tools.base import BaseTool
 class ScholarSearchInput(BaseModel):
     query: str = Field(..., description="Search query for academic papers and scholarly articles.")
     max_results: int = Field(5, description="Requested papers; values are clamped to 1–5.")
-    year_from: int | None = Field(None, description="Filter for the start of the publication year range.")
-    year_to: int | None = Field(None, description="Filter for the end of the publication year range.")
+    year_from: int | None = Field(
+        None, description="Filter for the start of the publication year range."
+    )
+    year_to: int | None = Field(
+        None, description="Filter for the end of the publication year range."
+    )
+
 
 class ScholarSearchTool(BaseTool):
     name = "scholar_search"
@@ -48,8 +53,13 @@ class ScholarSearchTool(BaseTool):
         self.api_url = api_url
         super().__init__()
 
-
-    def run(self, query: str, max_results: int = 5, year_from: int | None = None, year_to: int | None = None) -> ToolResult[list[dict[str, Any]]]:
+    def run(
+        self,
+        query: str,
+        max_results: int = 5,
+        year_from: int | None = None,
+        year_to: int | None = None,
+    ) -> ToolResult[list[dict[str, Any]]]:
         try:
             bounded_results = max(1, min(max_results, self.MAX_RESULTS))
             raw_results = self.search_literature(
@@ -89,7 +99,9 @@ class ScholarSearchTool(BaseTool):
                 error=str(exc),
             )
 
-    def search_literature(self, query: str, max_results: int, year_from: int | None = None, year_to: int | None = None) -> list[dict[str, Any]]:
+    def search_literature(
+        self, query: str, max_results: int, year_from: int | None = None, year_to: int | None = None
+    ) -> list[dict[str, Any]]:
         """
         Relevance-ranked search for academic papers and scholarly articles using the Semantic Scholar API.
 
@@ -120,13 +132,14 @@ class ScholarSearchTool(BaseTool):
         data: list[dict[str, Any]] = response.json().get("data", [])
         return data
 
-
     # Interaction with the Semantic Scholar API is rate-limited, so we need to ensure we don't exceed the allowed request rate.
 
     _lock = threading.Lock()
     _last_request = 0.0
 
-    REQUEST_INTERVAL = 1.2  # Minimum interval between requests (Semantic Scholar allows 1/sec cumulative)
+    REQUEST_INTERVAL = (
+        1.2  # Minimum interval between requests (Semantic Scholar allows 1/sec cumulative)
+    )
 
     def _wait_for_slot(self) -> None:
         """Waits for the next available request slot based on the rate limit."""
@@ -165,14 +178,16 @@ class ScholarSearchTool(BaseTool):
                 response.raise_for_status()
                 return response
             except requests.RequestException as e:
-                self.logger.warning(
-                    f"Request failed (attempt {attempt + 1}/{max_retries}): {e}"
-                )
+                self.logger.warning(f"Request failed (attempt {attempt + 1}/{max_retries}): {e}")
                 if attempt == max_retries - 1:
                     raise
                 # Retry-After on 429, else exponential backoff
-                retry_after = getattr(e.response, "headers", {}).get("Retry-After") if e.response is not None else None
-                time.sleep(float(retry_after) if retry_after else 2 ** attempt)
+                retry_after = (
+                    getattr(e.response, "headers", {}).get("Retry-After")
+                    if e.response is not None
+                    else None
+                )
+                time.sleep(float(retry_after) if retry_after else 2**attempt)
 
         # Unreachable for max_retries >= 1 (loop returns or re-raises); guards
         # against a caller passing max_retries <= 0 and satisfies the return type.

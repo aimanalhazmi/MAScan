@@ -63,9 +63,7 @@ class Settings(BaseSettings):
     firecrawl_api_key: str | None = Field(
         None, description="Firecrawl API key (not needed for a self-hosted instance)."
     )
-    firecrawl_api_url: str | None = Field(
-        None, description="Base URL of a self-hosted Firecrawl."
-    )
+    firecrawl_api_url: str | None = Field(None, description="Base URL of a self-hosted Firecrawl.")
 
     #  Political agent — NewsData.io API key (env: NEWS_API_KEY)
     news_api_key: str | None = Field(
@@ -82,11 +80,10 @@ class Settings(BaseSettings):
 
     # Technological agent — Semantic Scholar API key and URL (optional, but recommended)
     semantic_scholar_api_key: str | None = Field(
-        None, description="Semantic Scholar API key (optional, but recommended for better rate limits)."
+        None,
+        description="Semantic Scholar API key (optional, but recommended for better rate limits).",
     )
-    semantic_scholar_api_url: str | None = Field(
-        None, description="Semantic Scholar API URL."
-    )
+    semantic_scholar_api_url: str | None = Field(None, description="Semantic Scholar API URL.")
 
     #  App
     log_level: str = Field("INFO", description="Logging level.")
