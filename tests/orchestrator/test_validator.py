@@ -12,7 +12,6 @@ from mascan.contracts.validation import (
     ValidationReport,
     ValidationSummary,
 )
-from mascan.orchestrator.attribution import parse_attribution_document
 from mascan.orchestrator.graph import state_to_report
 from mascan.orchestrator.state import GraphState
 from mascan.orchestrator.validator import (
@@ -31,6 +30,7 @@ from mascan.orchestrator.validator import (
     validation_status,
     validator_node,
 )
+from mascan.utils.attribution import parse_attribution_document
 
 
 class FakeModel:

@@ -1,4 +1,4 @@
-from mascan.orchestrator.attribution import parse_attribution_document
+from mascan.utils.attribution import parse_attribution_document
 
 
 def test_parser_uses_summary_ast_without_backward_attribution() -> None:
