@@ -211,7 +211,7 @@ def test_x_clamps_posts_and_text_without_failing(mocker: Any) -> None:
     client.fetch_search.assert_called_once_with("market", count=10, product="Top")
 
 
-def _world_bank_response() -> Any:
+def world_bank_response() -> Any:
     payload = [
         {},
         [
@@ -229,7 +229,7 @@ def _world_bank_response() -> Any:
 def test_social_world_bank_clamps_country_indicator_matrix(mocker: Any) -> None:
     http_get = mocker.patch(
         "mascan.agents.social.tools.world_bank.http_get",
-        return_value=_world_bank_response(),
+        return_value=world_bank_response(),
     )
 
     result = WorldBankSocialIndicatorsTool().run(
@@ -246,17 +246,18 @@ def test_social_world_bank_clamps_country_indicator_matrix(mocker: Any) -> None:
 def test_environmental_world_bank_clamps_country_indicator_matrix(mocker: Any) -> None:
     http_get = mocker.patch(
         "mascan.agents.environmental.tools.world_bank.http_get",
-        return_value=_world_bank_response(),
+        return_value=world_bank_response(),
     )
 
     result = WorldBankEnvironmentalIndicatorsTool().run(
-        country_codes=["A", "B", "C", "D"],
-        indicators=[str(index) for index in range(8)],
+        country_codes=["ARG", "BRA", "CHN", "DEU"],
+        indicators=[str(index) for index in range(12)],
     )
 
     assert result.success
-    assert len(result.data) == 12
-    assert http_get.call_count == 12
+    # countries clamped 4 -> 3, indicators clamped 12 -> 8 => 24 records
+    assert len(result.data) == 24
+    assert http_get.call_count == 24
     assert result.metadata["limit_applied"] is True
 
 
