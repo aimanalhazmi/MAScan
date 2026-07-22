@@ -1,289 +1,143 @@
 # MAScan
-Market Prediction & Analysis in Multi-Agent Systems
 
----
 
-## Project Overview
+MAScan is a multi-agent system that analyzes markets and predicts trends. A set
+of specialised PESTEL agents (Political, Economic, Social, Technological,
+Environmental, Legal) gathers data from external sources, and an orchestrator
+plans the work, merges the results, and returns one cited report.
 
-**MAScan** is an automated Multi-Agent System (MAS) designed to scan global markets, predict emerging trends, and provide deep-dive analysis. By leveraging a network of specialized AI agents, MAScan transforms raw data from diverse external sources into actionable intelligence, allowing corporations to adjust their strategic decisions in real-time.
+## Prerequisites
 
----
-
-## Quick start
-
-### Prerequisites
-- Python 3.12
-- [`uv`](https://github.com/astral-sh/uv)
-- `make`
+- [Docker](https://www.docker.com/) installed and running
+- [`uv`](https://github.com/astral-sh/uv) and `make` (only for local development and tests)
+- Python 3.12 (only for local development)
 - An OpenAI API key
-- Docker installed and running.
 
-### Setup
+## Setup
 
 ```bash
 git clone <repo-url>
 cd mascan
 
-make install
+# 1. Install dependencies first — this provides the CLI tools (e.g. `rdt`),
+#    tests, and local development.
+make install            # or: uv sync --extra dev
 
+# 2. Create your env file and fill in your keys (see "Environment variables").
 cp .env.example .env
-# Edit .env and set OPENAI_API_KEY
 
-# Run the reference agent
-make run-economics Q="EU manufacturing outlook"
-
-# Run the tests
-make test
+# 3. (Optional) Log in to Reddit once, so the Reddit tool can authenticate.
+#    This needs step 1 to be done first.
+rdt login
 ```
-
----
-
-## Repository layout
-
-```tree
-src/mascan/
-├── core/         Settings, logging, LLM client, exceptions
-├── contracts/    Shared Pydantic shapes (AgentReport, ToolResult, ...)
-├── agents/       PESTEL agents. One folder per agent.
-├── tools/        Tools (external APIs, web search). Common + per-agent.
-├── orchestrator/ placeholder.
-└── app/           placeholder.
-scripts/          Standalone CLIs for development.
-tests/            Unit tests.
-```
-
----
-
-## Key concepts
-
-### Three tool-calling modes
-
-Every agent decides how it uses its tools. All three modes share the same
-`BaseTool` classes — pick the right one for your agent.
-
-| Mode | What it does | When to use |
-|---|---|---|
-| **A — Code-driven** | You call `self.tools["x"].run(...)` in code. | Known, fixed workflow. Predictable |
-| **B — LLM-driven** | The LLM picks which tools to call via `create_react_agent`. | LLM should choose among many tools dynamically. |
-| **C — Mixed** | Always-call tools + LLM-optional tools. | One or two core tools + situational ones. |
-
-Reference implementation: `src/mascan/agents/economics/agent.py` (Mode C).
-
----
-
-## How to add a new agent
-
-Every agent has the same shape. Copy the Economics agent and adapt.
-
-1. **Create the folder structure:**
-
-```bash
-   mkdir -p src/mascan/agents/<your_agent>/tools
-   touch src/mascan/agents/<your_agent>/{__init__.py,agent.py,config.yaml}
-   touch src/mascan/agents/<your_agent>/tools/__init__.py
-```
-
-2. **Write `config.yaml`:**
-
-```yaml
-   name: <your_agent>
-   model: gpt-4o-mini
-   temperature: 0.2
-   max_tokens: 2000
-   system_prompt: |
-     You are the <Your Domain> analyst in a PESTEL multi-agent system.
-     Analyze ...
-   tools:
-     - web_search          # shared tool
-     # add agent-specific tool names here once you create them
-```
-
-3. **Write `agent.py`:** Copy `src/mascan/agents/economics/agent.py`. Change:
-   - Class name → `YourAgentAgent`
-   - `name = "your_agent"` (must match `config.yaml`)
-   - `ALWAYS_CALL_TOOLS` and `OPTIONAL_TOOLS` constants for your tools
-   - The markdown heading in `render_markdown`
-
-4. **(Optional) Add agent-specific tools** under `agents/<your_agent>/tools/`.
-   Copy the stub tool from Economics and adapt. See *How to add a new tool* below.
-
-5. **Register your agent in `__init__.py`:**
-
-```python
-   from mascan.agents.registry import agent_registry
-   from mascan.agents.<your_agent>.agent import YourAgentAgent
-   from mascan.tools.registry import tool_registry
-   agent_registry.register(YourAgentAgent())
-```
-
-6. **Register in `scripts/run_agent.py`:** Add one import line:
-```python
-   import mascan.agents.<your_agent>
-```
-
-7. **(Optional) Add a Makefile shortcut.** Open the `Makefile` and add:
-```makefile
-   run-<your_agent>:
-   	uv run python scripts/run_agent.py <your_agent> "$(Q)"
-```
-   Now you can do `make run-<your_agent> Q="..."`.
-
-8. **Write a test** under `tests/agents/test_<your_agent>_agent.py`.
-   Copy the Economics test as a template.
-
-9. **Try it:**
-
-```bash
-   make run-<your_agent> Q="Your test query"
-   make test
-```
-
----
-
-## How to add a new tool
-
-Tools live in one of two places:
-
-- **Shared** (`src/mascan/tools/common/`) — usable by any agent. Use this
-  ONLY when at least two agents already use the tool.
-- **Agent-specific** (`src/mascan/agents/<name>/tools/`) — owned by one agent.
-
-### Recipe (agent-specific case)
-
-1. Create a file: `src/mascan/agents/<name>/tools/<my_tool>.py`.
-2. Inherit `BaseTool`, set `name` (unique snake_case) and `description`.
-3. (Optional) Define Pydantic `input_schema` and `output_schema` for typed I/O.
-4. Implement `run(**kwargs) -> ToolResult`. Use
-   `mascan.tools.http_client.http_get` for HTTP calls. Read API keys from
-   `mascan.core.settings.get_settings()`.
-5. **Never raise on expected errors** — return `ToolResult(success=False, ...)`.
-6. Add the tool's name to the agent's `config.yaml` under `tools:`.
-
-Template: `src/mascan/agents/economics/tools/stub_macro_api.py`.
-
-### Tools and modes
-
-- In **Mode A**, the agent calls the tool directly: `self.tools["x"].run(...)`.
-- In **Modes B/C**, the same tool is exposed to the LLM via
-  `tool.as_langchain_tool()` automatically.
-
----
 
 ## Environment variables
 
-See `.env.example`. Required:
+All variables live in `.env` (copied from `.env.example`). The most important:
 
-| Variable | Purpose |
-|---|---|
-| `OPENAI_API_KEY` | OpenAI API key |
-| `OPENAI_MODEL_DEFAULT` | Default model (`gpt-4o-mini`) |
-| `LOG_LEVEL` | Logging verbosity (`INFO`, `DEBUG`, ...) |
-| `RAG_MAX_RETRIES` | Self-correction (CRAG) rewrite-retries on the full retrieval path (default `1`) |
-| `RAG_VISION_MODEL` | Vision model for reading/captioning PDF figures (default `gpt-4o`) |
-| `VISION_BASE_URL` | OpenAI-compatible endpoint for the vision model. Unset → OpenAI |
-| `VISION_API_KEY` | Key for `VISION_BASE_URL`. Unset → reuse `OPENAI_API_KEY` |
+| Variable | Needed for | Notes |
+|---|---|---|
+| `OPENAI_API_KEY` | Everything | Required. |
+| `FIRECRAWL_API_KEY` | Web search | Required for the `web_search` tool. Get a free key at [firecrawl.dev](https://www.firecrawl.dev/). Docker Compose runs a self-hosted Firecrawl, so a key is optional there. |
+| `NEWS_API_KEY` | News tool | Optional. Free key at [newsdata.io](https://newsdata.io). |
+| `TWITTER_AUTH_TOKEN`, `TWITTER_CT0` | X / Twitter tool | Optional. Log in to x.com in a browser, open DevTools → Application → Cookies → `https://x.com`, and copy the `auth_token` and `ct0` cookie values. |
+| Reddit | Reddit tool | Optional. Run `rdt login` once on your machine. It caches a session that the tool reuses; Docker Compose mounts that session read-only. |
+| `DATABASE_URL` | RAG | Set by Docker Compose. Leave unset to disable RAG. See [`src/mascan/rag/README.md`](src/mascan/rag/README.md). |
+| `LANGSMITH_API_KEY` | Tracing | Optional. Use an EU account and match `LANGSMITH_PROJECT`. |
 
-Agent-specific API keys (e.g., `FRED_API_KEY`) go in `.env` and should be
-read via `mascan.core.settings`. **Document any new env var in `.env.example`.**
+The full list, with comments, is in `.env.example`.
 
----
+## How to run
 
-## Retrieval (RAG)
+Docker is the supported way to run MAScan.
 
-MAScan can ingest documents (text and PDFs) and answer questions grounded in
-them with source citations. It is optional — without `DATABASE_URL` it stays
-disabled. See [`src/mascan/rag/README.md`](src/mascan/rag/README.md) for the
-architecture, configuration, and usage.
+> Note: running outside Docker (for example `make run-api` locally) may fail,
+> because the `web_search` tool uses a Firecrawl instance that is hosted locally
+> inside the Docker stack. If you instead use cloud Firecrawl, set
+> `FIRECRAWL_API_KEY` (and leave `FIRECRAWL_API_URL` empty) in `.env` and it
+> will work without the container.
 
-PDF figures are captioned at ingest and read at answer time by a vision model
-(defaults to OpenAI `gpt-4o`). To use a self-hosted OpenAI-compatible
-model instead, set `VISION_BASE_URL`, `VISION_API_KEY`, and `RAG_VISION_MODEL`
-(e.g. Qwen2.5-VL via [Ollama](https://ollama.com)).
+There are two ways to use MAScan. Both need the stack running.
 
----
-
-## Running with FastAPI and Open WebUI
-
-MAScan exposes its orchestrator over HTTP. Open WebUI provides a chat
-interface and calls the MAScan API through a small Pipe Function.
-
-### Docker Compose
-
-**1. Start the stack:**
+### 1. Start the stack
 
 ```bash
 make compose-up
 ```
-First run takes ~2 minutes (builds the API image, pulls Open WebUI).
-Subsequent runs are instant.
 
-- MAScan API: `http://localhost:8000`
-- Open WebUI: `http://localhost:3000`
+The first run takes a few minutes (it builds the API image and starts Postgres
+and Firecrawl). It then serves:
 
-**2. Create your admin account** at `http://localhost:3000` (first user
-becomes admin).
+- Web UI: `http://localhost:8000`
+- API docs: `http://localhost:8000/docs`
 
-**3. Install the Pipe Function** (one-time):
-- Admin Panel → Functions → **+** (Add Function).
-- Copy the entire contents of `src/mascan/app/openwebui_pipe.py`.
-- Paste, name it `mascan_pestel_analyst`, Save, enable the toggle.
-- The Pipe's default `mascan_api_url` is `http://mascan-api:8000` —
-  this is correct for compose; no Valve changes needed.
+If you changed the frontend, rebuild it first so the new UI is served:
 
-**4. Ask a question** — open a new chat, select "MAScan",
-type your query.
+```bash
+make build-ui
+make compose-up
+```
 
+Stop the stack with `make compose-down`. Follow logs with `make compose-logs`.
+
+### 2a. Use the web UI
+
+Open `http://localhost:8000`, type a market question, and read the report.
+
+### 2b. Use the command line
+
+With the stack running:
+
+```bash
+make run-orchestrator Q="Impact of EU carbon rules on German car makers"
+make run-economics    Q="EU manufacturing outlook in 2027"
+```
+
+`run-orchestrator` runs the full multi-agent analysis. `run-<agent>` runs a
+single agent (`economics`, `political`, `legal`, `social`, `environmental`,
+`technological`).
+
+## Documentation
+
+| Topic | Where |
+|---|---|
+| Contributing, adding agents and tools | [`CONTRIBUTING.md`](CONTRIBUTING.md) |
+| Evaluation (gold standard, scenarios) | [`src/mascan/eval/README.md`](src/mascan/eval/README.md) |
+| Retrieval (RAG) | [`src/mascan/rag/README.md`](src/mascan/rag/README.md) |
+| API and Open WebUI | [`src/mascan/app/README.md`](src/mascan/app/README.md) |
+| Web UI (frontend) | [`frontend/README.md`](frontend/README.md) |
+| Orchestrator | [`src/mascan/orchestrator/README.md`](src/mascan/orchestrator/README.md) |
+
+## Repository layout
+
+```text
+src/mascan/
+├── core/          Settings, logging, LLM client
+├── contracts/     Shared Pydantic shapes (AgentReport, ToolResult, ...)
+├── agents/        PESTEL agents, one folder per agent
+├── tools/         Tools (external APIs, web search)
+├── rag/           Retrieval-Augmented Generation
+├── orchestrator/  Planner, agent fan-out, synthesizer
+├── eval/          Evaluation code and its README
+├── app/           FastAPI service and web UI
+└── utils/         Shared helpers
+frontend/          React web UI (built into the API)
+scripts/           Standalone CLIs
+eval_papers/       Evaluation cases (PDFs, manifests)
+tests/             Unit tests
+```
 
 ## Make commands
 
-All day-to-day tasks go through `make`. Run `make help` to see what's available.
+Run `make help` for the full list. The common ones:
 
-| Command | What it does                                               |
-|---|------------------------------------------------------------|
-| `make install` | Create the virtualenv and install dependencies via uv      |
-| `make test` | Run pytest                                                 |
-| `make lint` | Ruff + mypy checks                                         |
-| `make format` | Format and autofix the code                                |
-| `make clean` | Remove caches and build artifacts                          |
-| `make run-economics Q="..."` | Run the Economics agent on a query                         |
-| `make run-<agent> Q="..."` | Same pattern for any agent (see *add a new agent* above)   |
-| `make run-api` | Start the MAScan FastAPI server on `http://localhost:8000` |
-| `make compose-up` | Start the full stack app (mascan-api + openwebui)          |
-| `make compose-down` | Stop and remove the full stack app                         |
-| `make compose-logs` | Follow logs from all services                              |
-| `make compose-rebuild` | Force a rebuild of the mascan-api image                    |
-
-### If `make` is unavailable
-
-Equivalent raw commands (rarely needed):
-
-```bash
-uv sync --extra dev                                          # install
-uv run pytest -v                                             # test
-uv run ruff check src tests && uv run mypy src               # lint
-uv run python scripts/run_agent.py economics "your query"    # run an agent
-uv run uvicorn mascan.app.api:app --host 0.0.0.0 --port 8000 # run the API
-```
-
----
-
-## How to contribute
-
-1. **One agent = one branch.** Branch off `main` as `feat/agent-<name>`.
-2. **Follow the recipe.** Don't invent new folder layouts. If you think the
-   recipe needs to change, raise it as a separate issue first.
-3. **Tests required.** Every agent ships with a unit test. Run `make test`
-   before pushing.
-4. **No orchestrator code yet.** Build
-   your agent to be runnable standalone via `make run-<agent>`.
-5. **Document env vars.** If your tool needs an API key, add a placeholder
-   line to `.env.example` with a comment.
-6. **Use the contracts.** Never invent a new return type. Use `AgentReport`,
-   `ToolResult`, `Source`,  from `mascan.contracts`.
-
----
-
-## Tracing with LangSmith
-
-First you will have to register with LangSmith. Make Sure to register an **EU** Account (otherwise you will have to change it in the .env file!).
-After that you need to create a project within LangSmith and name it as specified in your .env file (lower and uppercase matters!).
+| Command | What it does |
+|---|---|
+| `make compose-up` | Start the full stack (API + UI + Postgres + Firecrawl) |
+| `make compose-down` | Stop the stack (data is preserved) |
+| `make build-ui` | Build the web UI into the API |
+| `make run-orchestrator Q="..."` | Run the full multi-agent analysis |
+| `make run-<agent> Q="..."` | Run a single agent |
+| `make install` | Install dependencies (local development) |
+| `make test` | Run the tests |
+| `make lint` / `make format` | Static checks / auto-format |

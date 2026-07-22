@@ -8,6 +8,21 @@ citations.
 RAG is optional. Without `DATABASE_URL` set, retrieval returns nothing
 (`NullRetriever`) and the rest of MAScan runs unchanged.
 
+## Enable and use
+
+1. Set `DATABASE_URL` in `.env`. Docker Compose already provides a Postgres
+   (pgvector) instance and sets this for the API container, so RAG is on by
+   default when you run `make compose-up`.
+2. Add documents (text or PDF) through the API:
+   - `POST /rag/upload` — upload a file, or `POST /rag/ingest` — ingest text.
+   - `GET /rag/documents` — list what is indexed.
+3. Ask grounded questions with `POST /rag/answer`, or let the planner and agents
+   search the index automatically (see "How the planner uses it" below).
+
+PDF figures are read and captioned by a vision model (defaults to OpenAI
+`gpt-4o`). To cut cost, point `VISION_BASE_URL`, `VISION_API_KEY`, and
+`RAG_VISION_MODEL` at a self-hosted OpenAI-compatible model.
+
 ## Modules
 
 | File | Responsibility |
@@ -86,3 +101,29 @@ Set via environment / `mascan.core.settings`:
 | `RAG_MAX_RETRIES` | Max CRAG rewrite-retries on the full path. |
 | `RAG_MIN_SCORE` | Minimum similarity for a passage to reach the planner. |
 | `CHUNK_SIZE` / `CHUNK_OVERLAP` | Chunking parameters. |
+
+## References
+
+The design draws on the following work:
+
+- **HyDE** — Gao et al., *Precise Zero-Shot Dense Retrieval without Relevance
+  Labels*, 2022. [arXiv:2212.10496](https://arxiv.org/abs/2212.10496).
+  Basis for the hypothetical-document query expansion in `query_gen.py`.
+- **Multi-HyDE / agentic RAG** — Srinivasan et al., *Enhancing Financial RAG
+  with Agentic AI and Multi-HyDE*, 2025.
+  [arXiv:2509.16369](https://arxiv.org/abs/2509.16369). Basis for the multiple
+  parallel HyDE queries in `query_gen.py`.
+- **Question decomposition** — Ammann et al., *Question Decomposition for
+  Retrieval-Augmented Generation*, 2025.
+  [arXiv:2507.00355](https://arxiv.org/abs/2507.00355). Basis for splitting a
+  question into sub-queries in `query_gen.py`.
+- **Corrective RAG (CRAG)** — Yan et al., *Corrective Retrieval Augmented
+  Generation*, 2024. [arXiv:2401.15884](https://arxiv.org/abs/2401.15884).
+  Basis for the grade-and-retry self-correction in `correction.py`.
+- **Multimodal RAG with visual citation** — Zhao et al., *FinRAGBench-V*, 2025.
+  [arXiv:2505.17471](https://arxiv.org/abs/2505.17471). Motivates reading and
+  citing PDF figures in `parsing.py` and `answer.py`.
+- **Chart understanding** — Yi et al., *Multimodal Information Fusion for Chart
+  Understanding: A Survey of MLLMs*, 2026.
+  [arXiv:2602.10138](https://arxiv.org/abs/2602.10138). Background for figure
+  and chart interpretation.

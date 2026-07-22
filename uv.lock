@@ -728,7 +728,9 @@ dependencies = [
     { name = "python-dotenv" },
     { name = "python-multipart" },
     { name = "pyyaml" },
+    { name = "rdt-cli" },
     { name = "tenacity" },
+    { name = "twitter-cli" },
     { name = "uvicorn" },
     { name = "yfinance" },
 ]
@@ -740,12 +742,6 @@ dev = [
     { name = "pytest-asyncio" },
     { name = "pytest-mock" },
     { name = "ruff" },
-]
-
-[package.dev-dependencies]
-dev = [
-    { name = "rdt-cli" },
-    { name = "twitter-cli" },
 ]
 
 [package.metadata]
@@ -774,18 +770,14 @@ requires-dist = [
     { name = "python-dotenv", specifier = ">=1.0.1" },
     { name = "python-multipart", specifier = ">=0.0.32" },
     { name = "pyyaml", specifier = ">=6.0.2" },
+    { name = "rdt-cli", specifier = ">=0.4.1" },
     { name = "ruff", marker = "extra == 'dev'", specifier = ">=0.6.0" },
     { name = "tenacity", specifier = ">=9.0.0" },
+    { name = "twitter-cli", specifier = ">=0.8.5" },
     { name = "uvicorn", specifier = ">=0.48.0" },
     { name = "yfinance", specifier = ">=1.3.0" },
 ]
 provides-extras = ["dev"]
-
-[package.metadata.requires-dev]
-dev = [
-    { name = "rdt-cli", specifier = ">=0.4.1" },
-    { name = "twitter-cli", specifier = ">=0.8.5" },
-]
 
 [[package]]
 name = "mdurl"
