@@ -2,18 +2,18 @@
 
 import threading
 import time
-import requests
-
 from typing import Any, ClassVar
 
+import requests
 from pydantic import BaseModel, Field
 
 from mascan.contracts.tools import ToolResult
 from mascan.tools.base import BaseTool
 
+
 class ScholarSearchInput(BaseModel):
     query: str = Field(..., description="Search query for academic papers and scholarly articles.")
-    max_results: int = Field(5, description="Maximum number of results to return.")
+    max_results: int = Field(5, description="Requested papers; values are clamped to 1–5.")
     year_from: int | None = Field(None, description="Filter for the start of the publication year range.")
     year_to: int | None = Field(None, description="Filter for the end of the publication year range.")
 
@@ -26,6 +26,8 @@ class ScholarSearchTool(BaseTool):
 
     input_schema: ClassVar[type[BaseModel] | None] = ScholarSearchInput
     DEFAULT_API_URL: ClassVar[str] = "https://api.semanticscholar.org/graph/v1"
+    MAX_RESULTS: ClassVar[int] = 5
+    MAX_ABSTRACT_CHARS: ClassVar[int] = 2_000
 
     DEFAULT_FIELDS = [
         "title",
@@ -49,12 +51,35 @@ class ScholarSearchTool(BaseTool):
 
     def run(self, query: str, max_results: int = 5, year_from: int | None = None, year_to: int | None = None) -> ToolResult[list[dict[str, Any]]]:
         try:
-            results = self.search_literature(query=query, max_results=max_results, year_from=year_from, year_to=year_to)
+            bounded_results = max(1, min(max_results, self.MAX_RESULTS))
+            raw_results = self.search_literature(
+                query=query,
+                max_results=bounded_results,
+                year_from=year_from,
+                year_to=year_to,
+            )
+            results: list[dict[str, Any]] = []
+            text_truncated = False
+            for item in raw_results[: self.MAX_RESULTS]:
+                paper = dict(item)
+                abstract = paper.get("abstract")
+                if isinstance(abstract, str) and len(abstract) > self.MAX_ABSTRACT_CHARS:
+                    text_truncated = True
+                paper["abstract"] = self.truncate_text(abstract, self.MAX_ABSTRACT_CHARS)
+                results.append(paper)
             return ToolResult(
                 success=True,
                 data=results,
                 source="scholar_search:semantic_scholar",
-                metadata={"query": query, "count": len(results)},
+                metadata={
+                    "query": query,
+                    "count": len(results),
+                    "limit_applied": (
+                        max_results != bounded_results
+                        or len(raw_results) > self.MAX_RESULTS
+                        or text_truncated
+                    ),
+                },
             )
         except Exception as exc:
             self.logger.exception("scholar_search failed for query=%r", query)

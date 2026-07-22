@@ -16,6 +16,11 @@ class Settings(BaseSettings):
     openai_api_key: str = Field(..., description="OpenAI API key.")
     openai_model_default: str = Field("gpt-4o-mini", description="Default model name.")
 
+    #  Gold-standard evaluation judge. Stronger than the system-under-test.
+    eval_judge_model: str = Field(
+        "gpt-4o", description="Model used by the gold-standard LLM judge."
+    )
+
     #  RAG (PGVector store + OpenAI embeddings)
     database_url: str | None = Field(
         None,
@@ -39,6 +44,9 @@ class Settings(BaseSettings):
     rag_image_dir: str = Field(
         "rag_images", description="Directory where figures extracted from uploaded PDFs are saved."
     )
+    rag_upload_dir: str = Field(
+        "rag_uploads", description="Directory where original uploaded documents are retained."
+    )
     rag_max_retries: int = Field(
         1, description="Max self-correction (CRAG) rewrite-retries on the full retrieval path."
     )
@@ -50,7 +58,6 @@ class Settings(BaseSettings):
     )
     chunk_size: int = 1000
     chunk_overlap: int = 150
-
 
     #  Tools
     firecrawl_api_key: str | None = Field(

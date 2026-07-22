@@ -2,6 +2,31 @@
 
 from typing import Any
 
+from mascan.contracts.reports import Source
+
+CITATION_REQUIREMENTS = """\
+Citation requirements:
+- Before writing the final analysis, if the tasks require external verifiable facts
+  and the supplied context contains no evidence for them, call at least
+  one suitable evidence tool (web_search or a domain-specific official-source tool).
+- Make no more than two targeted evidence calls for this purpose, then write the
+  report; do not keep searching recursively.
+- Cite every important factual claim, number, date, regulation, policy,
+  market trend, research result, or evidence-based risk judgment directly
+  in the analysis text.
+- Use a Markdown link immediately after the supported statement:
+  [Source name](exact provided URL).
+- Use only exact URLs returned by tools during this agent run or exact uploaded-file
+  links shown in the supplied context.
+- An uploaded document supports only facts stated in its supplied excerpts.
+- If the user explicitly requires an uploaded document and its evidence is relevant
+  to your assigned tasks, use and cite that evidence in the report.
+- Do not invent, reconstruct, shorten, or guess a URL.
+- Reuse the same URL when multiple statements rely on the same source.
+- Do not assign citation numbers and do not create a Sources section;
+  the application will number, deduplicate, and render Sources.
+"""
+
 
 def render_tool_outputs(outputs: dict[str, Any]) -> str:
     parts: list[str] = []
@@ -28,8 +53,69 @@ def render_runtime_context(context: dict[str, Any] | None) -> str:
 def render_agent_context(context: dict[str, Any] | None) -> str:
     values = context or {}
     parts: list[str] = []
+    user_input = values.get("user_input")
+    if isinstance(user_input, str) and user_input.strip():
+        parts.append(f"Original user request:\n{user_input.strip()}\n")
+
     objective_context = values.get("objective_context")
     if isinstance(objective_context, str) and objective_context.strip():
         parts.append(f"Domain objective:\n{objective_context.strip()}\n")
 
-    return "\n\n".join(parts) + ("\n\n" if parts else "")
+    provided_sources = values.get("provided_sources")
+    if isinstance(provided_sources, list):
+        rendered_sources: list[str] = []
+        for value in provided_sources:
+            try:
+                source = value if isinstance(value, Source) else Source.model_validate(value)
+            except (TypeError, ValueError):
+                continue
+            if not source.url:
+                continue
+            content = str(source.metadata.get("content") or "").strip()
+            if not content:
+                continue
+            rendered_sources.append(
+                f"### [{source.name}]({source.url})\n{content}"
+            )
+        if rendered_sources:
+            parts.append(
+                "Uploaded document evidence supplied by the planner. Use only excerpts "
+                "relevant to your tasks and cite the exact file link shown:\n"
+                + "\n\n".join(rendered_sources)
+                + "\n"
+            )
+
+    parts.append(render_salient_factors(values.get("salient_factors")))
+
+    rendered = [part for part in parts if part.strip()]
+    return "\n\n".join(rendered) + ("\n\n" if rendered else "")
+
+
+def render_salient_factors(salient_factors: Any) -> str:
+    """Render planning-time candidate factors as a floor for the agent's own scan.
+
+    Deliberately not a mandate: an exhaustive "cover exactly these" instruction
+    makes a weak factor list actively harmful, because the agent stops scanning
+    for the factors that actually matter on unfamiliar subjects.
+    """
+    if not isinstance(salient_factors, list):
+        return ""
+    factors = [str(factor).strip() for factor in salient_factors if str(factor).strip()]
+    if not factors:
+        return ""
+    factor_lines = "\n".join(f"- {factor}" for factor in factors)
+    return (
+        "Candidate factors identified during planning — treat these as a floor, not "
+        "a ceiling. Investigate each one that proves material for this subject, and "
+        "cover any other factor in your dimension that matters more for this subject "
+        "even if it is not listed. Prefer naming the specific instrument, regulation, "
+        "technology, or cost driver over a generic theme. Drop a listed factor that "
+        "turns out not to apply rather than padding the report with it:\n"
+        f"{factor_lines}\n"
+    )
+
+
+def render_citation_requirements(*agent_rules: str) -> str:
+    """Return the shared citation contract plus domain-specific bullet rules."""
+    rules = "\n".join(f"- {rule}" for rule in agent_rules if rule)
+    return CITATION_REQUIREMENTS + (rules + "\n" if rules else "")

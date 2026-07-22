@@ -1,0 +1,2630 @@
+{
+  "schema_version": "1.0",
+  "created_at": "2026-07-12",
+  "purpose": "Step 2 gold-standard evaluation dataset for PESTEL market-analysis outputs. Each case contains a generation prompt, reference expected output, claim-level targets for analytical-depth judging, categorization targets for accuracy scoring, and validation notes from a second pass over the source paper.",
+  "generation_instruction_template": "Conduct a PESTEL analysis for {case_subject}. Use the case timeframe and market context stated here. Return exactly these headings: Political, Economic, Social, Technological, Environmental, Legal, Strategic implications. Under each PESTEL heading, provide concise bullets that connect the external factor to direct business impact. Under Strategic implications, provide concrete risks, opportunities, or actions. Do not mention this dataset or the source paper.",
+  "rubric_support": {
+    "analytical_depth_scale": {
+      "1_surface": "Names or lists an external factor but does not connect it to the organization, market, operating model, or strategy.",
+      "2_analytical": "Names the factor and explains a direct operational, financial, demand, compliance, or reputational impact.",
+      "3_strategic": "Names the factor, traces the operational impact, and connects it to a strategic risk, opportunity, or recommended shift."
+    },
+    "categorization_accuracy": "Use category_targets as the discrete ground truth for bucket placement. Award credit when the model maps the factor to the correct PESTEL category and does not primarily place it under a misleading bucket."
+  },
+  "cases": [
+    {
+      "case_id": "2007_1_SHELL",
+      "source_pdf": "eval_papers/2007_1_SHELL.pdf",
+      "case_title": "Environmental sustainability as competitive advantage for oil companies",
+      "case_subject": "Shell and comparable oil companies adopting environmental sustainability strategy in the 2007 European oil-industry context",
+      "prompt": "Conduct a PESTEL analysis for Shell and comparable oil companies adopting environmental sustainability strategy in the 2007 European oil-industry context. Use the case timeframe and market context stated here. Return exactly these headings: Political, Economic, Social, Technological, Environmental, Legal, Strategic implications. Under each PESTEL heading, provide concise bullets that connect the external factor to direct business impact. Under Strategic implications, provide concrete risks, opportunities, or actions. Do not mention this dataset or the source paper.",
+      "expected_output": {
+        "political": [
+          "European government sustainability agendas and public policy pressure make environmental responsibility a strategic requirement for oil companies.",
+          "Activist and NGO pressure, including reputational pressure after major incidents, increases the cost of weak environmental governance."
+        ],
+        "economic": [
+          "Environmental improvements can reduce energy, waste, and production costs while avoiding fines and penalties.",
+          "Safety and sustainability investments raise near-term cost but support long-term profitability and competitive advantage."
+        ],
+        "social": [
+          "Customers, communities, suppliers, NGOs, and other stakeholders expect oil companies to reduce environmental harm and act transparently.",
+          "Sustainability performance improves stakeholder satisfaction and protects trust in an industry with high public scrutiny."
+        ],
+        "technological": [
+          "Cleaner production processes and product innovation can reduce waste, emissions, and resource intensity.",
+          "Energy-efficiency technologies convert environmental compliance into a cost and differentiation advantage."
+        ],
+        "environmental": [
+          "Oil and gas operations create emissions, waste, polluted water, and climate impacts that directly threaten the industry's license to operate.",
+          "Reducing disposal, pollution, and resource use links environmental impact to operating efficiency."
+        ],
+        "legal": [
+          "Stricter EU environmental and product-safety rules increase compliance obligations and penalty exposure.",
+          "Legal requirements make proactive sustainability less risky than waiting for enforcement actions."
+        ],
+        "strategic_implications": [
+          "Treat sustainable development as a core strategy rather than a public-relations add-on.",
+          "Use process and product innovation to turn regulation and stakeholder pressure into competitive advantage.",
+          "Engage regulators and stakeholders early to reduce reputation and compliance risk."
+        ]
+      },
+      "gold_claims": [
+        {
+          "category": "Political",
+          "claim": "Government and NGO pressure force oil companies to internalize sustainability expectations, so proactive environmental strategy protects legitimacy."
+        },
+        {
+          "category": "Economic",
+          "claim": "Energy-efficiency and pollution-reduction investments can reduce operating costs and fines, making sustainability economically valuable over the long term."
+        },
+        {
+          "category": "Social",
+          "claim": "Stakeholder concern about oil-industry environmental harm makes trust and satisfaction part of competitive positioning."
+        },
+        {
+          "category": "Technological",
+          "claim": "Cleaner processes and products allow oil companies to meet regulation while differentiating against slower rivals."
+        },
+        {
+          "category": "Environmental",
+          "claim": "Emissions, waste, and contaminated water are not generic ecological issues; they directly constrain oil-company operations and reputation."
+        },
+        {
+          "category": "Legal",
+          "claim": "EU penalties and product-safety requirements convert environmental underperformance into legal and financial risk."
+        }
+      ],
+      "category_targets": [
+        {
+          "factor": "EU sustainability policy and government pressure",
+          "correct_category": "Political",
+          "rationale": "The paper treats public policy direction as a political driver of oil-company sustainability strategy."
+        },
+        {
+          "factor": "High fines for non-adaptation",
+          "correct_category": "Legal",
+          "rationale": "Fines arise from regulatory enforcement and should not be scored only as economic cost."
+        },
+        {
+          "factor": "Energy-efficiency cost savings",
+          "correct_category": "Economic",
+          "rationale": "The direct business effect is reduced operating and production cost."
+        },
+        {
+          "factor": "Stakeholder and community pressure",
+          "correct_category": "Social",
+          "rationale": "The pressure comes from society and affected stakeholders."
+        },
+        {
+          "factor": "Cleaner process innovation",
+          "correct_category": "Technological",
+          "rationale": "The mechanism is product and process technology."
+        },
+        {
+          "factor": "Operational emissions, waste, and polluted water",
+          "correct_category": "Environmental",
+          "rationale": "These are ecological impacts produced by oil operations."
+        }
+      ],
+      "avoid_claims": [
+        "Sustainability is only a cost burden for oil companies.",
+        "Oil companies can ignore external environmental pressure without competitive consequences.",
+        "The case is only about environmental factors and not about economic, social, and legal consequences."
+      ],
+      "validation_notes": {
+        "source_anchors": [
+          "Executive summary and conclusion describe sustainability as a source of competitive advantage and stakeholder satisfaction.",
+          "PESTEL and EU policy sections connect environmental rules, fines, stakeholder pressure, energy efficiency, and innovation."
+        ],
+        "reread_justification": "The expected output keeps the paper's main causal chain: regulation and stakeholder pressure drive sustainability adoption, which can reduce costs and create long-term competitive advantage."
+      }
+    },
+    {
+      "case_id": "2008_1_BrPetroleum",
+      "source_pdf": "eval_papers/2008_1_BrPetroleum.pdf",
+      "case_title": "Market power in Greek downstream oil wholesale and retail",
+      "case_subject": "the Greek downstream oil wholesale and retail market in the post-deregulation 2008 petroleum-industry context",
+      "prompt": "Conduct a PESTEL analysis for the Greek downstream oil wholesale and retail market in the post-deregulation 2008 petroleum-industry context. Use the case timeframe and market context stated here. Return exactly these headings: Political, Economic, Social, Technological, Environmental, Legal, Strategic implications. Under each PESTEL heading, provide concise bullets that connect the external factor to direct business impact. Under Strategic implications, provide concrete risks, opportunities, or actions. Do not mention this dataset or the source paper.",
+      "expected_output": {
+        "political": [
+          "Formal deregulation did not remove state influence because government retained price-ceiling powers and ministries regulated transport capacity.",
+          "Policy choices around imports, reserves, tanker licensing, and retail rules shaped competition more than market forces alone."
+        ],
+        "economic": [
+          "Wholesale concentration and refinery dependence limited price competition and contributed to high retail fuel prices.",
+          "Required storage, reserve obligations, transport costs, and limited imports raised entry costs and constrained smaller operators."
+        ],
+        "social": [
+          "Consumers faced reduced welfare through high prices, limited price transparency, and restricted trading hours.",
+          "Retail convenience and competitive choice were affected by rules on opening hours and Sunday operation."
+        ],
+        "technological": [
+          "Storage infrastructure, tanker fleets, and distribution logistics were strategic assets required for scale and market access.",
+          "Restrictions on tanker ownership and regulated trucking capacity weakened the ability of independent stations to compete."
+        ],
+        "environmental": [
+          "Licensing and reserve rules included environmental requirements for storage, transport, and handling of petroleum products.",
+          "Environmental compliance mattered, but the paper treats it as secondary to legal and structural competition barriers."
+        ],
+        "legal": [
+          "Greek competition, licensing, vertical-contract, and tanker-ownership rules created barriers despite nominal deregulation.",
+          "Branded retail contracts, compensation clauses, and limits on hypermarket or independent participation restricted retail competition."
+        ],
+        "strategic_implications": [
+          "Remove or relax truck-ownership and transport restrictions to improve wholesale and retail contestability.",
+          "Increase price transparency and review vertical contracts that lock retail stations into weak bargaining positions.",
+          "Use competition-authority review to reduce structural distortions and merger risks in the fuel chain."
+        ]
+      },
+      "gold_claims": [
+        {
+          "category": "Legal",
+          "claim": "Deregulation was incomplete because licensing, tanker ownership, vertical contracts, and trading-hour rules still constrained competition."
+        },
+        {
+          "category": "Economic",
+          "claim": "Wholesale concentration and infrastructure requirements reduced price competition and helped keep retail prices high."
+        },
+        {
+          "category": "Technological",
+          "claim": "Control over storage and tanker logistics functioned as a market-access barrier, not just an operational detail."
+        },
+        {
+          "category": "Political",
+          "claim": "Government retained intervention tools such as price ceilings and ministry-controlled trucking rules, so policy design remained central."
+        },
+        {
+          "category": "Social",
+          "claim": "Consumers bore the impact of weak competition through higher prices and reduced retail convenience."
+        }
+      ],
+      "category_targets": [
+        {
+          "factor": "Law 3054/2002 licensing and reserve obligations",
+          "correct_category": "Legal",
+          "rationale": "The factor is a statutory market rule."
+        },
+        {
+          "factor": "Top-four wholesaler concentration",
+          "correct_category": "Economic",
+          "rationale": "It affects market power and pricing."
+        },
+        {
+          "factor": "Government price-ceiling powers",
+          "correct_category": "Political",
+          "rationale": "The issue is continuing state intervention in the market after formal deregulation."
+        },
+        {
+          "factor": "Required storage infrastructure",
+          "correct_category": "Technological",
+          "rationale": "The paper treats infrastructure and logistics capacity as operational assets required to compete."
+        },
+        {
+          "factor": "High consumer fuel prices",
+          "correct_category": "Social",
+          "rationale": "The social impact is consumer welfare and access."
+        },
+        {
+          "factor": "Environmental handling rules for petroleum products",
+          "correct_category": "Environmental",
+          "rationale": "The issue concerns environmental protection in storage and transport."
+        }
+      ],
+      "avoid_claims": [
+        "Greek oil deregulation fully solved competition problems.",
+        "The main issue is petroleum technology rather than legal and structural barriers.",
+        "Retailers can freely switch suppliers without contract or logistics constraints."
+      ],
+      "validation_notes": {
+        "source_anchors": [
+          "Regulation section lists deregulation, antitrust law, licensing, reserves, and price-ceiling authority.",
+          "Wholesale and retail findings identify concentration, truck restrictions, vertical contracts, opening-hour rules, and competition distortions."
+        ],
+        "reread_justification": "The reference answer emphasizes legal-structural barriers because the paper's conclusion argues that legal distortions persisted after deregulation and impeded effective competition."
+      }
+    },
+    {
+      "case_id": "2015_1_Honda",
+      "source_pdf": "eval_papers/2015_1_Honda.pdf",
+      "case_title": "Honda Cars Batangas high-end car strategy",
+      "case_subject": "Honda Cars Batangas selling high-end Honda cars in the Philippine Batangas market around 2015",
+      "prompt": "Conduct a PESTEL analysis for Honda Cars Batangas selling high-end Honda cars in the Philippine Batangas market around 2015. Use the case timeframe and market context stated here. Return exactly these headings: Political, Economic, Social, Technological, Environmental, Legal, Strategic implications. Under each PESTEL heading, provide concise bullets that connect the external factor to direct business impact. Under Strategic implications, provide concrete risks, opportunities, or actions. Do not mention this dataset or the source paper.",
+      "expected_output": {
+        "political": [
+          "ASEAN integration and reduced trade barriers can make imported vehicles and parts easier to move across the region.",
+          "Regional industrial growth in Calabarzon creates opportunities for dealership expansion and corporate customers."
+        ],
+        "economic": [
+          "A growing Philippine economy increases the number of consumers able to afford premium cars.",
+          "High acquisition cost remains a barrier, so financing and trade-in programs are needed to convert aspirational buyers."
+        ],
+        "social": [
+          "Cars are treated as a status symbol, making high-end models attractive to buyers seeking prestige.",
+          "Income, age, gender, and civil status shape the target market, with high-income customers the primary segment."
+        ],
+        "technological": [
+          "Honda's brand is associated with innovation and engine development, supporting the appeal of high-end models.",
+          "Dealership strategy should communicate product features and reliability to justify premium pricing."
+        ],
+        "environmental": [
+          "Tropical heat and local climate conditions affect vehicle performance and engine requirements.",
+          "Honda must adapt products and service support to the Philippine operating environment."
+        ],
+        "legal": [
+          "The Philippine Lemon Law increases consumer protection for new-car buyers and raises expectations for quality and after-sales service.",
+          "Compliance with vehicle and consumer-protection rules protects dealership reputation."
+        ],
+        "strategic_implications": [
+          "Implement trade-in and auto-loan programs to lower the effective entry cost for high-end buyers.",
+          "Target high-income customers while using status, reliability, and innovation as selling points.",
+          "Expand distribution and service capacity where regional economic activity supports demand."
+        ]
+      },
+      "gold_claims": [
+        {
+          "category": "Economic",
+          "claim": "Economic growth creates more potential premium-car buyers, but affordability still requires financing mechanisms such as loans and trade-ins."
+        },
+        {
+          "category": "Social",
+          "claim": "Because cars function as status symbols, Honda can position high-end models around prestige as well as functional value."
+        },
+        {
+          "category": "Legal",
+          "claim": "The Lemon Law raises quality and service expectations, so dealership performance affects legal and reputational risk."
+        },
+        {
+          "category": "Environmental",
+          "claim": "Philippine climate conditions influence engine performance and should affect product and service adaptation."
+        },
+        {
+          "category": "Political",
+          "claim": "ASEAN trade integration can improve vehicle flow and regional opportunity for dealerships."
+        }
+      ],
+      "category_targets": [
+        {
+          "factor": "Philippine Lemon Law",
+          "correct_category": "Legal",
+          "rationale": "It is a consumer-protection statute."
+        },
+        {
+          "factor": "Cars as status symbols",
+          "correct_category": "Social",
+          "rationale": "It reflects consumer culture and identity."
+        },
+        {
+          "factor": "Growing Filipino purchasing power",
+          "correct_category": "Economic",
+          "rationale": "It affects affordability and demand."
+        },
+        {
+          "factor": "Honda product innovation",
+          "correct_category": "Technological",
+          "rationale": "The paper links Honda's appeal to innovation and engineering."
+        },
+        {
+          "factor": "Tropical climate engine stress",
+          "correct_category": "Environmental",
+          "rationale": "It comes from local climate conditions."
+        },
+        {
+          "factor": "ASEAN regional integration",
+          "correct_category": "Political",
+          "rationale": "It is a regional policy and trade environment factor."
+        }
+      ],
+      "avoid_claims": [
+        "The correct strategy is only global EV investment.",
+        "The Lemon Law is unrelated to dealership strategy.",
+        "High-end cars can be sold without addressing affordability."
+      ],
+      "validation_notes": {
+        "source_anchors": [
+          "PESTLE section identifies the Lemon Law, economic growth, status-symbol demand, Honda innovation, and tropical-climate effects.",
+          "SWOT and conclusion support the proposed trade-in and auto-loan strategy for high-end cars."
+        ],
+        "reread_justification": "The expected output follows the paper's dealership-level recommendation: make high-end Honda models more reachable through trade-in and financing while preserving premium positioning."
+      }
+    },
+    {
+      "case_id": "2017_1_Emirates",
+      "source_pdf": "eval_papers/2017_1_Emirates.pdf",
+      "case_title": "Key success factors for Emirates airline",
+      "case_subject": "Emirates airline in the 2017 global airline and UAE aviation context",
+      "prompt": "Conduct a PESTEL analysis for Emirates airline in the 2017 global airline and UAE aviation context. Use the case timeframe and market context stated here. Return exactly these headings: Political, Economic, Social, Technological, Environmental, Legal, Strategic implications. Under each PESTEL heading, provide concise bullets that connect the external factor to direct business impact. Under Strategic implications, provide concrete risks, opportunities, or actions. Do not mention this dataset or the source paper.",
+      "expected_output": {
+        "political": [
+          "Middle East conflict, terrorism, and security instability can disrupt routes, reduce traffic, and raise security costs.",
+          "Emirates benefits from operating out of a politically supported UAE aviation hub with major airport investment."
+        ],
+        "economic": [
+          "UAE infrastructure spending and tourism diversification support route growth and hub competitiveness.",
+          "Currency movements, global downturns, and high oil prices threaten airline profitability."
+        ],
+        "social": [
+          "Population growth, globalization, and the need for fast travel increase demand for air transport.",
+          "Passengers expect convenient, comfortable, reliable, and secure service, making service quality a core differentiator."
+        ],
+        "technological": [
+          "Automation, ERP, scheduling systems, and security technology reduce cost and increase reliability.",
+          "Aircraft and operational innovation improve efficiency, safety, and sustainability."
+        ],
+        "environmental": [
+          "Noise, emissions, and public expectations for conservation make environmental responsibility part of airline legitimacy.",
+          "CSR, low-emission aircraft, and sustainability programs reduce penalty and reputation risk."
+        ],
+        "legal": [
+          "Aviation, environmental, contract, tort, labor, and occupational-safety laws create broad compliance obligations.",
+          "Noncompliance can cause fines, reputation damage, and license risk."
+        ],
+        "strategic_implications": [
+          "Use risk management and route planning to limit exposure to unstable destinations.",
+          "Sustain differentiation through service quality, technology, and marketing rather than price alone.",
+          "Treat CSR and legal compliance as part of brand strength and operating continuity."
+        ]
+      },
+      "gold_claims": [
+        {
+          "category": "Political",
+          "claim": "Regional conflict and terrorism affect Emirates through cancellations, rescheduling, traffic uncertainty, and security cost."
+        },
+        {
+          "category": "Economic",
+          "claim": "UAE airport investment and tourism diversification create growth opportunities, while oil prices and downturns pressure margins."
+        },
+        {
+          "category": "Social",
+          "claim": "Demand grows because globalization and population growth increase the value of fast and reliable transport."
+        },
+        {
+          "category": "Technological",
+          "claim": "Operational systems and automation improve efficiency and help Emirates sustain high service quality."
+        },
+        {
+          "category": "Legal",
+          "claim": "Compliance failures can produce fines, license risk, and brand damage, so legal discipline is strategic."
+        }
+      ],
+      "category_targets": [
+        {
+          "factor": "Terrorism and route disruption",
+          "correct_category": "Political",
+          "rationale": "The paper frames terrorism and conflict as political risks to air traffic."
+        },
+        {
+          "factor": "Airport infrastructure investment",
+          "correct_category": "Economic",
+          "rationale": "It supports transport capacity, tourism, and growth."
+        },
+        {
+          "factor": "Need for speed and comfort",
+          "correct_category": "Social",
+          "rationale": "It reflects passenger expectations and social demand."
+        },
+        {
+          "factor": "ERP and scheduling automation",
+          "correct_category": "Technological",
+          "rationale": "It is an operational technology capability."
+        },
+        {
+          "factor": "Aircraft emissions and noise",
+          "correct_category": "Environmental",
+          "rationale": "It concerns environmental impact."
+        },
+        {
+          "factor": "License revocation for noncompliance",
+          "correct_category": "Legal",
+          "rationale": "It is a legal enforcement consequence."
+        }
+      ],
+      "avoid_claims": [
+        "Emirates is insulated from Middle East political risk.",
+        "Technology matters only for customer entertainment and not operations.",
+        "Environmental and legal compliance are peripheral to airline strategy."
+      ],
+      "validation_notes": {
+        "source_anchors": [
+          "PESTEL section details political conflict, UAE infrastructure, social demand, ERP/automation, environmental CSR, and legal duties.",
+          "SWOT and conclusion reinforce technology, service quality, marketing, CSR, and compliance as success factors."
+        ],
+        "reread_justification": "The expected output preserves the paper's distinction between Emirates' growth enablers in the UAE hub and its external threats from conflict, oil prices, regulation, and competition."
+      }
+    },
+    {
+      "case_id": "2017_2_Nestle",
+      "source_pdf": "eval_papers/2017_2_Nestle.pdf",
+      "case_title": "Nestle FMCG and baby milk marketing strategy",
+      "case_subject": "Nestle in the FMCG market with emphasis on baby milk and relationship marketing around 2017",
+      "prompt": "Conduct a PESTEL analysis for Nestle in the FMCG market with emphasis on baby milk and relationship marketing around 2017. Use the case timeframe and market context stated here. Return exactly these headings: Political, Economic, Social, Technological, Environmental, Legal, Strategic implications. Under each PESTEL heading, provide concise bullets that connect the external factor to direct business impact. Under Strategic implications, provide concrete risks, opportunities, or actions. Do not mention this dataset or the source paper.",
+      "expected_output": {
+        "political": [
+          "Government and public-health agendas increase scrutiny of nutrition, health communication, and responsible FMCG marketing.",
+          "International expansion exposes Nestle to different market rules and consumer-policy environments."
+        ],
+        "economic": [
+          "Nestle's scale and supply-chain efficiency support a hybrid strategy of competitive pricing plus differentiation.",
+          "Emerging-market growth creates expansion opportunities, while intense FMCG rivalry pressures margins."
+        ],
+        "social": [
+          "Health consciousness makes trust, nutrition, and balanced-diet messaging critical, especially for baby products.",
+          "New mothers require emotional connection and relationship marketing, not only price promotion."
+        ],
+        "technological": [
+          "Social media gives Nestle a channel to interact with consumers, build relationships, and support campaigns.",
+          "Digital communication can increase engagement and sales when integrated with offline promotion."
+        ],
+        "environmental": [
+          "CSR and sustainability strengthen brand trust because consumers expect large FMCG firms to act responsibly.",
+          "Supply-chain and product decisions should support the company's broader health and wellness positioning."
+        ],
+        "legal": [
+          "Food, nutrition, advertising, and product-safety rules make accurate claims and responsible promotion important.",
+          "Baby-product marketing needs particular care because trust and compliance are central to category legitimacy."
+        ],
+        "strategic_implications": [
+          "Use market penetration through relationship marketing and social media to build trust with new mothers.",
+          "Balance low-cost scale with differentiation through health, wellness, and brand relationship.",
+          "Avoid positioning that conflicts with rising health consciousness."
+        ]
+      },
+      "gold_claims": [
+        {
+          "category": "Social",
+          "claim": "Health-conscious consumers and new mothers make trust and emotional relationship building essential for Nestle's baby milk strategy."
+        },
+        {
+          "category": "Technological",
+          "claim": "Social media supports relationship marketing by increasing interaction and campaign reach."
+        },
+        {
+          "category": "Economic",
+          "claim": "Scale enables cost efficiency, but FMCG competition requires differentiation rather than pure low price."
+        },
+        {
+          "category": "Environmental",
+          "claim": "CSR and sustainability reinforce consumer trust and fit the health-and-wellness brand position."
+        },
+        {
+          "category": "Legal",
+          "claim": "Baby-product claims and advertising need careful compliance because trust failures would damage the category."
+        }
+      ],
+      "category_targets": [
+        {
+          "factor": "Health-conscious consumer behavior",
+          "correct_category": "Social",
+          "rationale": "It describes consumer values and lifestyle expectations."
+        },
+        {
+          "factor": "Social media interaction",
+          "correct_category": "Technological",
+          "rationale": "It is the digital channel used for relationship marketing."
+        },
+        {
+          "factor": "Emerging-market growth",
+          "correct_category": "Economic",
+          "rationale": "It changes market size and revenue opportunity."
+        },
+        {
+          "factor": "CSR and sustainability expectations",
+          "correct_category": "Environmental",
+          "rationale": "The paper links responsibility and sustainability to consumer trust."
+        },
+        {
+          "factor": "Food and advertising rules",
+          "correct_category": "Legal",
+          "rationale": "These are compliance constraints."
+        },
+        {
+          "factor": "Government balanced-diet communication",
+          "correct_category": "Political",
+          "rationale": "The government role is public-health policy and communication."
+        }
+      ],
+      "avoid_claims": [
+        "Nestle should rely only on cost leadership.",
+        "Health consciousness is irrelevant to baby milk strategy.",
+        "Social media should be treated only as a promotional add-on without relationship impact."
+      ],
+      "validation_notes": {
+        "source_anchors": [
+          "SWOT section links brand trust, CSR, sustainability, health consciousness, and competition.",
+          "Marketing objectives and Ansoff sections recommend social media, relationship marketing, and market penetration for baby milk."
+        ],
+        "reread_justification": "The expected output is centered on the paper's most specific recommendation: using relationship marketing and social media to build trust in baby milk while balancing cost efficiency with differentiation."
+      }
+    },
+    {
+      "case_id": "2019_1_Samsung",
+      "source_pdf": "eval_papers/2019_1_Samsung.pdf",
+      "case_title": "Samsung Electronics smartphone and tablet market valuation context",
+      "case_subject": "Samsung Electronics in the global smartphone and tablet markets around 2019",
+      "prompt": "Conduct a PESTEL analysis for Samsung Electronics in the global smartphone and tablet markets around 2019. Use the case timeframe and market context stated here. Return exactly these headings: Political, Economic, Social, Technological, Environmental, Legal, Strategic implications. Under each PESTEL heading, provide concise bullets that connect the external factor to direct business impact. Under Strategic implications, provide concrete risks, opportunities, or actions. Do not mention this dataset or the source paper.",
+      "expected_output": {
+        "political": [
+          "Trade tensions, especially involving China and the United States, create demand and supply-chain uncertainty for a global device seller.",
+          "Samsung's heavy overseas sales exposure makes it sensitive to country-level policy and market instability."
+        ],
+        "economic": [
+          "Smartphone and tablet demand depends on income, economic growth, and currency movements across Korea, the United States, China, and other markets.",
+          "Market saturation, longer replacement cycles, and low-cost Chinese competitors pressure revenue growth in the mobile division."
+        ],
+        "social": [
+          "The global shift from feature phones to smartphones expanded demand, but mature markets now show slower replacement behavior.",
+          "Consumer reliance on internet and mobile services keeps demand large but raises expectations for connected experiences."
+        ],
+        "technological": [
+          "Continuous R&D, 5G, foldable devices, mobile payments, and accessories are required to restart growth in saturated categories.",
+          "Vertical integration and product renewal support cost and innovation advantages."
+        ],
+        "environmental": [
+          "Eco-conscious consumers and corporate sustainability targets require renewable energy, waste recycling, and lower water and greenhouse-gas impact.",
+          "Environmental product design contributes to brand and compliance positioning."
+        ],
+        "legal": [
+          "Product standards such as CE marking and Korean standards create market-entry requirements.",
+          "Patent disputes with Apple, Huawei, and others create material legal-cost and strategic risk."
+        ],
+        "strategic_implications": [
+          "Use R&D and differentiated form factors such as 5G and foldables to counter saturation.",
+          "Manage currency, trade-war, and regional demand exposure in valuation and strategy.",
+          "Protect patents and environmental credentials as part of global competitiveness."
+        ]
+      },
+      "gold_claims": [
+        {
+          "category": "Economic",
+          "claim": "Market saturation and longer replacement cycles reduce smartphone and tablet growth, so Samsung needs new form factors and services."
+        },
+        {
+          "category": "Technological",
+          "claim": "R&D in 5G, foldables, accessories, and payments is strategically necessary to restore device growth."
+        },
+        {
+          "category": "Legal",
+          "claim": "Patent disputes are not incidental because damages and restrictions can affect competitive position and valuation."
+        },
+        {
+          "category": "Environmental",
+          "claim": "Renewable energy and recycling targets support Samsung's brand among eco-conscious consumers and regulators."
+        },
+        {
+          "category": "Political",
+          "claim": "Trade tensions and regional policy shifts are material because most sales occur outside Korea."
+        }
+      ],
+      "category_targets": [
+        {
+          "factor": "Apple and Huawei patent lawsuits",
+          "correct_category": "Legal",
+          "rationale": "They are legal disputes over intellectual property."
+        },
+        {
+          "factor": "Longer smartphone replacement cycles",
+          "correct_category": "Social",
+          "rationale": "The behavior reflects consumer adoption and usage patterns."
+        },
+        {
+          "factor": "5G and foldable devices",
+          "correct_category": "Technological",
+          "rationale": "These are product and network innovations."
+        },
+        {
+          "factor": "Korean won appreciation",
+          "correct_category": "Economic",
+          "rationale": "Currency movement affects financial results."
+        },
+        {
+          "factor": "Trade war exposure",
+          "correct_category": "Political",
+          "rationale": "It stems from international policy conflict."
+        },
+        {
+          "factor": "Waste recycling and renewable-energy goals",
+          "correct_category": "Environmental",
+          "rationale": "They address ecological impact and sustainability."
+        }
+      ],
+      "avoid_claims": [
+        "The global smartphone market was still unsaturated in 2019.",
+        "Samsung's main issue is only semiconductors, not mobile devices.",
+        "Patent disputes are too small to matter."
+      ],
+      "validation_notes": {
+        "source_anchors": [
+          "PESTEL section focuses explicitly on smartphones and tablets as major IM-division revenue drivers.",
+          "Conclusion links saturation, Chinese competition, revenue pressure, 5G, foldables, brand, and vertical integration to valuation."
+        ],
+        "reread_justification": "The expected output keeps the paper's valuation logic: saturated mobile markets pressure revenue, while R&D, vertical integration, patents, and environmental management affect future competitiveness."
+      }
+    },
+    {
+      "case_id": "2019_2_Tesla",
+      "source_pdf": "eval_papers/2019_2_Tesla.pdf",
+      "case_title": "Tesla financial strategy and EV market environment",
+      "case_subject": "Tesla in the electric-vehicle, battery, and renewable-energy market around 2019",
+      "prompt": "Conduct a PESTEL analysis for Tesla in the electric-vehicle, battery, and renewable-energy market around 2019. Use the case timeframe and market context stated here. Return exactly these headings: Political, Economic, Social, Technological, Environmental, Legal, Strategic implications. Under each PESTEL heading, provide concise bullets that connect the external factor to direct business impact. Under Strategic implications, provide concrete risks, opportunities, or actions. Do not mention this dataset or the source paper.",
+      "expected_output": {
+        "political": [
+          "Government incentives for EVs and renewable energy support demand and investment.",
+          "Trade agreements and political stability affect international expansion, sourcing, and market access."
+        ],
+        "economic": [
+          "Battery-cost decline, renewable-energy cost decline, and solar-market growth improve Tesla's cost structure and addressable market.",
+          "Economic instability in Europe and Asia can weaken demand for expensive EVs and energy products."
+        ],
+        "social": [
+          "Consumer preference for green products, low-carbon lifestyles, and renewable energy expands Tesla's customer base.",
+          "Rising wealth in developing markets creates future demand, but high product prices limit mass adoption."
+        ],
+        "technological": [
+          "Battery efficiency, charging speed, materials engineering, automation, and connected software are central competitive factors.",
+          "Rapid technology change is both an opportunity for differentiation and a threat if competitors catch up."
+        ],
+        "environmental": [
+          "Climate concern and environmental programs support EVs, batteries, and solar as substitutes for fossil-fuel systems.",
+          "Waste standards and sustainability expectations require responsible battery and manufacturing practices."
+        ],
+        "legal": [
+          "Patent protection and energy-consumption regulation affect Tesla's ability to protect innovation and sell products.",
+          "International expansion increases compliance exposure across vehicle, energy, and consumer rules."
+        ],
+        "strategic_implications": [
+          "Invest heavily in R&D to improve battery cost, storage, charging, and automation before competitors close the gap.",
+          "Expand foreign markets while diversifying the supply chain to reduce political and economic exposure.",
+          "Use the integrated EV, storage, and solar portfolio to capture demand for low-carbon lifestyles."
+        ]
+      },
+      "gold_claims": [
+        {
+          "category": "Economic",
+          "claim": "Battery-cost decline directly improves Tesla's growth prospects because production capacity, margins, and stock sensitivity depend on battery economics."
+        },
+        {
+          "category": "Technological",
+          "claim": "Charging speed, materials engineering, automation, and software integration are strategic because they determine EV usability and cost."
+        },
+        {
+          "category": "Political",
+          "claim": "Government EV incentives support demand, making policy stability important to Tesla's expansion."
+        },
+        {
+          "category": "Social",
+          "claim": "A low-carbon lifestyle trend expands Tesla's potential buyer base despite premium prices."
+        },
+        {
+          "category": "Environmental",
+          "claim": "Climate concerns make EV, battery, and solar products strategically attractive as sustainable substitutes."
+        }
+      ],
+      "category_targets": [
+        {
+          "factor": "EV government incentives",
+          "correct_category": "Political",
+          "rationale": "They are policy supports for demand."
+        },
+        {
+          "factor": "Battery-cost decline",
+          "correct_category": "Economic",
+          "rationale": "It affects margins, affordability, and valuation."
+        },
+        {
+          "factor": "Low-carbon lifestyle preference",
+          "correct_category": "Social",
+          "rationale": "It reflects consumer values."
+        },
+        {
+          "factor": "Rapid charging improvement",
+          "correct_category": "Technological",
+          "rationale": "It is product and infrastructure innovation."
+        },
+        {
+          "factor": "Battery waste standards",
+          "correct_category": "Environmental",
+          "rationale": "It concerns environmental handling of products."
+        },
+        {
+          "factor": "Patent protection",
+          "correct_category": "Legal",
+          "rationale": "It is an intellectual-property law issue."
+        }
+      ],
+      "avoid_claims": [
+        "Tesla's strategy is only automotive and not energy storage or solar.",
+        "Battery costs are peripheral to Tesla's financial strategy.",
+        "Charging technology is unrelated to EV adoption."
+      ],
+      "validation_notes": {
+        "source_anchors": [
+          "PESTEL section lists EV incentives, solar growth, battery-cost decline, green-product preferences, charging and materials technology, environmental programs, and patent protection.",
+          "Recommendations and conclusion emphasize R&D, foreign expansion, supply-chain diversification, production capacity, capital investment, and battery costs."
+        ],
+        "reread_justification": "The expected output keeps the paper's causal focus on battery economics, technology development, policy support, and global expansion as drivers of Tesla's financial strategy."
+      }
+    },
+    {
+      "case_id": "2021_1_Zara",
+      "source_pdf": "eval_papers/2021_1_Zara.pdf",
+      "case_title": "Zara fast-fashion strategic analysis",
+      "case_subject": "Zara in the global fast-fashion market around 2021",
+      "prompt": "Conduct a PESTEL analysis for Zara in the global fast-fashion market around 2021. Use the case timeframe and market context stated here. Return exactly these headings: Political, Economic, Social, Technological, Environmental, Legal, Strategic implications. Under each PESTEL heading, provide concise bullets that connect the external factor to direct business impact. Under Strategic implications, provide concrete risks, opportunities, or actions. Do not mention this dataset or the source paper.",
+      "expected_output": {
+        "political": [
+          "Free-trade agreements support Zara's cross-border sourcing and distribution, while taxes and trade barriers can disrupt supply chains.",
+          "COVID-19 lockdowns and country-level operating restrictions exposed the fragility of global fashion logistics."
+        ],
+        "economic": [
+          "Fashion demand rises with disposable income but falls sharply in recession and unemployment because apparel is discretionary.",
+          "Low-price online rivals such as Shein and Romwe pressure Zara's value proposition."
+        ],
+        "social": [
+          "Millennials, Gen Z, influencers, and social media accelerate fashion trends and raise expectations for rapid style turnover.",
+          "Customer experience and loyalty matter because trend-driven buyers can switch quickly."
+        ],
+        "technological": [
+          "E-commerce became critical as COVID-19 pushed more shopping online.",
+          "Big Data, blockchain, AI recommendations, cloud, and IoT can improve stock visibility, transparency, and digital customer experience."
+        ],
+        "environmental": [
+          "Green consumer awareness increases pressure to use sustainable materials, recyclable packaging, and responsible sourcing.",
+          "Fast fashion's waste profile makes upcycling and circular programs strategically important."
+        ],
+        "legal": [
+          "Labor, child-labor, supply-chain, and trade rules create compliance and reputation risk across global markets.",
+          "Sweatshop allegations can damage the brand and must be addressed through sourcing governance."
+        ],
+        "strategic_implications": [
+          "Strengthen digital channels and online experience to protect growth after COVID-19.",
+          "Use sustainability and upcycling programs to reduce reputational risk and meet green-consumer expectations.",
+          "Invest in marketing and social media while preserving fast response and vertical-integration advantages."
+        ]
+      },
+      "gold_claims": [
+        {
+          "category": "Technological",
+          "claim": "E-commerce and AI-enabled digital tools became strategic because lockdowns and online shopping changed how Zara reaches customers."
+        },
+        {
+          "category": "Social",
+          "claim": "Trend acceleration through Gen Z, millennials, influencers, and social media increases the value of rapid design and replenishment."
+        },
+        {
+          "category": "Environmental",
+          "claim": "Sustainability pressure makes upcycling, recyclable packaging, and responsible materials part of competitive risk management."
+        },
+        {
+          "category": "Legal",
+          "claim": "Labor-rights and child-labor scrutiny can damage Zara's brand if global sourcing is not governed carefully."
+        },
+        {
+          "category": "Economic",
+          "claim": "Low-cost online imitators threaten Zara's sales because fast-fashion customers are price sensitive and easily switch."
+        }
+      ],
+      "category_targets": [
+        {
+          "factor": "COVID-driven online shopping",
+          "correct_category": "Technological",
+          "rationale": "The key business response is e-commerce and digital capability."
+        },
+        {
+          "factor": "Influencer-driven viral trends",
+          "correct_category": "Social",
+          "rationale": "It reflects consumer culture and trend diffusion."
+        },
+        {
+          "factor": "Child-labor and labor-rights rules",
+          "correct_category": "Legal",
+          "rationale": "These are compliance requirements."
+        },
+        {
+          "factor": "Sustainable materials",
+          "correct_category": "Environmental",
+          "rationale": "The factor concerns environmental impact and sourcing."
+        },
+        {
+          "factor": "Recession and unemployment",
+          "correct_category": "Economic",
+          "rationale": "They affect disposable income and discretionary spending."
+        },
+        {
+          "factor": "Trade agreements and barriers",
+          "correct_category": "Political",
+          "rationale": "They are policy conditions affecting trade."
+        }
+      ],
+      "avoid_claims": [
+        "Zara's anti-marketing posture is sufficient and needs no update.",
+        "COVID-19 did not affect Zara's channel strategy.",
+        "Sustainability is irrelevant to fast fashion."
+      ],
+      "validation_notes": {
+        "source_anchors": [
+          "PESTEL section covers trade, economics, social-media trends, e-commerce, Big Data, blockchain, AI, sustainability, and labor law.",
+          "Recommendations call for stronger marketing, online improvement, and upcycling."
+        ],
+        "reread_justification": "The expected output reflects the paper's three main strategic moves: strengthen digital commerce, respond to sustainability pressure, and improve marketing while maintaining Zara's fast-fashion model."
+      }
+    },
+    {
+      "case_id": "2021_2_Unilever",
+      "source_pdf": "eval_papers/2021_2_Unilever.pdf",
+      "case_title": "Celcom Axiata strategic plan",
+      "case_subject": "Celcom Axiata Berhad in the Malaysian mobile-telecommunications market during the COVID-19 period around 2021",
+      "prompt": "Conduct a PESTEL analysis for Celcom Axiata Berhad in the Malaysian mobile-telecommunications market during the COVID-19 period around 2021. Use the case timeframe and market context stated here. Return exactly these headings: Political, Economic, Social, Technological, Environmental, Legal, Strategic implications. Under each PESTEL heading, provide concise bullets that connect the external factor to direct business impact. Under Strategic implications, provide concrete risks, opportunities, or actions. Do not mention this dataset or the source paper.",
+      "expected_output": {
+        "political": [
+          "Malaysia's relatively favorable political environment supports telecom investment compared with more unstable regional contexts.",
+          "Public expectations during COVID-19 made connectivity a national and social priority."
+        ],
+        "economic": [
+          "Interest rates, inflation, GDP, and taxes affect telecom pricing, investment, and customer purchasing power.",
+          "Subscriber outflow and market-share loss create financial pressure despite Celcom's low-cost plan positioning."
+        ],
+        "social": [
+          "Telecom services are integrated into daily social and economic activity, especially during pandemic restrictions.",
+          "Customers expect reliable, affordable connectivity, making retention and service quality central."
+        ],
+        "technological": [
+          "2G, 3G, 3.5G, and 4G coverage underpin Celcom's service reach and competitive position.",
+          "Technology can reduce manpower, time, and cost while improving service speed and efficiency."
+        ],
+        "environmental": [
+          "Climate and environmental conditions can affect network deployment, service reach, and operational resilience.",
+          "Telecom operations should adapt infrastructure and processes to environmental constraints."
+        ],
+        "legal": [
+          "Malaysian telecom rules and compliance requirements protect stakeholders and shape how Celcom operates.",
+          "Legal compliance supports license continuity and customer trust."
+        ],
+        "strategic_implications": [
+          "Focus on reducing subscriber outflow while keeping Malaysians connected during COVID-19.",
+          "Use coverage, affordability, and service quality to defend against subscriber wars.",
+          "Align KPIs and SMART objectives with market-share recovery and competitive product offerings."
+        ]
+      },
+      "gold_claims": [
+        {
+          "category": "Economic",
+          "claim": "Subscriber outflow and market-share loss pressure Celcom's financial performance, so retention is a core strategic objective."
+        },
+        {
+          "category": "Technological",
+          "claim": "Coverage and telecom technology directly determine Celcom's ability to deliver reliable service and compete."
+        },
+        {
+          "category": "Social",
+          "claim": "COVID-19 increased the social importance of connectivity, making service continuity and affordability strategically important."
+        },
+        {
+          "category": "Legal",
+          "claim": "Compliance with Malaysian telecom rules protects license legitimacy and stakeholder rights."
+        },
+        {
+          "category": "Political",
+          "claim": "Malaysia's favorable political context supports telecom investment and strategy execution."
+        }
+      ],
+      "category_targets": [
+        {
+          "factor": "Subscriber outflow",
+          "correct_category": "Economic",
+          "rationale": "It directly affects revenue, market share, and competitive performance."
+        },
+        {
+          "factor": "4G coverage",
+          "correct_category": "Technological",
+          "rationale": "It is network infrastructure and service capability."
+        },
+        {
+          "factor": "COVID-19 need to keep Malaysians connected",
+          "correct_category": "Social",
+          "rationale": "It reflects social reliance on connectivity."
+        },
+        {
+          "factor": "Telecom rules in Malaysia",
+          "correct_category": "Legal",
+          "rationale": "These are compliance obligations."
+        },
+        {
+          "factor": "Malaysia's relatively favorable political environment",
+          "correct_category": "Political",
+          "rationale": "The issue is the stability of the national policy and governance context for telecom investment."
+        },
+        {
+          "factor": "Climate effects on service delivery",
+          "correct_category": "Environmental",
+          "rationale": "The issue is the physical environment affecting operations."
+        }
+      ],
+      "avoid_claims": [
+        "This paper is about Unilever FMCG strategy.",
+        "Celcom has no subscriber-retention problem.",
+        "COVID-19 connectivity is unrelated to telecom strategy."
+      ],
+      "validation_notes": {
+        "source_anchors": [
+          "The PDF filename says Unilever, but the extracted paper content is about Celcom Axiata Berhad.",
+          "Abstract, PESTEL, SWOT, and conclusion sections mention Celcom's coverage, subscriber outflow, low-cost plan, Malaysian environment, and COVID connectivity objective."
+        ],
+        "reread_justification": "The gold standard intentionally follows the paper content rather than the filename. This case should be treated as Celcom Axiata; using Unilever here would be a dataset error."
+      }
+    },
+    {
+      "case_id": "2021_3_Airbnb",
+      "source_pdf": "eval_papers/2021_3_Airbnb.pdf",
+      "case_title": "Airbnb platform suitability in Aswan and Wahat, Egypt",
+      "case_subject": "Airbnb platform readiness in Aswan and Wahat tourism destinations in Egypt around 2021",
+      "prompt": "Conduct a PESTEL analysis for Airbnb platform readiness in Aswan and Wahat tourism destinations in Egypt around 2021. Use the case timeframe and market context stated here. Return exactly these headings: Political, Economic, Social, Technological, Environmental, Legal, Strategic implications. Under each PESTEL heading, provide concise bullets that connect the external factor to direct business impact. Under Strategic implications, provide concrete risks, opportunities, or actions. Do not mention this dataset or the source paper.",
+      "expected_output": {
+        "political": [
+          "Government and tourism authorities can enable platform adoption by resolving local governance and awareness gaps.",
+          "Public-sector action is especially important in Aswan, where social and demographic issues reduce readiness."
+        ],
+        "economic": [
+          "Airbnb can expand accommodation supply and help destinations capture tourism demand without only building hotels.",
+          "Damped tourism demand temporarily reduces population and occupancy signals, which affects perceived platform viability."
+        ],
+        "social": [
+          "Most social PESTEL elements fit Airbnb, but population size, health consciousness, ethical concerns, and minority issues are weak points.",
+          "Aswan is less ready than Wahat because local social and demographic issues, including Nubian minority concerns, create friction."
+        ],
+        "technological": [
+          "A digital platform can connect tenants and guests efficiently if local awareness and adoption barriers are addressed.",
+          "Platform success depends less on core technology and more on readiness of hosts, guests, and institutions."
+        ],
+        "environmental": [
+          "Airbnb can distribute tourism activity across destinations, but destination suitability should respect local community and cultural contexts.",
+          "Environmental issues are not the dominant constraint in the paper compared with social and legal-institutional readiness."
+        ],
+        "legal": [
+          "Legal support and advisory involvement are needed to handle platform rules, antitrust concerns, and tourism governance.",
+          "Antitrust laws are identified as a poor-fit factor, indicating a need for clearer regulatory interpretation."
+        ],
+        "strategic_implications": [
+          "Prioritize Wahat for easier platform adoption and treat Aswan as requiring more social and governance preparation.",
+          "Government should address Nubian/minority concerns and raise Ministry of Tourism and Egyptian Tourism Federation awareness.",
+          "Use Airbnb as a supplementary accommodation model once ethical, health, and legal concerns are clarified."
+        ]
+      },
+      "gold_claims": [
+        {
+          "category": "Social",
+          "claim": "Aswan's readiness is lower because social and demographic factors, especially minority and Nubian resident issues, weaken platform fit."
+        },
+        {
+          "category": "Economic",
+          "claim": "Airbnb can add accommodation capacity and tourism income, but damped demand affects local readiness signals."
+        },
+        {
+          "category": "Legal",
+          "claim": "Legal advisory support is needed because platform rules and antitrust concerns require regulatory clarity."
+        },
+        {
+          "category": "Political",
+          "claim": "Government action can improve adoption by addressing awareness and local social issues rather than leaving the platform unsupported."
+        },
+        {
+          "category": "Technological",
+          "claim": "The platform technology is viable, but adoption depends on institutional and social readiness."
+        }
+      ],
+      "category_targets": [
+        {
+          "factor": "Nubian minority and discrimination concern",
+          "correct_category": "Social",
+          "rationale": "The paper treats it as a social and demographic readiness barrier."
+        },
+        {
+          "factor": "Antitrust laws",
+          "correct_category": "Legal",
+          "rationale": "It is a legal-regulatory concern."
+        },
+        {
+          "factor": "Ministry of Tourism awareness",
+          "correct_category": "Political",
+          "rationale": "It concerns government and institutional support."
+        },
+        {
+          "factor": "Additional bed capacity for tourism",
+          "correct_category": "Economic",
+          "rationale": "It affects supply, demand capture, and tourism revenue."
+        },
+        {
+          "factor": "Digital matching of guests and tenants",
+          "correct_category": "Technological",
+          "rationale": "It is the platform mechanism."
+        },
+        {
+          "factor": "Local destination and community context",
+          "correct_category": "Environmental",
+          "rationale": "It concerns destination conditions, although the paper treats it as secondary."
+        }
+      ],
+      "avoid_claims": [
+        "Aswan and Wahat are equally ready for Airbnb.",
+        "The main barrier is only technology adoption.",
+        "Minority and ethical concerns are irrelevant to platform suitability."
+      ],
+      "validation_notes": {
+        "source_anchors": [
+          "Guest and tenant response sections identify weak-fit factors and differences between Aswan and Wahat.",
+          "Conclusion states Airbnb is promising but Aswan is less ready because of social and demographic issues."
+        ],
+        "reread_justification": "The expected output differentiates Wahat from Aswan and avoids turning the case into a generic Airbnb analysis; the paper's strongest evidence is about social readiness."
+      }
+    },
+    {
+      "case_id": "2022_1_BeautyFarm",
+      "source_pdf": "eval_papers/2022_1_BeautyFarm.pdf",
+      "case_title": "Beauty Farm medical beauty strategy in China",
+      "case_subject": "Beauty Farm Medical and Health Industry Inc. in China's medical-beauty and health-management market around 2022",
+      "prompt": "Conduct a PESTEL analysis for Beauty Farm Medical and Health Industry Inc. in China's medical-beauty and health-management market around 2022. Use the case timeframe and market context stated here. Return exactly these headings: Political, Economic, Social, Technological, Environmental, Legal, Strategic implications. Under each PESTEL heading, provide concise bullets that connect the external factor to direct business impact. Under Strategic implications, provide concrete risks, opportunities, or actions. Do not mention this dataset or the source paper.",
+      "expected_output": {
+        "political": [
+          "Chinese policy support for Healthy China, consumption upgrading, domestic demand, and private enterprise creates growth space.",
+          "At the same time, stronger supervision moves the industry from rapid growth toward standardized development."
+        ],
+        "economic": [
+          "Consumption upgrading, aging, and high-end health-management demand support premium service growth.",
+          "Macroeconomic slowdown, competition, and weaker resident consumption can depress demand for high-end medical beauty."
+        ],
+        "social": [
+          "Aging, urbanization, anti-aging demand, and the appearance economy increase demand for beauty and health services.",
+          "Consumer trust is central because medical beauty involves perceived health and safety risk."
+        ],
+        "technological": [
+          "Medical technology, AI, data-driven personalization, social media, and private-domain platforms enable tailored services and customer acquisition.",
+          "Technology integration can improve diagnosis, service design, retention, and differentiation."
+        ],
+        "environmental": [
+          "Medical waste, sewage, chemicals, energy use, and environmental standards raise operating and ESG obligations.",
+          "Reducing electricity, water, and waste impact supports brand and compliance."
+        ],
+        "legal": [
+          "Stricter regulation of medical beauty qualifications, advertising, contracts, and risk disclosure raises compliance requirements.",
+          "False advertising, excessive marketing, induced consumption, or concealed risks can damage legality and trust."
+        ],
+        "strategic_implications": [
+          "Strengthen compliance, advertising review, qualification management, and customer-risk disclosure.",
+          "Use health-management positioning and technology-enabled personalization to build trust.",
+          "Invest in ESG and medical-waste management as part of standardized industry leadership."
+        ]
+      },
+      "gold_claims": [
+        {
+          "category": "Legal",
+          "claim": "Stricter medical-beauty regulation makes compliance and truthful advertising a core strategic capability."
+        },
+        {
+          "category": "Social",
+          "claim": "Aging and appearance-conscious consumers expand demand, but trust must be earned because services involve health risk."
+        },
+        {
+          "category": "Technological",
+          "claim": "AI, data, medical technology, and digital platforms allow Beauty Farm to personalize service and differentiate."
+        },
+        {
+          "category": "Environmental",
+          "claim": "Medical waste and resource use create ESG and compliance obligations that affect operating legitimacy."
+        },
+        {
+          "category": "Political",
+          "claim": "Policy dividends support growth, but government supervision also raises the cost of nonstandard operations."
+        }
+      ],
+      "category_targets": [
+        {
+          "factor": "Healthy China 2030 policy support",
+          "correct_category": "Political",
+          "rationale": "It is a national policy driver."
+        },
+        {
+          "factor": "Consumption upgrading",
+          "correct_category": "Economic",
+          "rationale": "It changes premium-service demand."
+        },
+        {
+          "factor": "Aging and anti-aging demand",
+          "correct_category": "Social",
+          "rationale": "It reflects demographic and lifestyle demand."
+        },
+        {
+          "factor": "AI and data-driven personalization",
+          "correct_category": "Technological",
+          "rationale": "It is a digital and medical-service capability."
+        },
+        {
+          "factor": "Medical waste and sewage",
+          "correct_category": "Environmental",
+          "rationale": "It concerns environmental impact of operations."
+        },
+        {
+          "factor": "False advertising and qualification rules",
+          "correct_category": "Legal",
+          "rationale": "They are explicit compliance issues."
+        }
+      ],
+      "avoid_claims": [
+        "Regulation is only an opportunity and not a constraint.",
+        "Medical beauty can be evaluated like ordinary cosmetics retail.",
+        "Environmental impact is irrelevant to medical service providers."
+      ],
+      "validation_notes": {
+        "source_anchors": [
+          "PESTEL sections cover Healthy China policy, consumption upgrading, aging, AI/digital platforms, medical waste, and stricter legal supervision.",
+          "Conclusion recommends strengthening health management, technology, environmental compliance, brand positioning, and legal compliance."
+        ],
+        "reread_justification": "The expected output reflects the paper's claim that the Chinese medical-beauty sector is shifting from rapid expansion to standardized, regulated, technology-enabled growth."
+      }
+    },
+    {
+      "case_id": "2022_2_Disney",
+      "source_pdf": "eval_papers/2022_2_Disney.pdf",
+      "case_title": "Disney business strategy and investment value",
+      "case_subject": "The Walt Disney Company in the post-COVID entertainment, theme-park, and streaming market around 2022",
+      "prompt": "Conduct a PESTEL analysis for The Walt Disney Company in the post-COVID entertainment, theme-park, and streaming market around 2022. Use the case timeframe and market context stated here. Return exactly these headings: Political, Economic, Social, Technological, Environmental, Legal, Strategic implications. Under each PESTEL heading, provide concise bullets that connect the external factor to direct business impact. Under Strategic implications, provide concrete risks, opportunities, or actions. Do not mention this dataset or the source paper.",
+      "expected_output": {
+        "political": [
+          "Political stability and intellectual-property protection support Disney's global content and parks business.",
+          "Trade-policy changes and content sensitivity can constrain market access or alter product localization."
+        ],
+        "economic": [
+          "COVID-19 hurt parks, films, and offline experiences, while reopening helped revenue recover.",
+          "Developing-market income growth expands willingness to pay for Disney products, parks, and streaming."
+        ],
+        "social": [
+          "Consumers have favorable leisure attitudes and spend time and income on entertainment experiences.",
+          "Cultural diversity creates both an opportunity for broader appeal and a challenge in matching local tastes."
+        ],
+        "technological": [
+          "Streaming technology and Disney+ became a strategic response to pandemic disruption and competition from Netflix.",
+          "More competitors investing in technology creates pressure for Disney to innovate in content delivery and customer experience."
+        ],
+        "environmental": [
+          "Weather and climate risks threaten theme parks, resorts, and visitor revenue.",
+          "Renewable energy and sustainability commitments support brand reputation and regulatory alignment."
+        ],
+        "legal": [
+          "IP protection, consumer rights, and environmental regulations shape Disney's content and parks businesses.",
+          "Legal restrictions can create both compliance costs and protection for Disney's franchise assets."
+        ],
+        "strategic_implications": [
+          "Use IP-driven product development and Disney+ content expansion to reduce dependence on parks alone.",
+          "Improve park capacity, menu uniqueness, pricing perception, and visitor experience as offline demand returns.",
+          "Maintain legal/IP protection and sustainability programs to protect long-term brand and asset value."
+        ]
+      },
+      "gold_claims": [
+        {
+          "category": "Technological",
+          "claim": "Disney+ and streaming technology help Disney withstand COVID-19 disruption and compete against Netflix."
+        },
+        {
+          "category": "Economic",
+          "claim": "Parks and films suffered during COVID-19, but reopening creates recovery while streaming diversifies revenue."
+        },
+        {
+          "category": "Legal",
+          "claim": "IP protection is central because Disney's franchises are the basis of product development and monetization."
+        },
+        {
+          "category": "Environmental",
+          "claim": "Weather and climate events can directly reduce theme-park and resort revenue."
+        },
+        {
+          "category": "Social",
+          "claim": "Cultural diversity requires Disney to adapt content and experiences to different audience preferences."
+        }
+      ],
+      "category_targets": [
+        {
+          "factor": "Disney+ streaming shift",
+          "correct_category": "Technological",
+          "rationale": "It is a digital delivery and platform response."
+        },
+        {
+          "factor": "COVID-19 park closures and reopening",
+          "correct_category": "Economic",
+          "rationale": "It directly affected revenue and profit recovery."
+        },
+        {
+          "factor": "IP protection",
+          "correct_category": "Legal",
+          "rationale": "It concerns intellectual-property rights."
+        },
+        {
+          "factor": "Cultural diversity in entertainment taste",
+          "correct_category": "Social",
+          "rationale": "It reflects audience preferences and culture."
+        },
+        {
+          "factor": "Weather risk to theme parks",
+          "correct_category": "Environmental",
+          "rationale": "It is a physical environmental threat."
+        },
+        {
+          "factor": "Trade-policy changes",
+          "correct_category": "Political",
+          "rationale": "They are government-policy conditions for market access."
+        }
+      ],
+      "avoid_claims": [
+        "Disney's parks were unaffected by COVID-19 or weather.",
+        "IP law is peripheral to Disney strategy.",
+        "Streaming is unrelated to Disney's post-pandemic resilience."
+      ],
+      "validation_notes": {
+        "source_anchors": [
+          "PESTEL section covers IP protection, political stability, developing-market income, leisure demand, streaming/technology competition, weather, sustainability, and legal rules.",
+          "Strategy and conclusion sections discuss COVID-19 impact, Disney+ opportunity, Netflix competition, park capacity, pricing, and product development."
+        ],
+        "reread_justification": "The expected output treats Disney as a hybrid content, parks, and streaming business because the paper connects COVID-19 disruption with Disney+ and park-experience improvement."
+      }
+    },
+    {
+      "case_id": "2023_1_JohnDeere",
+      "source_pdf": "eval_papers/2023_1_JohnDeere.pdf",
+      "case_title": "John Deere construction equipment strategic audit",
+      "case_subject": "John Deere's construction equipment business in the global construction-equipment market around 2023",
+      "prompt": "Conduct a PESTEL analysis for John Deere's construction equipment business in the global construction-equipment market around 2023. Use the case timeframe and market context stated here. Return exactly these headings: Political, Economic, Social, Technological, Environmental, Legal, Strategic implications. Under each PESTEL heading, provide concise bullets that connect the external factor to direct business impact. Under Strategic implications, provide concrete risks, opportunities, or actions. Do not mention this dataset or the source paper.",
+      "expected_output": {
+        "political": [
+          "Trade, tax, labor, fiscal, terrorism, and environmental policies affect John Deere's multinational operations.",
+          "The Ukraine war, Russia/Belarus exposure, and US-China trade tensions create country and supply-chain risk."
+        ],
+        "economic": [
+          "Construction demand across residential, commercial, and public sectors drives equipment sales.",
+          "High interest rates, inflation, financing costs, and input prices for oil, steel, wood, iron, and copper pressure customers and margins."
+        ],
+        "social": [
+          "Worker treatment, safety, DEI, and code-of-conduct performance affect brand image and stakeholder trust.",
+          "Labor shortages and workforce disruptions create operational and supply-chain challenges."
+        ],
+        "technological": [
+          "Electrification, sensors, telematics, cybersecurity, and data harvesting are central to next-generation construction equipment.",
+          "Supplementary data products can create new revenue beyond equipment sales."
+        ],
+        "environmental": [
+          "Greening the fleet through fuels, lubricants, maintenance, mobility, and electric models aligns with future environmental legislation.",
+          "Leap Ambitions and the Smart Industrial Operating Model link sustainability to efficiency and competitive advantage."
+        ],
+        "legal": [
+          "Global operations require compliance with trade, labor, environmental, and safety rules.",
+          "Supplier, dealer, and IP relationships protect competitive advantage but require governance."
+        ],
+        "strategic_implications": [
+          "Develop data-harvesting and distribution products to complement equipment revenue.",
+          "Invest in electrification and sustainability to prepare for regulation and customer demand.",
+          "Maintain supplier contingency planning to manage input, logistics, and workforce disruptions."
+        ]
+      },
+      "gold_claims": [
+        {
+          "category": "Economic",
+          "claim": "Interest rates and input-price inflation affect both customer financing capacity and John Deere's cost base."
+        },
+        {
+          "category": "Technological",
+          "claim": "Telematics, sensors, cybersecurity, and data harvesting can create new services and improve competitive advantage."
+        },
+        {
+          "category": "Environmental",
+          "claim": "Electrification and greener fleet management prepare John Deere for environmental legislation and customer sustainability demand."
+        },
+        {
+          "category": "Political",
+          "claim": "War and trade tension matter because John Deere sells and sources globally."
+        },
+        {
+          "category": "Social",
+          "claim": "Safety, labor practices, and DEI affect reputation and workforce continuity."
+        }
+      ],
+      "category_targets": [
+        {
+          "factor": "Ukraine war and Russia/Belarus exposure",
+          "correct_category": "Political",
+          "rationale": "It is geopolitical risk."
+        },
+        {
+          "factor": "High interest rates",
+          "correct_category": "Economic",
+          "rationale": "They affect financing and demand."
+        },
+        {
+          "factor": "Telematics and data harvesting",
+          "correct_category": "Technological",
+          "rationale": "They are product and service technologies."
+        },
+        {
+          "factor": "Electric construction equipment",
+          "correct_category": "Environmental",
+          "rationale": "The strategic driver is reduced emissions and environmental legislation."
+        },
+        {
+          "factor": "Worker safety and DEI",
+          "correct_category": "Social",
+          "rationale": "They affect people, reputation, and culture."
+        },
+        {
+          "factor": "Trade and labor compliance",
+          "correct_category": "Legal",
+          "rationale": "These are rule-based obligations."
+        }
+      ],
+      "avoid_claims": [
+        "Supply-chain issues are unrelated to John Deere strategy.",
+        "Technology is only manufacturing automation and not data products.",
+        "Electrification is optional and disconnected from regulation."
+      ],
+      "validation_notes": {
+        "source_anchors": [
+          "PESTEL section details politics, construction demand, inflation, financing costs, social responsibility, electrification, telematics, cybersecurity, and sustainability.",
+          "Recommendations emphasize data-harvesting products, supplier contingency planning, ESG returns, and electrification."
+        ],
+        "reread_justification": "The expected output connects macro construction demand and input costs with the paper's recommendation to use technology, data, and sustainability for durable advantage."
+      }
+    },
+    {
+      "case_id": "2023_2_OilGas",
+      "source_pdf": "eval_papers/2023_2_OilGas.pdf",
+      "case_title": "Northern Oil and Gas strategic audit",
+      "case_subject": "Northern Oil and Gas in the United States oil-and-gas market around 2023",
+      "prompt": "Conduct a PESTEL analysis for Northern Oil and Gas in the United States oil-and-gas market around 2023. Use the case timeframe and market context stated here. Return exactly these headings: Political, Economic, Social, Technological, Environmental, Legal, Strategic implications. Under each PESTEL heading, provide concise bullets that connect the external factor to direct business impact. Under Strategic implications, provide concrete risks, opportunities, or actions. Do not mention this dataset or the source paper.",
+      "expected_output": {
+        "political": [
+          "Oil and gas face heavy federal, state, and local regulation covering health, environment, cultural resources, well distance, and federal land.",
+          "Election cycles, Russia-Ukraine sanctions, and geopolitical instability affect policy direction, supply, and prices."
+        ],
+        "economic": [
+          "Oil-price volatility driven by supply, demand, travel, COVID-19 recovery, and macro conditions creates revenue uncertainty.",
+          "Northern's non-operator model can reduce operating exposure but still depends on commodity prices and partner execution."
+        ],
+        "social": [
+          "Public opinion increasingly favors sustainability and carbon neutrality, but many consumers still want a fossil and renewable mix.",
+          "Driving behavior and EV adoption affect demand expectations over time."
+        ],
+        "technological": [
+          "Extraction, imaging, and production technologies improve efficiency and reduce operating risk.",
+          "Cybersecurity is a growing operational risk for energy companies."
+        ],
+        "environmental": [
+          "Climate scrutiny and emissions regulation pressure oil companies to reduce impact and invest in sustainable substitutes.",
+          "Renewables create long-term substitution pressure but also face supply-chain and material constraints."
+        ],
+        "legal": [
+          "Environmental lawsuits by cities, states, and advocacy groups create material legal and reputation risk.",
+          "Compliance with drilling, land, health, and environmental rules shapes project viability."
+        ],
+        "strategic_implications": [
+          "Invest in greener extraction and transparent ESG reporting to reduce political, legal, and social pressure.",
+          "Use diversification into alternative energy to hedge long-term demand transition.",
+          "Manage commodity volatility and regulatory risk within the non-operator model."
+        ]
+      },
+      "gold_claims": [
+        {
+          "category": "Economic",
+          "claim": "Oil-price volatility directly affects Northern's revenue and valuation even if it limits operating exposure through a non-operator model."
+        },
+        {
+          "category": "Environmental",
+          "claim": "Climate scrutiny and emissions regulation pressure oil firms to improve ESG and consider alternative energy."
+        },
+        {
+          "category": "Social",
+          "claim": "Public demand is mixed: consumers want sustainability but still depend on oil, so transition strategy must be balanced."
+        },
+        {
+          "category": "Legal",
+          "claim": "Climate and environmental lawsuits create legal risk beyond ordinary drilling compliance."
+        },
+        {
+          "category": "Technological",
+          "claim": "Improved extraction and imaging technology can reduce risk and cost, while cybersecurity creates a new threat."
+        }
+      ],
+      "category_targets": [
+        {
+          "factor": "Russia-Ukraine sanctions",
+          "correct_category": "Political",
+          "rationale": "They are geopolitical policy actions."
+        },
+        {
+          "factor": "Oil price swings",
+          "correct_category": "Economic",
+          "rationale": "They affect revenue and investment."
+        },
+        {
+          "factor": "Public preference for carbon neutrality",
+          "correct_category": "Social",
+          "rationale": "It is a societal value and demand signal."
+        },
+        {
+          "factor": "Extraction imaging technology",
+          "correct_category": "Technological",
+          "rationale": "It is production technology."
+        },
+        {
+          "factor": "Climate scrutiny",
+          "correct_category": "Environmental",
+          "rationale": "It concerns ecological impact and emissions."
+        },
+        {
+          "factor": "Environmental lawsuits",
+          "correct_category": "Legal",
+          "rationale": "They are litigation risk."
+        }
+      ],
+      "avoid_claims": [
+        "Oil demand is only rising and transition pressure is irrelevant.",
+        "Renewables fully replace oil immediately in the case logic.",
+        "Legal risk is limited to routine permits."
+      ],
+      "validation_notes": {
+        "source_anchors": [
+          "PESTEL section identifies regulation, geopolitical instability, oil-price volatility, public opinion, EVs, extraction technology, cybersecurity, climate scrutiny, and lawsuits.",
+          "Recommendations call for greener R&D, ESG transparency, and alternative-energy diversification."
+        ],
+        "reread_justification": "The expected output keeps the paper's nuanced transition view: oil remains needed, but regulation, public pressure, litigation, and volatility require ESG and diversification responses."
+      }
+    },
+    {
+      "case_id": "2023_3_Lululemon",
+      "source_pdf": "eval_papers/2023_3_Lululemon.pdf",
+      "case_title": "Lululemon strategic audit",
+      "case_subject": "Lululemon in the global athleisure and performance-apparel market around 2023",
+      "prompt": "Conduct a PESTEL analysis for Lululemon in the global athleisure and performance-apparel market around 2023. Use the case timeframe and market context stated here. Return exactly these headings: Political, Economic, Social, Technological, Environmental, Legal, Strategic implications. Under each PESTEL heading, provide concise bullets that connect the external factor to direct business impact. Under Strategic implications, provide concrete risks, opportunities, or actions. Do not mention this dataset or the source paper.",
+      "expected_output": {
+        "political": [
+          "US-China tariffs and trade policy affect sourcing cost and require supplier shifts to Vietnam, Cambodia, and other countries.",
+          "International expansion exposes Lululemon to varied trade and policy conditions."
+        ],
+        "economic": [
+          "Inflation, Fed rate increases, petroleum-based material costs, and raw-material prices pressure margins.",
+          "Demand remained strong enough to support selective price increases, but affordability risk persists."
+        ],
+        "social": [
+          "Post-pandemic health, active lifestyle, and well-being trends support athleisure demand.",
+          "Brand community, membership, and guest experience are important retention tools."
+        ],
+        "technological": [
+          "Fabric innovation, production machinery, data analytics, RFID, online/in-store devices, and MIRROR support product and experience differentiation.",
+          "Digital revenue and omnichannel capabilities are strategic growth pillars."
+        ],
+        "environmental": [
+          "Petroleum-based products, water and energy use, chemicals, carbon, and supply-chain ethics create sustainability pressure.",
+          "Be Planet goals, recycled materials, renewable electricity, product-life extension, and waste reduction address this risk."
+        ],
+        "legal": [
+          "Health and safety, equal opportunity, advertising, consumer safety, labor, supply-chain transparency, and human-rights rules affect operations.",
+          "Outsourced manufacturing increases the importance of vendor governance and compliance monitoring."
+        ],
+        "strategic_implications": [
+          "Pursue the Power of Three x2 growth plan through product innovation, guest experience, and international expansion.",
+          "Reduce supplier and petroleum-material exposure through sustainable-material targets and sourcing diversification.",
+          "Use RFID, digital, MIRROR, and membership to deepen engagement and operational control."
+        ]
+      },
+      "gold_claims": [
+        {
+          "category": "Political",
+          "claim": "Tariffs on China-sourced apparel forced sourcing shifts, showing trade policy directly affects supply-chain design."
+        },
+        {
+          "category": "Economic",
+          "claim": "Inflation and petroleum-based input costs pressure margins because a large share of Lululemon products depends on petroleum-derived materials."
+        },
+        {
+          "category": "Social",
+          "claim": "Health and active-lifestyle trends expand demand for premium athleisure."
+        },
+        {
+          "category": "Technological",
+          "claim": "RFID, analytics, materials, and MIRROR support differentiation through product performance and customer experience."
+        },
+        {
+          "category": "Legal",
+          "claim": "Because Lululemon outsources manufacturing, labor and supply-chain transparency requirements are strategic compliance issues."
+        }
+      ],
+      "category_targets": [
+        {
+          "factor": "US levy on China clothing imports",
+          "correct_category": "Political",
+          "rationale": "It is a tariff and trade-policy factor."
+        },
+        {
+          "factor": "Petroleum-based material cost",
+          "correct_category": "Economic",
+          "rationale": "It affects input cost and margins."
+        },
+        {
+          "factor": "Post-pandemic health consciousness",
+          "correct_category": "Social",
+          "rationale": "It is a lifestyle and demand trend."
+        },
+        {
+          "factor": "RFID and MIRROR",
+          "correct_category": "Technological",
+          "rationale": "They are digital and product-experience technologies."
+        },
+        {
+          "factor": "Recycled polyester and renewable nylon targets",
+          "correct_category": "Environmental",
+          "rationale": "They address material sustainability."
+        },
+        {
+          "factor": "Supply-chain transparency and human rights",
+          "correct_category": "Legal",
+          "rationale": "They are legal and compliance expectations."
+        }
+      ],
+      "avoid_claims": [
+        "Lululemon owns all manufacturing and has no supplier risk.",
+        "Inflation has no impact because demand is strong.",
+        "Sustainability is a brand slogan only and not operational."
+      ],
+      "validation_notes": {
+        "source_anchors": [
+          "PESTEL section covers tariffs, inflation, petroleum-based inputs, health consciousness, fabrics, data, environmental impact, and legal rules.",
+          "Strategy sections detail Be Human, Be Well, Be Planet, Power of Three x2, RFID, MIRROR, international expansion, and supplier structure."
+        ],
+        "reread_justification": "The expected output reflects the paper's combined growth and risk logic: premium demand is strong, but sourcing, input-cost, technology, and sustainability execution determine resilience."
+      }
+    },
+    {
+      "case_id": "2023_4_Huawei",
+      "source_pdf": "eval_papers/2023_4_Huawei.pdf",
+      "case_title": "Huawei digital transformation in the digital era",
+      "case_subject": "Huawei's digital transformation services and technology business under US sanctions and global digitalization pressures around 2023",
+      "prompt": "Conduct a PESTEL analysis for Huawei's digital transformation services and technology business under US sanctions and global digitalization pressures around 2023. Use the case timeframe and market context stated here. Return exactly these headings: Political, Economic, Social, Technological, Environmental, Legal, Strategic implications. Under each PESTEL heading, provide concise bullets that connect the external factor to direct business impact. Under Strategic implications, provide concrete risks, opportunities, or actions. Do not mention this dataset or the source paper.",
+      "expected_output": {
+        "political": [
+          "China's stable policy environment and support for high-tech and digital transformation help Huawei domestically.",
+          "US bans, geopolitical tension, Western distrust, and trade restrictions constrain overseas sales and access to key technologies."
+        ],
+        "economic": [
+          "Pandemic-driven economic shrinkage and global downturns constrain market size, while China's stabilization supports domestic demand.",
+          "Demand for enterprise digital transformation services creates growth opportunities beyond smartphones."
+        ],
+        "social": [
+          "Education, demographics, labor mobility, and enterprise demand for digital services shape adoption.",
+          "Overseas brand distrust and absence of Google certification affect customer acceptance in international markets."
+        ],
+        "technological": [
+          "5G, AI, big data, IoT, cloud computing, chips, and Kirin capability are Huawei's central strengths.",
+          "US restrictions require independent R&D, de-Americanized supply chains, and deeper chip-manufacturing intervention."
+        ],
+        "environmental": [
+          "The paper gives environmental factors less weight, but digital infrastructure still needs efficient and sustainable deployment.",
+          "Green and efficient digital transformation can support legitimacy with enterprise and government customers."
+        ],
+        "legal": [
+          "Data privacy, cybersecurity, platform-security requirements, sanctions, and trade restrictions affect Huawei's service viability.",
+          "A stronger legal framework for digital platforms is needed to support secure digital transformation."
+        ],
+        "strategic_implications": [
+          "Build comprehensive digital-transformation services rather than relying on hardware alone.",
+          "Invest in independent R&D, chips, 5G, AI, and cloud capabilities to reduce US-technology dependence.",
+          "Use diversified market strategies, partnerships, and regulatory monitoring to manage overseas constraints."
+        ]
+      },
+      "gold_claims": [
+        {
+          "category": "Political",
+          "claim": "US bans and geopolitical distrust directly restrict Huawei's access to technology and international customers."
+        },
+        {
+          "category": "Technological",
+          "claim": "Independent R&D in chips, 5G, AI, cloud, and supply-chain de-Americanization is required to maintain competitiveness under restrictions."
+        },
+        {
+          "category": "Legal",
+          "claim": "Data privacy, cybersecurity, and sanctions compliance determine whether Huawei can scale digital-transformation services."
+        },
+        {
+          "category": "Economic",
+          "claim": "Rising demand for enterprise digital transformation creates opportunity even as global downturns tighten markets."
+        },
+        {
+          "category": "Social",
+          "claim": "Overseas distrust and the lack of Google certification weaken user acceptance outside China."
+        }
+      ],
+      "category_targets": [
+        {
+          "factor": "US ban",
+          "correct_category": "Political",
+          "rationale": "It is a geopolitical policy restriction."
+        },
+        {
+          "factor": "Chip de-Americanization",
+          "correct_category": "Technological",
+          "rationale": "The strategic response is technology and supply-chain capability."
+        },
+        {
+          "factor": "Data privacy and cybersecurity risk",
+          "correct_category": "Legal",
+          "rationale": "The factor involves platform governance and legal compliance."
+        },
+        {
+          "factor": "Demand for enterprise digital transformation",
+          "correct_category": "Economic",
+          "rationale": "It affects market size and revenue opportunity."
+        },
+        {
+          "factor": "Google certification absence",
+          "correct_category": "Social",
+          "rationale": "The direct paper emphasis is overseas user acceptance and brand trust."
+        },
+        {
+          "factor": "Efficient and sustainable digital infrastructure deployment",
+          "correct_category": "Environmental",
+          "rationale": "The issue concerns environmental performance and sustainability of digital infrastructure."
+        }
+      ],
+      "avoid_claims": [
+        "Huawei's case is only about smartphone marketing.",
+        "US sanctions are a minor background detail.",
+        "Digital-transformation service completeness is irrelevant."
+      ],
+      "validation_notes": {
+        "source_anchors": [
+          "Abstract and findings identify Huawei's digital transformation services, US ban, Google absence, chip interventions, 5G, AI, and cloud.",
+          "PESTEL, SWOT, conclusions, and recommendations emphasize policy support, geopolitical restrictions, independent R&D, legal/security risks, and comprehensive services."
+        ],
+        "reread_justification": "The expected output preserves the paper's main diagnosis: Huawei's opportunity is enterprise digital transformation, but sanctions and technology dependence require service expansion and independent capability."
+      }
+    },
+    {
+      "case_id": "2023_5_Boeing",
+      "source_pdf": "eval_papers/2023_5_Boeing.pdf",
+      "case_title": "Boeing PESTEL after safety and quality crises",
+      "case_subject": "Boeing in the commercial aerospace market after the 737 MAX, 787, and Alaska Airlines quality crises",
+      "prompt": "Conduct a PESTEL analysis for Boeing in the commercial aerospace market after the 737 MAX, 787, and Alaska Airlines quality crises. Use the case timeframe and market context stated here. Return exactly these headings: Political, Economic, Social, Technological, Environmental, Legal, Strategic implications. Under each PESTEL heading, provide concise bullets that connect the external factor to direct business impact. Under Strategic implications, provide concrete risks, opportunities, or actions. Do not mention this dataset or the source paper.",
+      "expected_output": {
+        "political": [
+          "Aviation policy, ICAO environmental pressure, flight taxes, airline compensation, and COVID-19 effects shape Boeing's market.",
+          "Geopolitical issues such as Ukraine require careful positioning and humanitarian or reputational responses."
+        ],
+        "economic": [
+          "The 737 MAX and COVID-19 crises increased debt, damaged stock value, and weakened Boeing relative to Airbus.",
+          "Demand rebound and large aircraft orders offer recovery potential, but inflation, parts costs, and supply disruption pressure execution."
+        ],
+        "social": [
+          "Public trust was damaged by 737 MAX crashes, perceived dishonesty, quality failures, labor issues, and discrimination claims.",
+          "Travelers, airlines, employees, and regulators now expect visible safety and quality accountability."
+        ],
+        "technological": [
+          "Boeing has strengths in autonomy, composites, noise reduction, electric propulsion, 3D printing, urban air mobility, and space.",
+          "Innovation must be paired with rigorous safety and quality control because flawed implementation created crisis."
+        ],
+        "environmental": [
+          "Aviation emissions, carbon footprint, fuel efficiency, renewable energy, waste, biodiversity, and reporting create sustainability pressure.",
+          "Eco-aircraft and sustainable supply-chain initiatives can reduce regulatory and customer risk."
+        ],
+        "legal": [
+          "FAA, EASA, product-liability, criminal, discrimination, labor, and environmental actions create high legal exposure.",
+          "Settlements, customer compensation, family funds, and lawsuits show that safety failures create direct legal and financial costs."
+        ],
+        "strategic_implications": [
+          "Make safety, quality control, and regulator transparency the core turnaround priority.",
+          "Use innovation only where governance and engineering assurance can protect trust.",
+          "Repair financial resilience and customer confidence while competing with Airbus."
+        ]
+      },
+      "gold_claims": [
+        {
+          "category": "Legal",
+          "claim": "737 MAX and Alaska-related failures create legal liability, settlements, lawsuits, and compliance obligations that directly affect finances and reputation."
+        },
+        {
+          "category": "Social",
+          "claim": "Public and airline trust is strategically damaged because passengers doubt Boeing's honesty and safety culture."
+        },
+        {
+          "category": "Technological",
+          "claim": "Boeing's innovation capabilities are valuable only if paired with quality controls that prevent safety failures."
+        },
+        {
+          "category": "Economic",
+          "claim": "Crisis-driven debt, inflation, supply disruption, and Airbus competition weaken Boeing despite demand rebound."
+        },
+        {
+          "category": "Environmental",
+          "claim": "Emissions and fuel-efficiency pressure push Boeing toward cleaner aircraft and sustainability reporting."
+        }
+      ],
+      "category_targets": [
+        {
+          "factor": "FAA fraud and product-liability proceedings",
+          "correct_category": "Legal",
+          "rationale": "They are formal legal and regulatory actions."
+        },
+        {
+          "factor": "Passenger trust after 737 MAX crashes",
+          "correct_category": "Social",
+          "rationale": "It is public perception and stakeholder confidence."
+        },
+        {
+          "factor": "Composite materials and electric propulsion",
+          "correct_category": "Technological",
+          "rationale": "They are aircraft technologies."
+        },
+        {
+          "factor": "Debt from COVID-19 and 737 crisis",
+          "correct_category": "Economic",
+          "rationale": "It affects financial position."
+        },
+        {
+          "factor": "Aviation CO2 emissions",
+          "correct_category": "Environmental",
+          "rationale": "It is an ecological impact."
+        },
+        {
+          "factor": "ICAO and flight-tax policy",
+          "correct_category": "Political",
+          "rationale": "It is external policy affecting aviation economics."
+        }
+      ],
+      "avoid_claims": [
+        "Boeing's technology leadership alone solves the case.",
+        "Safety and legal crises are historical and no longer strategic.",
+        "Public trust is unrelated to aircraft orders."
+      ],
+      "validation_notes": {
+        "source_anchors": [
+          "Background describes 737 MAX crashes, MCAS, FAA issues, 787 problems, Alaska door-plug quality failures, and market-value loss.",
+          "PESTEL sections cover political aviation policies, debt and inflation, public trust, innovation, legal settlements and lawsuits, and environmental obligations."
+        ],
+        "reread_justification": "The expected output intentionally weights safety, trust, legality, and debt heavily because the paper frames Boeing's technology strength as compromised by quality and governance failures."
+      }
+    },
+    {
+      "case_id": "2024_1_GoToGrojek",
+      "source_pdf": "eval_papers/2024_1_GoToGrojek.pdf",
+      "case_title": "GoTo Gojek Tokopedia user-based valuation",
+      "case_subject": "GoTo Gojek Tokopedia in Indonesia's ride-hailing, e-commerce, and digital-payments platform market around 2024",
+      "prompt": "Conduct a PESTEL analysis for GoTo Gojek Tokopedia in Indonesia's ride-hailing, e-commerce, and digital-payments platform market around 2024. Use the case timeframe and market context stated here. Return exactly these headings: Political, Economic, Social, Technological, Environmental, Legal, Strategic implications. Under each PESTEL heading, provide concise bullets that connect the external factor to direct business impact. Under Strategic implications, provide concrete risks, opportunities, or actions. Do not mention this dataset or the source paper.",
+      "expected_output": {
+        "political": [
+          "Indonesia's political environment was not the main source of market distress, but driver demonstrations over wages, tariffs, and bonuses could affect operations.",
+          "Government regulation must balance platform, driver, and consumer interests without undermining the business model."
+        ],
+        "economic": [
+          "Inflation and GDP per capita affect operating expenses, innovation capacity, and customer purchasing power.",
+          "Price-sensitive Indonesian consumers, reduced incentives, strong rivals such as Grab and Shopee, and worsening net losses pressure retention and valuation."
+        ],
+        "social": [
+          "Indonesian platform users are highly price sensitive and switch brands for discounts, service quality, and deals.",
+          "Customer loyalty depends on the effective allocation of incentives and service value."
+        ],
+        "technological": [
+          "EV adoption, GoTo electric motorcycles, Bluebird EVs, GoPay, and digital platform technology affect competitive relevance.",
+          "Failure to follow technology trends could reduce user interest, transaction volume, and sales."
+        ],
+        "environmental": [
+          "Ride-hailing and e-commerce create carbon, pollution, and packaging-waste concerns.",
+          "GoTo's ThreeZero agenda, EVs, and reusable packaging can improve sustainability but require near-term investment."
+        ],
+        "legal": [
+          "No major current legal case is highlighted, but GoTo must comply with Indonesian manpower, transport, partnership, consumer-protection, MSME, and digital-economy rules.",
+          "Driver status, partnership agreements, and consumer protection remain continuing legal exposure."
+        ],
+        "strategic_implications": [
+          "Manage incentive spending carefully to retain price-sensitive users without worsening losses.",
+          "Use EVs, GoPay, and ThreeZero initiatives as competitive differentiators where they also improve cost or reputation.",
+          "Treat the user-based valuation overvaluation signal as a warning to prioritize profitability and sustainable growth."
+        ]
+      },
+      "gold_claims": [
+        {
+          "category": "Economic",
+          "claim": "Reduced incentive burning threatens user loyalty because Indonesian consumers are price sensitive and competitors can subsidize demand."
+        },
+        {
+          "category": "Social",
+          "claim": "Customer switching behavior makes loyalty dependent on discounts, service quality, and perceived value."
+        },
+        {
+          "category": "Technological",
+          "claim": "EVs, GoPay, and platform technology are strategic because they affect competitiveness and user engagement."
+        },
+        {
+          "category": "Environmental",
+          "claim": "ThreeZero and EV initiatives address carbon and waste, but they require investment before long-term sustainability gains."
+        },
+        {
+          "category": "Legal",
+          "claim": "Driver partnerships and transport/manpower rules affect GoTo's operating model even without a current major lawsuit."
+        }
+      ],
+      "category_targets": [
+        {
+          "factor": "Driver demonstrations over wages and tariffs",
+          "correct_category": "Political",
+          "rationale": "The paper links driver demands to regulation and government balancing."
+        },
+        {
+          "factor": "Reduced incentive burning",
+          "correct_category": "Economic",
+          "rationale": "It affects cost, demand, retention, and valuation."
+        },
+        {
+          "factor": "Price-sensitive Indonesian consumers",
+          "correct_category": "Social",
+          "rationale": "It reflects customer behavior and culture."
+        },
+        {
+          "factor": "GoPay and EV platform adoption",
+          "correct_category": "Technological",
+          "rationale": "They are digital and mobility technologies."
+        },
+        {
+          "factor": "ThreeZero carbon and waste agenda",
+          "correct_category": "Environmental",
+          "rationale": "It addresses sustainability impact."
+        },
+        {
+          "factor": "Manpower and transport regulations",
+          "correct_category": "Legal",
+          "rationale": "They are Indonesian statutory requirements."
+        }
+      ],
+      "avoid_claims": [
+        "GoTo's main problem is political instability from elections.",
+        "Rivalry is low and incentives do not matter.",
+        "The valuation section should be ignored in strategic implications."
+      ],
+      "validation_notes": {
+        "source_anchors": [
+          "PESTEL text discusses driver regulation, inflation, GDP, price sensitivity, Shopee/Grab competition, EVs, GoPay, ThreeZero, and Indonesian laws.",
+          "Valuation section finds the equity value overvalued versus 2024 market prices and notes worsening net profit despite user growth."
+        ],
+        "reread_justification": "The expected output links the PESTEL environment to valuation: GoTo's strategic risk is not election instability but price-sensitive demand, incentive economics, technology competition, and compliance."
+      }
+    },
+    {
+      "case_id": "2025_1_Unilever",
+      "source_pdf": "eval_papers/2025_1_Unilever.pdf",
+      "case_title": "PT Unilever Indonesia profit-decline strategy",
+      "case_subject": "PT Unilever Indonesia responding to a 2024 profit decline in Indonesia's FMCG market",
+      "prompt": "Conduct a PESTEL analysis for PT Unilever Indonesia responding to a 2024 profit decline in Indonesia's FMCG market. Use the case timeframe and market context stated here. Return exactly these headings: Political, Economic, Social, Technological, Environmental, Legal, Strategic implications. Under each PESTEL heading, provide concise bullets that connect the external factor to direct business impact. Under Strategic implications, provide concrete risks, opportunities, or actions. Do not mention this dataset or the source paper.",
+      "expected_output": {
+        "political": [
+          "Election-year government spending can stimulate short-term consumption, but policy uncertainty remains.",
+          "Government stimulus and MSME/community collaboration create opportunities if aligned with distribution and local trust."
+        ],
+        "economic": [
+          "Inflation, raw-material and energy costs, rupiah volatility, and imported inputs erode margins.",
+          "Downtrading and local competitors such as Wings and Mayora pressure price, volume, and profit."
+        ],
+        "social": [
+          "Boycott movements, local values, halal expectations, and shifting consumer preferences weaken legacy brand strength.",
+          "Health and essential-product demand create opportunities if Unilever adapts positioning."
+        ],
+        "technological": [
+          "Digitalization, eB2B platforms, AI, supply-chain analytics, e-commerce, and loyalty systems can improve responsiveness.",
+          "Cyber threats rise as the company expands digital operations."
+        ],
+        "environmental": [
+          "Climate and sustainability pressure require plastic reduction, recycled materials, waste banks, reverse vending, and circular-economy initiatives.",
+          "Sustainability programs strengthen legitimacy but add coordination and cost challenges."
+        ],
+        "legal": [
+          "Job Creation Law, OSS licensing, OJK affiliated-transaction rules, product safety, consumer protection, IP, labor, and environmental rules create compliance costs.",
+          "Product claims and safety are under scrutiny, making governance important."
+        ],
+        "strategic_implications": [
+          "Strengthen essential products, halal and local-brand relevance, and community partnerships to rebuild trust.",
+          "Use AI, eB2B, digital supply-chain tools, e-commerce, and loyalty to improve efficiency and demand response.",
+          "Protect margins with sourcing, pricing, and compliance discipline while continuing sustainability commitments."
+        ]
+      },
+      "gold_claims": [
+        {
+          "category": "Economic",
+          "claim": "Inflation, raw-material costs, energy costs, rupiah volatility, and downtrading explain why consumption stimulus did not prevent profit decline."
+        },
+        {
+          "category": "Social",
+          "claim": "Boycotts, halal expectations, and local values directly affect brand trust and demand in Indonesia."
+        },
+        {
+          "category": "Technological",
+          "claim": "AI, eB2B, e-commerce, and digital supply-chain tools can improve responsiveness to shifting demand."
+        },
+        {
+          "category": "Environmental",
+          "claim": "Plastic reduction and circular-waste programs support legitimacy but add execution and cost complexity."
+        },
+        {
+          "category": "Legal",
+          "claim": "Product-safety, labor, environmental, and corporate-governance rules raise compliance requirements during the turnaround."
+        }
+      ],
+      "category_targets": [
+        {
+          "factor": "2024 election spending stimulus",
+          "correct_category": "Political",
+          "rationale": "It is government spending tied to the political cycle."
+        },
+        {
+          "factor": "Rupiah volatility and imported raw materials",
+          "correct_category": "Economic",
+          "rationale": "It affects input cost and margins."
+        },
+        {
+          "factor": "Boycott movements and halal expectations",
+          "correct_category": "Social",
+          "rationale": "They reflect consumer values and social sentiment."
+        },
+        {
+          "factor": "eB2B platform and AI supply chain",
+          "correct_category": "Technological",
+          "rationale": "These are digital capabilities."
+        },
+        {
+          "factor": "Virgin plastic reduction and waste banks",
+          "correct_category": "Environmental",
+          "rationale": "They are sustainability actions."
+        },
+        {
+          "factor": "OJK and product-safety rules",
+          "correct_category": "Legal",
+          "rationale": "They are formal compliance obligations."
+        }
+      ],
+      "avoid_claims": [
+        "Government consumption stimulus automatically solved Unilever Indonesia's profit decline.",
+        "Boycotts and local values are irrelevant to FMCG demand.",
+        "Sustainability has no cost or operational implications."
+      ],
+      "validation_notes": {
+        "source_anchors": [
+          "Abstract identifies a 29.8 percent profit decline from rising costs, consumer shifts, boycotts, digitalization, and regulation.",
+          "PESTEL and strategy sections discuss election stimulus, inflation, downtrading, local competitors, halal/local values, digital platforms, plastics reduction, and compliance."
+        ],
+        "reread_justification": "The expected output explains the profit decline as a combined macro, social-trust, digital, sustainability, and legal challenge, matching the paper's SWOT-PESTEL integration."
+      }
+    },
+    {
+      "case_id": "2025_2_Spotify",
+      "source_pdf": "eval_papers/2025_2_Spotify.pdf",
+      "case_title": "Spotify freemium strategy and streaming wars",
+      "case_subject": "Spotify's freemium model and competitive position against Apple Music and other streaming rivals from the 2015 case perspective",
+      "prompt": "Conduct a PESTEL analysis for Spotify's freemium model and competitive position against Apple Music and other streaming rivals from the 2015 case perspective. Use the case timeframe and market context stated here. Return exactly these headings: Political, Economic, Social, Technological, Environmental, Legal, Strategic implications. Under each PESTEL heading, provide concise bullets that connect the external factor to direct business impact. Under Strategic implications, provide concrete risks, opportunities, or actions. Do not mention this dataset or the source paper.",
+      "expected_output": {
+        "political": [
+          "Copyright enforcement, censorship regimes, ISP blocking, trade policy, and country regulations shape market entry and catalog availability.",
+          "Anti-piracy policy in markets such as Sweden and the UK can support legal streaming adoption."
+        ],
+        "economic": [
+          "The freemium model drives user growth but creates a profitability challenge because licensing and royalty costs remain high.",
+          "Purchasing power differs by market, requiring localized pricing and careful expansion into emerging regions."
+        ],
+        "social": [
+          "Consumers are shifting from ownership to access, especially younger smartphone users accustomed to free services.",
+          "Local music tastes and physical-media preferences require personalization and market adaptation."
+        ],
+        "technological": [
+          "Recommendation systems, data exploitation, cross-platform access, IoT integrations, and partnerships such as Telia strengthen retention.",
+          "Apple's ecosystem and Apple Music entry increase the need for differentiation outside a closed hardware platform."
+        ],
+        "environmental": [
+          "Streaming reduces physical media but increases data-center and data-consumption energy impact.",
+          "Sustainable events and lower physical distribution can support the environmental narrative."
+        ],
+        "legal": [
+          "Royalty, artist-compensation, copyright, GDPR, CCPA, privacy, and tax rules determine costs and user-data obligations.",
+          "Artist dissatisfaction over payouts creates legal, reputational, and supplier-relations risk."
+        ],
+        "strategic_implications": [
+          "Balance free-tier growth with monetization through localized pricing, Student and Duo plans, and paid conversion.",
+          "Differentiate through personalization, Wrapped-style virality, podcasts, cross-platform availability, and partnerships.",
+          "Manage artist compensation and licensing costs to improve profitability without destroying the growth funnel."
+        ]
+      },
+      "gold_claims": [
+        {
+          "category": "Economic",
+          "claim": "Freemium creates a growth-versus-profitability tradeoff because free users expand scale while licensing costs and investor pressure demand profits."
+        },
+        {
+          "category": "Legal",
+          "claim": "Royalties, copyright, privacy laws, and artist-compensation rules directly shape Spotify's cost structure and legitimacy."
+        },
+        {
+          "category": "Technological",
+          "claim": "Personalization, data, IoT, and cross-platform access are strategic differentiators against Apple Music's ecosystem."
+        },
+        {
+          "category": "Social",
+          "claim": "Young smartphone users' shift from ownership to access supports streaming but makes free access hard to withdraw."
+        },
+        {
+          "category": "Political",
+          "claim": "Copyright enforcement, censorship, and ISP blocking alter which markets Spotify can enter and how it operates."
+        }
+      ],
+      "category_targets": [
+        {
+          "factor": "IPRED and anti-piracy enforcement",
+          "correct_category": "Political",
+          "rationale": "The paper treats enforcement policy as a market-shaping political factor."
+        },
+        {
+          "factor": "Freemium profitability gap",
+          "correct_category": "Economic",
+          "rationale": "It affects revenue, costs, and investor expectations."
+        },
+        {
+          "factor": "Ownership-to-access cultural shift",
+          "correct_category": "Social",
+          "rationale": "It describes consumer behavior."
+        },
+        {
+          "factor": "Recommendation algorithms and Wrapped",
+          "correct_category": "Technological",
+          "rationale": "They are digital-product capabilities."
+        },
+        {
+          "factor": "Data-center energy use",
+          "correct_category": "Environmental",
+          "rationale": "It is streaming's ecological footprint."
+        },
+        {
+          "factor": "Royalties and artist compensation",
+          "correct_category": "Legal",
+          "rationale": "They are governed by licensing and rights rules."
+        }
+      ],
+      "avoid_claims": [
+        "The free tier is a pure advantage with no profitability downside.",
+        "Artist backlash and licensing costs are minor.",
+        "Apple Music competition can be ignored because Spotify had early scale."
+      ],
+      "validation_notes": {
+        "source_anchors": [
+          "Teaching-note and conclusion sections frame the core paradox: 75 million users, 20 million paying, investor pressure, artist dissatisfaction, and Apple Music entry.",
+          "PESTEL and later update sections discuss copyright, market differences, ownership-to-access behavior, data and IoT, environmental impact, privacy, royalties, localized pricing, podcasts, Wrapped, and profitability."
+        ],
+        "reread_justification": "The expected output uses the 2015 strategic problem as the case frame while allowing the paper's later teaching notes to validate key levers such as localization, personalization, and paid conversion."
+      }
+    },
+    {
+      "case_id": "2025_3_Netflix",
+      "source_pdf": "eval_papers/2025_3_Netflix.pdf",
+      "case_title": "Netflix adaptation challenges in India",
+      "case_subject": "Netflix's growth strategy in India's price-sensitive, multilingual, regulated SVOD market around 2025",
+      "prompt": "Conduct a PESTEL analysis for Netflix's growth strategy in India's price-sensitive, multilingual, regulated SVOD market around 2025. Use the case timeframe and market context stated here. Return exactly these headings: Political, Economic, Social, Technological, Environmental, Legal, Strategic implications. Under each PESTEL heading, provide concise bullets that connect the external factor to direct business impact. Under Strategic implications, provide concrete risks, opportunities, or actions. Do not mention this dataset or the source paper.",
+      "expected_output": {
+        "political": [
+          "India's Ministry of Information and Broadcasting, proposed Broadcasting Services Bill, and self-regulation environment create content-control pressure.",
+          "Government influence over online content can constrain Netflix's creative autonomy."
+        ],
+        "economic": [
+          "India is highly price sensitive; Netflix's initial pricing was high relative to local alternatives and telco bundles.",
+          "Jio, Airtel, Disney+ Hotstar, and local rivals use bundles and lower prices to raise customer expectations for value."
+        ],
+        "social": [
+          "India's linguistic and cultural diversity requires Hindi plus regional-language content such as Tamil, Telugu, and Bengali.",
+          "Netflix must balance premium global identity with local habits, tastes, creators, and cultural expectations."
+        ],
+        "technological": [
+          "Cheap mobile data, smartphone growth, 4G, downloads, adaptive streaming, and mobile-only plans are central to access.",
+          "AI recommendations, dubbing, subtitles, and UX must be tuned to regional languages and tastes."
+        ],
+        "environmental": [
+          "Streaming and production create data-center, cloud, and production-footprint concerns.",
+          "Sustainability reporting and green production initiatives can support legitimacy in India."
+        ],
+        "legal": [
+          "IT Rules 2021 and proposed broadcasting legislation can require content modification or takedown.",
+          "Consumer, data, and environmental laws require compliance while preserving global creative standards."
+        ],
+        "strategic_implications": [
+          "Invest in regional co-productions and underrepresented-language content rather than relying only on pricing cuts.",
+          "Use telecom partnerships and mobile-first UX to improve affordability and distribution.",
+          "Use local legal and cultural consultants, focus groups, dubbing, subtitles, influencers, and metrics to reduce localization risk."
+        ]
+      },
+      "gold_claims": [
+        {
+          "category": "Economic",
+          "claim": "Price sensitivity and telco-bundled rivals make affordability a growth constraint for Netflix in India."
+        },
+        {
+          "category": "Social",
+          "claim": "Regional language and cultural diversity require co-productions and localization beyond Hindi or global content."
+        },
+        {
+          "category": "Legal",
+          "claim": "IT Rules and broadcasting legislation create content-takedown and modification risk, affecting creative strategy."
+        },
+        {
+          "category": "Technological",
+          "claim": "Cheap data, mobile-only plans, adaptive streaming, AI recommendations, dubbing, and subtitles are required for mobile-first adoption."
+        },
+        {
+          "category": "Political",
+          "claim": "Government content oversight affects market entry and operational freedom for streaming platforms."
+        }
+      ],
+      "category_targets": [
+        {
+          "factor": "Broadcasting Services Bill and ministry oversight",
+          "correct_category": "Political",
+          "rationale": "It is government content-control authority."
+        },
+        {
+          "factor": "Mobile plan and telco bundles",
+          "correct_category": "Economic",
+          "rationale": "They affect price and distribution economics."
+        },
+        {
+          "factor": "Regional-language demand",
+          "correct_category": "Social",
+          "rationale": "It is cultural and linguistic market behavior."
+        },
+        {
+          "factor": "Jio cheap data and adaptive streaming",
+          "correct_category": "Technological",
+          "rationale": "They are access and delivery technologies."
+        },
+        {
+          "factor": "Cloud and production footprint",
+          "correct_category": "Environmental",
+          "rationale": "It concerns environmental impact."
+        },
+        {
+          "factor": "IT Rules 2021 takedown powers",
+          "correct_category": "Legal",
+          "rationale": "They are formal legal obligations."
+        }
+      ],
+      "avoid_claims": [
+        "Pricing alone solves Netflix India's growth problem.",
+        "Sports rights should be Netflix's core strategy in this case.",
+        "Regional languages and censorship risk are minor."
+      ],
+      "validation_notes": {
+        "source_anchors": [
+          "Abstract and strategic problem identify price competition, regional diversity, regulation, telecom partnerships, and recommendation/UX needs.",
+          "PESTEL, recommendation, and implementation sections cover censorship, India pricing, regional co-productions, mobile data, adaptive streaming, environmental concerns, and legal consultants."
+        ],
+        "reread_justification": "The expected output follows the paper's recommendation: Netflix should move beyond price cuts by localizing content deeply, partnering with telecoms, and managing legal-cultural risk."
+      }
+    },
+    {
+      "case_id": "2026_1_saarcEnergy",
+      "source_pdf": "eval_papers/2026_1_saarcEnergy.pdf",
+      "case_title": "SAARC super smart grid and P2P energy trading",
+      "case_subject": "a proposed SAARC super smart grid and peer-to-peer renewable-energy trading system in South Asia around 2026",
+      "prompt": "Conduct a PESTEL analysis for a proposed SAARC super smart grid and peer-to-peer renewable-energy trading system in South Asia around 2026. Use the case timeframe and market context stated here. Return exactly these headings: Political, Economic, Social, Technological, Environmental, Legal, Strategic implications. Under each PESTEL heading, provide concise bullets that connect the external factor to direct business impact. Under Strategic implications, provide concrete risks, opportunities, or actions. Do not mention this dataset or the source paper.",
+      "expected_output": {
+        "political": [
+          "Political unwillingness, weak cooperation, India-Pakistan rivalry, cancelled summits, inconsistent policy, corruption, and bureaucracy are the largest barriers.",
+          "Starting with politically harmonious countries can reduce coordination risk before wider regional integration."
+        ],
+        "economic": [
+          "Funding shortages, inflation, interest rates, unemployment, unclear tax/import/export policies, and regional economic imbalance constrain implementation.",
+          "SAFTA, renewable-energy sharing, and cross-border trade could create mutual gains if political barriers are reduced."
+        ],
+        "social": [
+          "Low social cooperation and mistrust among countries limit public and institutional support.",
+          "P2P prosumer models can improve local participation, reduce costs, and build trust from the bottom up."
+        ],
+        "technological": [
+          "Smart-grid technology, IoT, blockchain, cybersecurity, renewable modeling, and prosumer integration are required for P2P trading.",
+          "Technical feasibility alone is insufficient without governance and legal support."
+        ],
+        "environmental": [
+          "SAARC countries face fossil-fuel dependence, emissions, outages, and large solar and wind potential.",
+          "Renewable sharing and P2P trading can reduce fossil reliance and support sustainable energy access."
+        ],
+        "legal": [
+          "Absence of harmonized energy policies, weak legal systems, unclear prosumer tariffs and subsidies, and cross-border rules impede the grid.",
+          "Legal support is needed for fair returns, market access, and enforceable regional trading."
+        ],
+        "strategic_implications": [
+          "Begin with basic-level P2P trading among prosumers and politically compatible areas before full SAARC integration.",
+          "Harmonize energy policy, subsidies, tariffs, cybersecurity, and legal frameworks.",
+          "Treat the super smart grid as a political-governance project as much as a technical infrastructure project."
+        ]
+      },
+      "gold_claims": [
+        {
+          "category": "Political",
+          "claim": "Political unwillingness and interstate rivalry are the dominant constraints, so a full SAARC grid cannot be treated as a purely technical project."
+        },
+        {
+          "category": "Legal",
+          "claim": "Harmonized energy policies, tariffs, subsidies, and enforceable legal systems are required for P2P trading and regional integration."
+        },
+        {
+          "category": "Technological",
+          "claim": "IoT, blockchain, cybersecurity, and prosumer smart-grid tools enable P2P trading but depend on governance support."
+        },
+        {
+          "category": "Economic",
+          "claim": "Funding shortages and macro instability constrain infrastructure, while energy trading can create mutual economic gains if barriers are resolved."
+        },
+        {
+          "category": "Environmental",
+          "claim": "Renewable-energy sharing can reduce fossil dependence, outages, and emissions across SAARC countries."
+        }
+      ],
+      "category_targets": [
+        {
+          "factor": "India-Pakistan rivalry and cancelled summits",
+          "correct_category": "Political",
+          "rationale": "They are interstate political barriers."
+        },
+        {
+          "factor": "Lack of funds and high inflation",
+          "correct_category": "Economic",
+          "rationale": "They constrain financing and affordability."
+        },
+        {
+          "factor": "Low social cooperation and mistrust",
+          "correct_category": "Social",
+          "rationale": "They reflect public and institutional cooperation."
+        },
+        {
+          "factor": "Blockchain and IoT for P2P trading",
+          "correct_category": "Technological",
+          "rationale": "They are smart-grid technologies."
+        },
+        {
+          "factor": "Fossil-fuel dependence and emissions",
+          "correct_category": "Environmental",
+          "rationale": "They are ecological and energy-sustainability drivers."
+        },
+        {
+          "factor": "Unharmonized energy policy and tariffs",
+          "correct_category": "Legal",
+          "rationale": "They are regulatory and legal-market design barriers."
+        }
+      ],
+      "avoid_claims": [
+        "The SAARC super smart grid mainly fails because renewable technology is unavailable.",
+        "Political and legal harmonization can be ignored.",
+        "The paper recommends jumping directly to full regional integration without a phased P2P approach."
+      ],
+      "validation_notes": {
+        "source_anchors": [
+          "Abstract and need/status sections state that a hybrid PESTEL-SWOT analysis supports P2P trading through prosumers and identifies policy harmonization as a major gap.",
+          "Political, economic, P2P, strategy, and conclusion sections emphasize political unwillingness, funding shortages, corruption, weak legal systems, and phased P2P adoption."
+        ],
+        "reread_justification": "The expected output follows the paper's central conclusion: the SAARC grid's success depends on political/legal coordination and a bottom-up P2P strategy, not only on renewable technology."
+      }
+    },
+    {
+      "case_id": "2026_2_renewableEnergy",
+      "source_pdf": "eval_papers/2026_2_renewableEnergy.pdf",
+      "case_title": "Waste-to-energy in Brazil compared with the USA, China, EU, and India",
+      "case_subject": "Brazil's waste-to-energy opportunity compared with the USA, China, European Union, and India around 2026",
+      "prompt": "Conduct a PESTEL analysis for Brazil's waste-to-energy opportunity compared with the USA, China, European Union, and India around 2026. Use the case timeframe and market context stated here. Return exactly these headings: Political, Economic, Social, Technological, Environmental, Legal, Strategic implications. Under each PESTEL heading, provide concise bullets that connect the external factor to direct business impact. Under Strategic implications, provide concrete risks, opportunities, or actions. Do not mention this dataset or the source paper.",
+      "expected_output": {
+        "political": [
+          "Brazil has supportive national policies such as RenovaBio and the Future Fuel Law, but political instability and weaker implementation reduce WtE momentum.",
+          "China's mandates and the EU Green Deal show how strong policy direction can accelerate WtE adoption."
+        ],
+        "economic": [
+          "Brazil's upper-middle-income status and high urban waste generation make WtE feasible, but infrastructure and investment gaps remain.",
+          "Agricultural residues create a competitive advantage for biofuels and electricity, while urban landfill methane capture is underdeveloped."
+        ],
+        "social": [
+          "High urbanization and rising environmental awareness support WtE adoption, but public acceptance and municipal capacity are needed.",
+          "WtE can create jobs and local value if integrated with waste-management systems."
+        ],
+        "technological": [
+          "Brazil is stronger in solid and liquid biofuels from agricultural residues than in urban waste incineration and landfill methane systems.",
+          "EU and China technology leadership highlights Brazil's need for urban WtE infrastructure, recycling, and methane-capture capability."
+        ],
+        "environmental": [
+          "Brazil has high per-capita methane from agriculture and industry and can use WtE to reduce landfill and agricultural-waste emissions.",
+          "Urban waste, recycling weakness, and landfill methane are priority environmental gaps."
+        ],
+        "legal": [
+          "Brazil's National Policy on Solid Waste supports integrated waste management and recycling but is less WtE-specific than EU or Chinese frameworks.",
+          "Clear incentives, legal rules, and municipal strategies are needed to turn policy potential into deployment."
+        ],
+        "strategic_implications": [
+          "Prioritize agricultural-residue valorization as Brazil's comparative WtE strength.",
+          "Build stronger urban waste, incineration, landfill methane, and recycling strategies at municipal level.",
+          "Refine legal and incentive frameworks to attract investment and align with international best practice."
+        ]
+      },
+      "gold_claims": [
+        {
+          "category": "Technological",
+          "claim": "Brazil's advantage is agricultural-residue bioenergy, while its urban WtE and landfill methane infrastructure lag behind leading regions."
+        },
+        {
+          "category": "Environmental",
+          "claim": "High methane and urban waste create an emissions-reduction opportunity if WtE and landfill capture improve."
+        },
+        {
+          "category": "Legal",
+          "claim": "The National Policy on Solid Waste provides a base, but Brazil needs more WtE-specific rules and incentives."
+        },
+        {
+          "category": "Economic",
+          "claim": "Brazil's economic status does not block WtE; rather, investment, municipal capacity, and sector focus determine deployment."
+        },
+        {
+          "category": "Political",
+          "claim": "Policy support exists, but implementation consistency is weaker than in China or the EU."
+        }
+      ],
+      "category_targets": [
+        {
+          "factor": "RenovaBio and Future Fuel Law",
+          "correct_category": "Political",
+          "rationale": "They are national policy supports for bioenergy."
+        },
+        {
+          "factor": "Agricultural residue valorization",
+          "correct_category": "Technological",
+          "rationale": "It concerns Brazil's production and conversion capability."
+        },
+        {
+          "factor": "High urbanization and public awareness",
+          "correct_category": "Social",
+          "rationale": "They concern population and social acceptance."
+        },
+        {
+          "factor": "High per-capita methane",
+          "correct_category": "Environmental",
+          "rationale": "It is an emissions issue."
+        },
+        {
+          "factor": "National Policy on Solid Waste",
+          "correct_category": "Legal",
+          "rationale": "It is a waste-management legal framework."
+        },
+        {
+          "factor": "Infrastructure and investment gaps",
+          "correct_category": "Economic",
+          "rationale": "They affect capital deployment and feasibility."
+        }
+      ],
+      "avoid_claims": [
+        "Brazil already has mature urban WtE infrastructure like the EU or China.",
+        "Brazil's economic status makes WtE impossible.",
+        "The paper's only recommendation is agricultural bioenergy; urban waste gaps should not be ignored."
+      ],
+      "validation_notes": {
+        "source_anchors": [
+          "Abstract and key findings state Brazil's agricultural waste advantage and weak urban waste and landfill methane capture.",
+          "PESTEL and conclusion compare Brazil with the USA, China, EU, and India across economic status, public awareness, technology, methane, law, and policy."
+        ],
+        "reread_justification": "The expected output preserves the paper's comparative conclusion: Brazil has real WtE potential, especially in agricultural residues, but needs better urban waste infrastructure and WtE-specific incentives."
+      }
+    },
+    {
+      "case_id": "2026_3_ruralElectrificationThailand",
+      "source_pdf": "eval_papers/2026_3_ruralElectrificationThailand.pdf",
+      "case_title": "Barriers to sustainable rural electrification in Mae Hong Son, Thailand",
+      "case_subject": "sustainable rural electrification in Mae Hong Son Province, Thailand, with emphasis on Hill Tribe communities and protected forest areas around 2026",
+      "prompt": "Conduct a PESTEL analysis for sustainable rural electrification in Mae Hong Son Province, Thailand, with emphasis on Hill Tribe communities and protected forest areas around 2026. Use the case timeframe and market context stated here. Return exactly these headings: Political, Economic, Social, Technological, Environmental, Legal, Strategic implications. Under each PESTEL heading, provide concise bullets that connect the external factor to direct business impact. Under Strategic implications, provide concrete risks, opportunities, or actions. Do not mention this dataset or the source paper.",
+      "expected_output": {
+        "political": [
+          "Electricity-related agencies are fragmented across ministries and departments, slowing coordination.",
+          "Differing priorities among the provincial governor, PAO, LAOs, and rotating appointed officials create discontinuity."
+        ],
+        "economic": [
+          "Lack of project funding is one of the three most salient barriers to full electrification.",
+          "High installed cost, high levelized cost, low resident income, low subsidies, and limited financing constrain grid extension and household solar."
+        ],
+        "social": [
+          "Residents may distrust renewable systems, fear that community PV will block future grid extension, and struggle with cooperative management.",
+          "Shortage of skilled local manpower, stateless/Hill Tribe recognition issues, desire to preserve natural beauty, and land-use conflicts hinder adoption."
+        ],
+        "technological": [
+          "Past low-quality solar PV systems created reliability concerns.",
+          "Lack of cellular coverage and low capacity estimates make remote monitoring, maintenance, and future demand planning difficult."
+        ],
+        "environmental": [
+          "Remote mountainous roads and terrain increase logistics cost and make distribution lines difficult.",
+          "Protected forests, watershed-class restrictions, weather variability, and climate conditions constrain solar, wind, and construction options."
+        ],
+        "legal": [
+          "Permitting for projects on protected land is the single most difficult barrier to 100 percent electrification.",
+          "EIA requirements, unclear Hill Tribe land tenure, lack of formal titles, and paper-based approval procedures extend timelines."
+        ],
+        "strategic_implications": [
+          "Treat electrification as a governance and policy-coordination challenge, not only an engineering or financing problem.",
+          "Streamline small-scale renewable and microgrid approval while preserving environmental safeguards.",
+          "Use participatory planning, community energy education, land-use reform, and off-grid or hybrid microgrids adapted to mountainous terrain."
+        ]
+      },
+      "gold_claims": [
+        {
+          "category": "Legal",
+          "claim": "Permitting on protected land is the most constraining barrier because many non-electrified Hill Tribe villages lack formal land title inside restricted forest and watershed areas."
+        },
+        {
+          "category": "Economic",
+          "claim": "Funding shortages and high system costs limit annual electrification progress even when technical solutions exist."
+        },
+        {
+          "category": "Environmental",
+          "claim": "Remote mountainous terrain and protected forests raise infrastructure cost and complicate solar, wind, and distribution deployment."
+        },
+        {
+          "category": "Political",
+          "claim": "Fragmented agencies and shifting local-government priorities turn electrification into a coordination problem."
+        },
+        {
+          "category": "Social",
+          "claim": "Community trust, local skills, Hill Tribe rights, and cooperative management influence whether decentralized systems can succeed."
+        },
+        {
+          "category": "Technological",
+          "claim": "Low-quality past PV, weak cellular coverage, and undersized capacity planning create reliability and maintenance risk."
+        }
+      ],
+      "category_targets": [
+        {
+          "factor": "Fragmented electricity agencies",
+          "correct_category": "Political",
+          "rationale": "The paper lists this as a political barrier imposed by government agencies and processes."
+        },
+        {
+          "factor": "Lack of electrification funding",
+          "correct_category": "Economic",
+          "rationale": "It directly concerns project finance and budget availability."
+        },
+        {
+          "factor": "Distrust that community PV could block future grid extension",
+          "correct_category": "Social",
+          "rationale": "It is a public perception barrier."
+        },
+        {
+          "factor": "Lack of cellular coverage for remote systems",
+          "correct_category": "Technological",
+          "rationale": "It affects monitoring and coordination technology."
+        },
+        {
+          "factor": "Mountainous terrain and watershed areas",
+          "correct_category": "Environmental",
+          "rationale": "They are physical and environmental land conditions."
+        },
+        {
+          "factor": "Protected-land permits and unclear Hill Tribe land tenure",
+          "correct_category": "Legal",
+          "rationale": "They are permitting and land-rights constraints."
+        }
+      ],
+      "avoid_claims": [
+        "The main barrier is only the cost of solar panels.",
+        "Mae Hong Son can be fully electrified by technology alone without land-use or permitting reform.",
+        "Hill Tribe legal status is irrelevant to electrification."
+      ],
+      "validation_notes": {
+        "source_anchors": [
+          "Abstract identifies 39 PESTEL barriers and highlights protected forest regulations, Hill Tribe legal status, and permitting complexity.",
+          "Discussion identifies lack of funding, remote mountainous location, and protected-land permits as the three most salient barriers.",
+          "Conclusion states that 100 percent electrification is fundamentally a governance and policy-coordination challenge, not only engineering or financing."
+        ],
+        "reread_justification": "The expected output follows the paper's source coding of barriers and gives strongest weight to legal-permitting, protected-land, Hill Tribe, and governance barriers because those are repeatedly identified as decisive."
+      }
+    },
+    {
+      "case_id": "2026_4_circularWater",
+      "source_pdf": "eval_papers/2026_4_circularWater.pdf",
+      "case_title": "Circular water-energy integration in off-grid viticulture",
+      "case_subject": "Bosque de Matasnos winery's circular water-energy system in off-grid Spanish viticulture around 2026",
+      "prompt": "Conduct a PESTEL analysis for Bosque de Matasnos winery's circular water-energy system in off-grid Spanish viticulture around 2026. Use the case timeframe and market context stated here. Return exactly these headings: Political, Economic, Social, Technological, Environmental, Legal, Strategic implications. Under each PESTEL heading, provide concise bullets that connect the external factor to direct business impact. Under Strategic implications, provide concrete risks, opportunities, or actions. Do not mention this dataset or the source paper.",
+      "expected_output": {
+        "political": [
+          "The European Green Deal, Common Agricultural Policy 2023-2027, groundwater quotas, and LIFE funding support renewable energy, water circularity, and rural development.",
+          "Policy coherence across water, energy, and agriculture is necessary to replicate circular systems."
+        ],
+        "economic": [
+          "Ribera del Duero's export orientation creates competitive pressure to meet sustainability standards.",
+          "Rising energy costs and off-grid constraints increase the value of self-sufficiency, while LIFE funding and premium wines or enotourism improve financial resilience."
+        ],
+        "social": [
+          "Viticulture creates local jobs, tourism, education, and rural entrepreneurship that can counter depopulation.",
+          "Stakeholder alignment among winery staff, technology partners, and local actors is needed for circular adoption."
+        ],
+        "technological": [
+          "The model combines cascading water reuse, biological treatment, water-to-water heat pumps, photovoltaic generation, batteries, diesel backup, and smart microgrid control.",
+          "The system reused about 1000 cubic meters of water per production cycle, saved 38 percent heating energy and 56 percent cooling energy, and reduced diesel generation by about 80 percent."
+        ],
+        "environmental": [
+          "Water scarcity, drought, aquifer stress, energy demand, and CO2 emissions make circular water-energy integration strategically valuable.",
+          "The system reduced groundwater extraction and lowered annual emissions by about 260 tCO2e compared with a generator-only baseline."
+        ],
+        "legal": [
+          "EU Regulation 2020/741, Spanish Royal Decree 1620/2007, RED II, PNIEC, Denomination of Origin rules, organic certification, and environmental standards frame compliance.",
+          "Lengthy authorizations from River Basin Authorities create an administrative barrier despite technical feasibility and environmental compliance."
+        ],
+        "strategic_implications": [
+          "Use Ecocanvas plus PESTEL to evaluate circular business-model viability, not only technical performance.",
+          "Scale through phased investment, reuse of existing infrastructure, smart control, and targeted rural-development incentives.",
+          "Advocate for simpler decentralized water-reuse authorization and recognition of off-grid hybrid microgrids as rural infrastructure."
+        ]
+      },
+      "gold_claims": [
+        {
+          "category": "Technological",
+          "claim": "Smart control of PV, batteries, heat pumps, pumping, treatment, and cooling enables water-energy integration and reduces diesel dependence."
+        },
+        {
+          "category": "Environmental",
+          "claim": "Cascading water reuse and renewable-powered thermal systems reduce aquifer pressure and CO2 emissions, improving climate resilience."
+        },
+        {
+          "category": "Legal",
+          "claim": "Water reuse is technically feasible but constrained by lengthy authorizations and fragmented water, energy, and agricultural regulations."
+        },
+        {
+          "category": "Economic",
+          "claim": "Off-grid energy costs and export sustainability standards make circular self-sufficiency financially strategic, especially with LIFE funding and premium positioning."
+        },
+        {
+          "category": "Social",
+          "claim": "Circular viticulture supports rural jobs, tourism, education, and depopulation resilience when stakeholders align."
+        },
+        {
+          "category": "Political",
+          "claim": "EU and CAP policy priorities create a favorable political context for renewable energy, water circularity, and rural development."
+        }
+      ],
+      "category_targets": [
+        {
+          "factor": "European Green Deal and CAP 2023-2027",
+          "correct_category": "Political",
+          "rationale": "They are policy frameworks shaping incentives."
+        },
+        {
+          "factor": "Rising energy costs and export sustainability standards",
+          "correct_category": "Economic",
+          "rationale": "They affect cost structure and market competitiveness."
+        },
+        {
+          "factor": "Jobs, tourism, education, and rural depopulation",
+          "correct_category": "Social",
+          "rationale": "They concern community and demographic effects."
+        },
+        {
+          "factor": "PV heat pumps, batteries, and smart microgrid control",
+          "correct_category": "Technological",
+          "rationale": "They are core system technologies."
+        },
+        {
+          "factor": "Aquifer stress and CO2 emissions",
+          "correct_category": "Environmental",
+          "rationale": "They are ecological resource impacts."
+        },
+        {
+          "factor": "EU Regulation 2020/741 and River Basin Authority authorization",
+          "correct_category": "Legal",
+          "rationale": "They are water-reuse rules and permitting requirements."
+        }
+      ],
+      "avoid_claims": [
+        "The case is only a technical energy-efficiency project.",
+        "Diesel generation was eliminated entirely.",
+        "Regulatory authorization is irrelevant because the system is environmentally beneficial."
+      ],
+      "validation_notes": {
+        "source_anchors": [
+          "Abstract and highlights quantify water reuse, heating and cooling savings, diesel reduction, and CO2 reduction.",
+          "PESTEL section identifies EU policy, CAP, groundwater quotas, LIFE funding, export pressure, rural jobs, modular technology, EU water-reuse rules, and authorization delays.",
+          "Conclusion states that viability depends on technology, business model, stakeholders, territorial context, and regulation."
+        ],
+        "reread_justification": "The expected output keeps the paper's central contribution: circular water-energy integration works operationally, but scalable value comes from combining technical performance with Ecocanvas business-model logic and PESTEL institutional feasibility."
+      }
+    }
+  ]
+}

@@ -1,67 +1,47 @@
-"""EconomicsAgent — Mode C (mixed).
-
-Pattern:
-  1. Always call certain tools deterministically (core data we always need).
-  2. Pass the results as context to a ReAct agent that decides whether to
-     also call optional tools, then writes the final answer.
-"""
+"""EconomicsAgent — Mode C (mixed)."""
 
 import ast
 import json
 from typing import Any
 
 from langchain.agents import create_agent
-from langchain_core.messages import HumanMessage
 
-from mascan.agents.base import BaseAgent
+from mascan.agents.base import GraphBackedAgent
 from mascan.agents.context import render_tool_outputs
+from mascan.agents.economics.graph import EconomicsAgentState, build_economics_graph
 from mascan.agents.economics.prompts import build_user_prompt
-from mascan.contracts.reports import AgentReport, Source
+from mascan.agents.sources import dedupe_sources
+from mascan.contracts.reports import Source
 from mascan.contracts.tools import ToolResult
 from mascan.core.llm import get_chat_model
 
-class EconomicsAgent(BaseAgent):
-    name = "economics"  # must match config.yaml `name`
 
-    def _run(self, tasks: list[str], context: dict[str, Any] | None = None, deterministic_outputs: dict[str, ToolResult[Any]] | None = None) -> AgentReport:
+class EconomicsAgent(GraphBackedAgent):
+    name = "economics"
+
+    def build_initial_state(
+        self,
+        tasks: list[str],
+        context: dict[str, Any] | None = None,
+        deterministic_outputs: dict[str, ToolResult[Any]] | None = None,
+    ) -> EconomicsAgentState:
         self.logger.info(f"Running Mode C (mixed) with {len(tasks)} task(s)")
-
-        # LLM with optional tools — decides what else (if anything) to call.
-        result,findings, llm_used_tools = self.run_react_agent(
-            tasks,
-            deterministic_outputs,
-            context=context,
-        )
-
-        # assemble the report.
-        sources = self.collect_sources(deterministic_outputs=deterministic_outputs, react_result=result)
-        rendered = self.render_markdown(tasks, findings, sources, llm_used_tools)
-
-        return AgentReport(
-            agent_name=self.name,
+        return EconomicsAgentState(
             tasks=tasks,
-            findings=findings,
-            sources=sources,
-            confidence=0.7,
-            rendered_markdown=rendered,
-            metadata={
-                "mode": "mixed",
-                "deterministic_tools": list(self.config.always_call_tools),
-                "llm_chosen_tools": llm_used_tools,
-            },
+            context=context,
+            deterministic_outputs=deterministic_outputs or {},
         )
+
+    def build_graph(self) -> Any:
+        return build_economics_graph(self)
 
     def run_react_agent(
         self,
         tasks: list[str],
-        deterministic_outputs: dict[str, ToolResult],
+        deterministic_outputs: dict[str, ToolResult[Any]] | None,
         context: dict[str, Any] | None = None,
-    ) -> tuple[str, list[str], list[Source]]:
-        """Run a ReAct agent with the optional tools bound.
-
-        Prepends deterministic results as context so the LLM doesn't try to
-        re-fetch them.
-        """
+    ) -> tuple[dict[str, Any], str, list[str]]:
+        """Run a ReAct agent with the optional tools bound."""
         llm = get_chat_model(
             model=self.config.model,
             temperature=self.config.temperature,
@@ -73,16 +53,12 @@ class EconomicsAgent(BaseAgent):
             system_prompt=self.config.system_prompt,
         )
 
-        # Runtime context is rendered into the prompt so the LLM can resolve relative dates.
         user_prompt = build_user_prompt(
             tasks,
-            render_tool_outputs(deterministic_outputs),
+            render_tool_outputs(deterministic_outputs or {}),
             context=context,
         )
-        result = agent.invoke(
-            {"messages": [HumanMessage(content=user_prompt)]},
-            config={"recursion_limit": self.config.max_llm_iterations},
-        )
+        result = self.invoke_react_with_fallback(agent, llm, user_prompt)
 
         return (
             result,
@@ -90,16 +66,26 @@ class EconomicsAgent(BaseAgent):
             self.extract_used_tools(result),
         )
 
+    def collect_sources(
+        self,
+        react_result: dict[str, Any] | None = None,
+        deterministic_outputs: dict[str, ToolResult[Any]] | None = None,
+    ) -> list[Source]:
+        sources: list[Source] = []
+        if react_result:
+            sources.extend(self.extract_llm_sources(react_result))
+        sources.extend(
+            super().collect_sources(
+                react_result=react_result,
+                deterministic_outputs=deterministic_outputs,
+            )
+        )
+        return dedupe_sources(sources)
+
     @classmethod
     def extract_llm_sources(cls, result: dict[str, Any]) -> list[Source]:
-        """Turn the LLM's market-data tool calls into rich Sources.
-
-        ``get_weekly_stock_prices`` returns only its ``data`` payload to the LLM
-        (the ``yfinance:TICKER`` source on the ToolResult is dropped by
-        ``as_langchain_tool``), so we reconstruct the source from the payload:
-        the ticker, the resolved company name, and a Yahoo Finance link.
-        """
-        sources_by_name: dict[str, Source] = {}
+        """Turn the LLM's market-data tool calls into rich Sources."""
+        sources_by_url: dict[str, Source] = {}
         for msg in result.get("messages", []):
             if getattr(msg, "type", None) != "tool":
                 continue
@@ -117,23 +103,33 @@ class EconomicsAgent(BaseAgent):
                 if isinstance(fundamentals, dict)
                 else None
             )
-            name = f"yfinance:{ticker}"
-            if name in sources_by_name:
+            source_entries = payload.get("sources")
+            if not isinstance(source_entries, list):
                 continue
-            sources_by_name[name] = Source(
-                name=name,
-                url=f"https://finance.yahoo.com/quote/{ticker}",
-                metadata={
-                    "used_by": "llm_decision",
-                    "tool": "get_weekly_stock_prices",
-                    "provider": "yfinance",
-                    "ticker": ticker,
-                    "company_name": company,
-                    "start_date": payload.get("start_date"),
-                    "end_date": payload.get("end_date"),
-                },
-            )
-        return list(sources_by_name.values())
+            for entry in source_entries:
+                if not isinstance(entry, dict):
+                    continue
+                name = entry.get("name")
+                url = entry.get("url")
+                if not isinstance(name, str) or not isinstance(url, str):
+                    continue
+                if not url.startswith(("http://", "https://")) or url in sources_by_url:
+                    continue
+                sources_by_url[url] = Source(
+                    name=name,
+                    url=url,
+                    metadata={
+                        "used_by": "llm_decision",
+                        "tool": "get_weekly_stock_prices",
+                        "provider": "yfinance",
+                        "category": entry.get("category"),
+                        "ticker": ticker,
+                        "company_name": company,
+                        "start_date": payload.get("start_date"),
+                        "end_date": payload.get("end_date"),
+                    },
+                )
+        return list(sources_by_url.values())
 
     @staticmethod
     def _parse_tool_payload(content: Any) -> Any:

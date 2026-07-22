@@ -1,13 +1,14 @@
 """Economics tools"""
 
-import yfinance as yf
-
+from datetime import date, timedelta
 from typing import Any, ClassVar
 
+import yfinance as yf
 from pydantic import BaseModel, Field
 
 from mascan.contracts.tools import ToolResult
 from mascan.tools.base import BaseTool
+
 
 class WebQueryInput(BaseModel):
     query: str = Field(..., description="Search query for economic or market context.")
@@ -27,28 +28,41 @@ class WeeklyStockPricesTool(BaseTool):
         "or company-specific equity-market impact question."
     )
     input_schema: ClassVar[type[BaseModel] | None] = WeeklyStockPricesInput
+    MAX_HISTORY_DAYS: ClassVar[int] = 730
+    MAX_WEEKLY_ROWS: ClassVar[int] = 104
 
     def run(self, ticker: str, start_date: str, end_date: str, **_: Any) -> ToolResult[Any]:
         try:
+            bounded_start, bounded_end, date_limit_applied = self._bounded_date_range(
+                start_date,
+                end_date,
+            )
             raw_result = self.get_stock_prices(
                 ticker=ticker,
-                start_date=start_date,
-                end_date=end_date
+                start_date=bounded_start,
+                end_date=bounded_end,
             )
             if isinstance(raw_result, ToolResult):
-                return raw_result
-            if isinstance(raw_result, str):
-                return ToolResult[Any].model_validate_json(raw_result)
-            return ToolResult(
-                success=True,
-                data=raw_result,
-                source=f"yfinance:{ticker}",
-                metadata={
-                    "provider": "yfinance",
-                    "interval": "1wk",
-                    "start_date": start_date,
-                    "end_date": end_date,
-                },
+                result = raw_result
+            elif isinstance(raw_result, str):
+                result = ToolResult[Any].model_validate_json(raw_result)
+            else:
+                result = ToolResult(
+                    success=True,
+                    data=raw_result,
+                    source=f"yfinance:{ticker}",
+                    metadata={
+                        "provider": "yfinance",
+                        "interval": "1wk",
+                        "start_date": bounded_start,
+                        "end_date": bounded_end,
+                    },
+                )
+            return self._limit_result(
+                result,
+                start_date=bounded_start,
+                end_date=bounded_end,
+                date_limit_applied=date_limit_applied,
             )
         except Exception as exc:
             self.logger.exception("get_weekly_stock_prices failed for ticker=%r", ticker)
@@ -64,7 +78,53 @@ class WeeklyStockPricesTool(BaseTool):
                     "end_date": end_date,
                 },
             )
-        
+
+    @classmethod
+    def _bounded_date_range(
+        cls,
+        start_date: str,
+        end_date: str,
+    ) -> tuple[str, str, bool]:
+        try:
+            start = date.fromisoformat(start_date)
+            end = date.fromisoformat(end_date)
+        except ValueError:
+            return start_date, end_date, False
+        if (end - start).days <= cls.MAX_HISTORY_DAYS:
+            return start_date, end_date, False
+        return (
+            (end - timedelta(days=cls.MAX_HISTORY_DAYS)).isoformat(),
+            end_date,
+            True,
+        )
+
+    @classmethod
+    def _limit_result(
+        cls,
+        result: ToolResult[Any],
+        *,
+        start_date: str,
+        end_date: str,
+        date_limit_applied: bool,
+    ) -> ToolResult[Any]:
+        metadata = {
+            **result.metadata,
+            "limit_applied": date_limit_applied,
+        }
+        if not result.success or not isinstance(result.data, dict):
+            return result.model_copy(update={"metadata": metadata})
+
+        data = dict(result.data)
+        data["start_date"] = start_date
+        data["end_date"] = end_date
+        prices = data.get("weekly_prices")
+        if isinstance(prices, list):
+            rows_limited = len(prices) > cls.MAX_WEEKLY_ROWS
+            data["weekly_prices"] = prices[-cls.MAX_WEEKLY_ROWS :]
+            metadata["price_points"] = len(data["weekly_prices"])
+            metadata["limit_applied"] = date_limit_applied or rows_limited
+        return result.model_copy(update={"data": data, "metadata": metadata})
+
     def get_stock_prices(self, ticker: str, start_date: str, end_date:str) -> str:
         """Fetches weekly stock prices and fundamentals from Yahoo Finance.
 
@@ -76,7 +136,7 @@ class WeeklyStockPricesTool(BaseTool):
         Returns:
             str: A JSON string containing the stock price data.
         """
-        
+
         try:
             stock = yf.Ticker(ticker)
             info = stock.info
@@ -126,6 +186,28 @@ class WeeklyStockPricesTool(BaseTool):
                 "ticker": ticker,
                 "start_date": start_date,
                 "end_date": end_date,
+                "sources": [
+                    {
+                        "name": f"Yahoo Finance price history: {ticker}",
+                        "category": "prices",
+                        "url": f"https://finance.yahoo.com/quote/{ticker}/history",
+                    },
+                    {
+                        "name": f"Yahoo Finance company summary: {ticker}",
+                        "category": "summary",
+                        "url": f"https://finance.yahoo.com/quote/{ticker}",
+                    },
+                    {
+                        "name": f"Yahoo Finance financials: {ticker}",
+                        "category": "financials",
+                        "url": f"https://finance.yahoo.com/quote/{ticker}/financials",
+                    },
+                    {
+                        "name": f"Yahoo Finance statistics: {ticker}",
+                        "category": "statistics",
+                        "url": f"https://finance.yahoo.com/quote/{ticker}/key-statistics",
+                    },
+                ],
                 "fundamentals": {
                     "company_name": info.get("longName"),
                     "currency": info.get("currency"),
@@ -156,7 +238,7 @@ class WeeklyStockPricesTool(BaseTool):
                     "price_points": len(weekly_prices),
                 },
             )
-        
+
         except Exception as exc:
             result = ToolResult(
                 success=False,

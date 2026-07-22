@@ -8,7 +8,7 @@ from mascan.tools.base import BaseTool
 
 class RedditSearchInput(BaseModel):
     query: str = Field(description="Keyword query to search across Reddit.")
-    limit: int = Field(10, ge=1, le=25, description="Maximum number of posts to return.")
+    limit: int = Field(10, description="Requested posts; values are clamped to 1–10.")
     sort: str = Field("relevance", description="Search sort: relevance, hot, top, new, or comments.")
     time_filter: str = Field("month", description="Time window: hour, day, week, month, year, or all.")
 
@@ -20,6 +20,7 @@ class RedditSearchTool(BaseTool):
         "discussion, user pain points, sentiment, and demand signals."
     )
     input_schema = RedditSearchInput
+    MAX_RESULTS: ClassVar[int] = 10
 
     def run(
         self,
@@ -48,14 +49,22 @@ class RedditSearchTool(BaseTool):
             )
 
         try:
+            bounded_limit = max(1, min(limit, self.MAX_RESULTS))
             with RedditClient(credential) as client:
                 payload = client.search(
                     query,
                     sort=sort,
                     time_filter=time_filter,
-                    limit=min(limit, 25),
+                    limit=bounded_limit,
                 )
-            posts = self._format_posts(parse_listing(payload).items)
+            items = parse_listing(payload).items
+            selected = items[: self.MAX_RESULTS]
+            posts = self._format_posts(selected)
+            text_truncated = any(
+                isinstance(post.get("snippet"), str)
+                and post["snippet"].endswith(" […]")
+                for post in posts
+            )
             return ToolResult(
                 success=True,
                 data=posts,
@@ -67,6 +76,11 @@ class RedditSearchTool(BaseTool):
                     "count": len(posts),
                     "sort": sort,
                     "time_filter": time_filter,
+                    "limit_applied": (
+                        limit != bounded_limit
+                        or len(items) > self.MAX_RESULTS
+                        or text_truncated
+                    ),
                 },
             )
         except Exception as exc:
@@ -101,9 +115,7 @@ class RedditSearchTool(BaseTool):
 
     @classmethod
     def _truncate(cls, text: Any) -> Any:
-        if not isinstance(text, str) or len(text) <= cls.MAX_SNIPPET_CHARS:
-            return text
-        return text[: cls.MAX_SNIPPET_CHARS].rstrip() + " […]"
+        return cls.truncate_text(text, cls.MAX_SNIPPET_CHARS)
 
     @staticmethod
     def _failure(

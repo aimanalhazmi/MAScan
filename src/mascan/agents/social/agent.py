@@ -6,13 +6,16 @@ from langchain.agents import create_agent
 from langchain_core.messages import HumanMessage, SystemMessage
 from pydantic import BaseModel, Field
 
-from mascan.agents.base import BaseAgent
+from mascan.agents.base import GraphBackedAgent
 from mascan.agents.context import render_agent_context, render_runtime_context, render_tool_outputs
+from mascan.agents.social.graph import SocialAgentState, build_social_graph
 from mascan.agents.social.prompts import build_user_prompt
 from mascan.agents.sources import sources_from_react
-from mascan.contracts.reports import AgentReport, Source
+from mascan.contracts.metrics import AgentCallMetrics
+from mascan.contracts.reports import Source
 from mascan.contracts.tools import ToolResult
 from mascan.core.llm import get_chat_model
+from mascan.core.metrics import measure_agent_call
 
 MAX_SEARCH_QUERIES = 3
 WEB_RESULTS_PER_QUERY = 5
@@ -45,42 +48,37 @@ class SocialEvidencePlan(BaseModel):
     )
 
 
-class SocialAgent(BaseAgent):
+class SocialAgent(GraphBackedAgent):
     name = "social"
 
-    def _run(self, tasks: list[str], context: dict[str, Any] | None = None, deterministic_outputs: dict[str, ToolResult[Any]] | None = None) -> AgentReport:
+    def build_initial_state(
+        self,
+        tasks: list[str],
+        context: dict[str, Any] | None = None,
+        deterministic_outputs: dict[str, ToolResult[Any]] | None = None,
+    ) -> SocialAgentState:
         self.logger.info(f"Running Mode C (mixed) with {len(tasks)} task(s)")
-
-        result, findings, llm_used_tools, llm_sources = self.run_react_agent(
-            tasks,
-            deterministic_outputs,
-            context=context,
-        )
-        sources = self.collect_sources(deterministic_outputs=deterministic_outputs, react_result=result)
-        rendered = self.render_markdown(tasks, findings, sources, llm_used_tools)
-
-        return AgentReport(
-            agent_name=self.name,
+        return SocialAgentState(
             tasks=tasks,
-            findings=findings,
-            sources=sources,
-            confidence=0.65,
-            rendered_markdown=rendered,
-            metadata={
-                "mode": "mixed",
-                "deterministic_tools": list(self.config.always_call_tools),
-                "llm_chosen_tools": llm_used_tools,
-                "evidence_plan": getattr(self, "_last_evidence_plan", None),
-            },
+            context=context,
+            deterministic_outputs=deterministic_outputs or {},
         )
+
+    def build_graph(self) -> Any:
+        return build_social_graph(self)
 
     def gather_deterministic(
         self,
         tasks: list[str],
         context: dict[str, Any] | None = None,
+        agent_metrics: dict[str, AgentCallMetrics] | None = None,
     ) -> dict[str, ToolResult[Any]]:
-        query = " ; ".join(tasks)
-        plan = self.plan_evidence(tasks, context=context)
+        plan, measured = measure_agent_call(
+            "evidence_planner",
+            lambda: self.plan_evidence(tasks, context=context),
+        )
+        if agent_metrics is not None:
+            agent_metrics.update(measured)
         self._last_evidence_plan = plan.model_dump()
         outputs: dict[str, ToolResult[Any]] = {}
 
@@ -121,7 +119,7 @@ class SocialAgent(BaseAgent):
             max_tokens=1000,
         )
         structured_llm = llm.with_structured_output(SocialEvidencePlan)
-        result: SocialEvidencePlan = structured_llm.invoke(
+        result = structured_llm.invoke(
             [
                 SystemMessage(content=SOCIAL_EVIDENCE_PLANNER_PROMPT),
                 HumanMessage(
@@ -134,6 +132,8 @@ class SocialAgent(BaseAgent):
                 ),
             ]
         )
+        if not isinstance(result, SocialEvidencePlan):
+            result = SocialEvidencePlan.model_validate(result)
         return self.constrain_evidence_plan(result)
 
     def run_query_batch(
@@ -194,7 +194,7 @@ class SocialAgent(BaseAgent):
         tasks: list[str],
         deterministic_outputs: dict[str, ToolResult[Any]],
         context: dict[str, Any] | None = None,
-    ) -> tuple[str, list[str], list[Source]]:
+    ) -> tuple[dict[str, Any], str, list[str], list[Source]]:
         llm = get_chat_model(
             model=self.config.model,
             temperature=self.config.temperature,
@@ -211,10 +211,7 @@ class SocialAgent(BaseAgent):
             render_tool_outputs(deterministic_outputs),
             context=context,
         )
-        result = agent.invoke(
-            {"messages": [HumanMessage(content=user_prompt)]},
-            config={"recursion_limit": self.config.max_llm_iterations},
-        )
+        result = self.invoke_react_with_fallback(agent, llm, user_prompt)
         return (
             result,
             self.extract_final_answer(result),

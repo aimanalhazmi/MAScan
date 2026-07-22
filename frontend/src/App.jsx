@@ -18,6 +18,7 @@ export default function App() {
   const [theme, setTheme] = useState(() => localStorage.getItem("mascan.theme") || "light");
   const [leftW, setLeftW] = useState(() => Number(localStorage.getItem("mascan.leftW")) || 250);
   const [rightW, setRightW] = useState(() => Number(localStorage.getItem("mascan.rightW")) || 340);
+  const rightRailRef = useRef(null);
 
   // Seed the stream with the active conversation's saved run so the graph shows
   // its node states on reload instead of starting blank.
@@ -81,6 +82,13 @@ export default function App() {
 
   // Record the planner's question and the user's answer in the chat before
   // resuming the run, so the exchange stays visible in the history.
+  function resetGraphView() {
+    setSelectedNode(null);
+    requestAnimationFrame(() => {
+      if (rightRailRef.current) rightRailRef.current.scrollTop = 0;
+    });
+  }
+
   function resume(answer) {
     const question = stream.run.clarification?.question;
     setConversations((prev) =>
@@ -97,6 +105,7 @@ export default function App() {
           : c
       )
     );
+    resetGraphView();
     stream.resume(stream.run.clarification?.thread_id, answer);
   }
 
@@ -112,7 +121,7 @@ export default function App() {
           : c
       )
     );
-    setSelectedNode(null);
+    resetGraphView();
     stream.start(query);
   }
 
@@ -146,10 +155,16 @@ export default function App() {
             onResume={(answer) => resume(answer)}
           />
           <Resizer onMove={(dx) => setRightW((w) => clamp(w - dx, 260, 620))} />
-          <div className="right-rail">
-            <GraphRail run={stream.run} selected={selectedNode} onSelect={setSelectedNode} />
+          <div className="right-rail" ref={rightRailRef}>
+            <GraphRail
+              key={`${activeId}:${stream.run.status}`}
+              run={stream.run}
+              selected={selectedNode}
+              onSelect={setSelectedNode}
+            />
             {selectedNode && (
               <NodeDetail
+                key={selectedNode}
                 run={stream.run}
                 nodeId={selectedNode}
                 onClose={() => setSelectedNode(null)}

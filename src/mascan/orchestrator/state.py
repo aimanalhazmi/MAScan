@@ -1,11 +1,13 @@
 from datetime import datetime
-from typing import Annotated
+from typing import Annotated, Any
 from zoneinfo import ZoneInfo
 
 from pydantic import BaseModel, Field
 
+from mascan.contracts.metrics import ComponentMetrics, merge_component_metrics
 from mascan.contracts.planning import AgentAssignment, InformationRequest
-from mascan.contracts.reports import AgentReport
+from mascan.contracts.reports import AgentReport, Source
+from mascan.contracts.validation import ValidationReport
 
 
 def merge_dicts(left: dict, right: dict) -> dict:
@@ -51,13 +53,33 @@ class GraphState(BaseModel):
         description="Successful agent reports keyed by agent name.",
     )
 
+    component_metrics: Annotated[
+        dict[str, ComponentMetrics], merge_component_metrics
+    ] = Field(
+        default_factory=dict,
+        description="Accumulated execution metrics keyed by owning component.",
+    )
+
     failures: Annotated[dict[str, str], merge_dicts] = Field(
         default_factory=dict,
         description="Agents that errored: agent_name -> error message.",
     )
 
+    rag_evidence: list[dict[str, Any]] = Field(
+        default_factory=list,
+        description="Uploaded-document passages retrieved by the planner, with provenance.",
+    )
+
     final_summary: str = Field("", description="LLM-synthesized final answer.")
     final_markdown: str = Field("", description="Markdown rendering of the final answer.")
+    final_sources: list[Source] = Field(
+        default_factory=list,
+        description="Sources in final-body citation order, including uploaded documents.",
+    )
+    validation: ValidationReport | None = Field(
+        default=None,
+        description="Citation-pair validation result.",
+    )
 
     iteration: int = 0
     max_iterations: int = 10

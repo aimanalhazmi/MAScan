@@ -1,9 +1,13 @@
+from collections.abc import Iterator
+from contextlib import contextmanager
+from types import SimpleNamespace
 from typing import Any
 
 from mascan.agents.economics.agent import EconomicsAgent
 from mascan.agents.economics.prompts import build_user_prompt
 from mascan.agents.economics.tools.market_data import WeeklyStockPricesTool
 from mascan.agents.registry import agent_registry
+from mascan.contracts.metrics import TokenUsage
 from mascan.contracts.reports import AgentReport
 from mascan.contracts.tools import ToolResult
 
@@ -17,8 +21,8 @@ def test_economics_agent_is_registered() -> None:
 def test_economics_agent_loads_finance_and_web_tools() -> None:
     agent = EconomicsAgent()
 
-    assert "web_search" in agent.tools
-    assert "get_weekly_stock_prices" in agent.tools
+    assert "web_search" in agent.optional_tools
+    assert "get_weekly_stock_prices" in agent.optional_tools
 
 
 def test_economics_prompt_guides_stock_tool_usage() -> None:
@@ -65,7 +69,24 @@ def test_economics_agent_run_returns_report(mocker: Any) -> None:
     mocker.patch.object(
         agent,
         "run_react_agent",
-        return_value=("Economic outlook findings", [], []),
+        return_value=({}, "Economic outlook findings", []),
+    )
+
+    @contextmanager
+    def fake_usage_callback(*args: Any, **kwargs: Any) -> Iterator[Any]:
+        yield SimpleNamespace(
+            usage_metadata={
+                "gpt-test": {
+                    "input_tokens": 120,
+                    "output_tokens": 30,
+                    "total_tokens": 150,
+                }
+            }
+        )
+
+    mocker.patch(
+        "mascan.core.metrics.callbacks.get_usage_metadata_callback",
+        fake_usage_callback,
     )
 
     report = agent.run(tasks=["EU manufacturing outlook"])
@@ -75,7 +96,20 @@ def test_economics_agent_run_returns_report(mocker: Any) -> None:
     assert report.tasks == ["EU manufacturing outlook"]
     assert report.findings == "Economic outlook findings"
     assert report.metadata["mode"] == "mixed"
-    assert report.metadata["deterministic_tools"] == ["web_search"]
+    assert report.metadata["deterministic_tools"] == []
+    assert report.component_metrics["economics"].run_count == 1
+    assert report.component_metrics["economics"].duration_seconds >= 0
+    assert report.component_metrics["economics"].token_usage == TokenUsage(
+        input_tokens=120,
+        output_tokens=30,
+        total_tokens=150,
+    )
+    assert report.component_metrics["economics"].agents["analyst"].token_usage == TokenUsage(
+        input_tokens=120,
+        output_tokens=30,
+        total_tokens=150,
+    )
+    assert "execution" not in report.metadata
     assert "## Economics Analysis" in report.rendered_markdown
     # Sources are real article links labelled by title, not tool names.
     assert [source.url for source in report.sources] == ["https://example.com/eu-pmi"]

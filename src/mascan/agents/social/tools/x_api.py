@@ -9,7 +9,7 @@ from mascan.tools.base import BaseTool
 
 class XSearchInput(BaseModel):
     query: str = Field(description="Keyword query for recent public X posts.")
-    max_results: int = Field(10, ge=1, le=100, description="Number of recent posts to return.")
+    max_results: int = Field(10, description="Requested posts; values are clamped to 1–10.")
 
 
 class XSearchTool(BaseTool):
@@ -19,6 +19,7 @@ class XSearchTool(BaseTool):
         "qualitative public-discussion signals. Requires TWITTER_AUTH_TOKEN and TWITTER_CT0."
     )
     input_schema = XSearchInput
+    MAX_RESULTS: ClassVar[int] = 10
 
     def run(self, query: str, max_results: int = 10, **_: Any) -> ToolResult[list[dict[str, Any]]]:
         settings = get_settings()
@@ -39,9 +40,17 @@ class XSearchTool(BaseTool):
             return self._failure(query, f"twitter-cli is not installed: {exc}")
 
         try:
+            bounded_results = max(1, min(max_results, self.MAX_RESULTS))
             client = TwitterClient(auth_token, ct0)
-            tweets = client.fetch_search(query, count=max(1, min(max_results, 100)), product="Top")
-            posts = self._format_posts(tweets_to_data(tweets))
+            tweets = client.fetch_search(query, count=bounded_results, product="Top")
+            items = tweets_to_data(tweets)
+            selected = items[: self.MAX_RESULTS]
+            text_truncated = any(
+                isinstance(item.get("text"), str)
+                and len(item["text"]) > self.MAX_TEXT_CHARS
+                for item in selected
+            )
+            posts = self._format_posts(selected)
             return ToolResult(
                 success=True,
                 data=posts,
@@ -51,6 +60,11 @@ class XSearchTool(BaseTool):
                     "provider": "twitter-cli",
                     "query": query,
                     "count": len(posts),
+                    "limit_applied": (
+                        max_results != bounded_results
+                        or len(items) > self.MAX_RESULTS
+                        or text_truncated
+                    ),
                 },
             )
         except Exception as exc:
@@ -88,9 +102,7 @@ class XSearchTool(BaseTool):
 
     @classmethod
     def _truncate(cls, text: Any) -> Any:
-        if not isinstance(text, str) or len(text) <= cls.MAX_TEXT_CHARS:
-            return text
-        return text[: cls.MAX_TEXT_CHARS].rstrip() + " […]"
+        return cls.truncate_text(text, cls.MAX_TEXT_CHARS)
 
     @staticmethod
     def _failure(query: str, error: str) -> ToolResult[list[dict[str, Any]]]:

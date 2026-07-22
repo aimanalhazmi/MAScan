@@ -1,8 +1,19 @@
+from typing import ClassVar
+
 from newsdataapi import NewsDataApiClient
+from pydantic import BaseModel, Field
 
 from mascan.contracts import ToolResult
 from mascan.core.settings import get_settings
 from mascan.tools.base import BaseTool
+
+
+class NewsDataSearchInput(BaseModel):
+    query: str = Field(description="Political or geopolitical news query.")
+    country: str | None = None
+    language: str | None = None
+    category: str = "politics"
+    size: int = Field(10, description="Requested articles; values are clamped to 1–10.")
 
 
 class NewsDataSearchTool(BaseTool):
@@ -12,6 +23,9 @@ class NewsDataSearchTool(BaseTool):
         "Search latest political and geopolitical news articles "
         "using NewsData.io."
     )
+    input_schema: ClassVar[type[BaseModel] | None] = NewsDataSearchInput
+    MAX_RESULTS: ClassVar[int] = 10
+    MAX_DESCRIPTION_CHARS: ClassVar[int] = 1_000
 
     def run(
         self,
@@ -33,6 +47,7 @@ class NewsDataSearchTool(BaseTool):
         """
 
         try:
+            bounded_size = max(1, min(size, self.MAX_RESULTS))
             settings = get_settings()
 
             api = NewsDataApiClient(
@@ -42,7 +57,7 @@ class NewsDataSearchTool(BaseTool):
             params = {
                 "q": query,
                 "category": category,
-                "size": size,
+                "size": bounded_size,
             }
 
             if country:
@@ -53,21 +68,24 @@ class NewsDataSearchTool(BaseTool):
 
             response = api.news_api(**params)
 
+            raw_articles = response.get("results", [])
             articles = []
+            text_truncated = False
 
-            for item in response.get("results", []):
+            for item in raw_articles[: self.MAX_RESULTS]:
+                description = item.get("description")
+                if isinstance(description, str) and len(description) > self.MAX_DESCRIPTION_CHARS:
+                    text_truncated = True
                 articles.append(
                     {
                         "title": item.get("title"),
-                        "description": item.get("description"),
+                        "description": self.truncate_text(
+                            description,
+                            self.MAX_DESCRIPTION_CHARS,
+                        ),
                         "source": item.get("source_id"),
                         "url": item.get("link"),
                         "published_at": item.get("pubDate"),
-                        "image_url": item.get("image_url"),
-                        "keywords": item.get("keywords"),
-                        "country": item.get("country"),
-                        "category": item.get("category"),
-                        "language": item.get("language"),
                     }
                 )
 
@@ -90,6 +108,11 @@ class NewsDataSearchTool(BaseTool):
                     "language": language,
                     "category": category,
                     "article_count": len(articles),
+                    "limit_applied": (
+                        size != bounded_size
+                        or len(raw_articles) > self.MAX_RESULTS
+                        or text_truncated
+                    ),
                 },
             )
 

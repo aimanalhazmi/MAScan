@@ -1,4 +1,4 @@
-from typing import Any
+from typing import Any, ClassVar
 
 from pydantic import BaseModel, Field
 
@@ -56,6 +56,14 @@ COUNTRY_ALIASES: dict[str, str] = {
     "worldwide": "WLD",
 }
 
+WORLD_BANK_LOCATION_CODES: dict[str, str] = {
+    "ARG": "AR", "AUS": "AU", "BRA": "BR", "CAN": "CA", "CHN": "CN",
+    "DEU": "DE", "FRA": "FR", "GBR": "GB", "IND": "IN", "IDN": "ID",
+    "ITA": "IT", "JPN": "JP", "KOR": "KR", "MEX": "MX", "NLD": "NL",
+    "RUS": "RU", "SAU": "SA", "ESP": "ES", "TUR": "TR", "USA": "US",
+    "ZAF": "ZA", "EUU": "EU", "WLD": "1W",
+}
+
 
 class WorldBankEnvironmentalIndicatorsInput(BaseModel):
     country_code: str = Field(
@@ -89,6 +97,8 @@ class WorldBankEnvironmentalIndicatorsTool(BaseTool):
         "Use for water-stress, deforestation, or emissions signals by country."
     )
     input_schema = WorldBankEnvironmentalIndicatorsInput
+    MAX_COUNTRIES: ClassVar[int] = 3
+    MAX_INDICATORS: ClassVar[int] = 4
 
     def run(
         self,
@@ -97,8 +107,10 @@ class WorldBankEnvironmentalIndicatorsTool(BaseTool):
         indicators: list[str] | None = None,
         **_: Any,
     ) -> ToolResult[list[dict[str, Any]]]:
-        selected = indicators or list(DEFAULT_ENV_INDICATORS)
-        countries = self._normalize_country_codes(country_codes or [country_code])
+        requested_indicators = indicators or list(DEFAULT_ENV_INDICATORS)
+        requested_countries = self._normalize_country_codes(country_codes or [country_code])
+        selected = requested_indicators[: self.MAX_INDICATORS]
+        countries = requested_countries[: self.MAX_COUNTRIES]
         results: list[dict[str, Any]] = []
         errors: list[str] = []
 
@@ -108,10 +120,6 @@ class WorldBankEnvironmentalIndicatorsTool(BaseTool):
                 try:
                     response = http_get(
                         api_url,
-                        params={
-                            "format": "json",
-                            "per_page": 60,
-                        },
                         timeout=15.0,
                     )
                     payload = response.json()
@@ -130,6 +138,7 @@ class WorldBankEnvironmentalIndicatorsTool(BaseTool):
                             "unit": latest.get("unit") or None,
                             "source_note": latest.get("indicator", {}).get("value"),
                             "api_url": api_url,
+                            "url": self._display_url(country, indicator),
                         }
                     )
                 except Exception as exc:
@@ -153,7 +162,11 @@ class WorldBankEnvironmentalIndicatorsTool(BaseTool):
                 "country_codes": countries,
                 "indicator_count": len(results),
                 "failed_indicators": errors,
-                "source_urls": sorted({item["api_url"] for item in results}),
+                "source_urls": sorted({item["url"] for item in results}),
+                "limit_applied": (
+                    len(requested_indicators) > self.MAX_INDICATORS
+                    or len(requested_countries) > self.MAX_COUNTRIES
+                ),
             },
         )
 
@@ -169,7 +182,15 @@ class WorldBankEnvironmentalIndicatorsTool(BaseTool):
 
     @staticmethod
     def _api_url(country: str, indicator: str) -> str:
-        return f"https://api.worldbank.org/v2/country/{country}/indicator/{indicator}"
+        return (
+            f"https://api.worldbank.org/v2/country/{country}/indicator/{indicator}"
+            "?format=json&per_page=60"
+        )
+
+    @staticmethod
+    def _display_url(country: str, indicator: str) -> str:
+        location = WORLD_BANK_LOCATION_CODES.get(country, country)
+        return f"https://data.worldbank.org/indicator/{indicator}?locations={location}"
 
     @staticmethod
     def _latest_non_empty_observation(payload: Any) -> dict[str, Any] | None:

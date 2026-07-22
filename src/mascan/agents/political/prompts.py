@@ -2,7 +2,11 @@
 
 from typing import Any
 
-from mascan.agents.context import render_agent_context, render_runtime_context
+from mascan.agents.context import (
+    render_agent_context,
+    render_citation_requirements,
+    render_runtime_context,
+)
 
 
 def build_user_prompt(
@@ -19,5 +23,11 @@ def build_user_prompt(
         "Write a concise political-risk analysis addressing the tasks above. "
         "Cover relevant policy, regulatory, geopolitical, trade, sanction, election, "
         "government-intervention, and industrial-policy factors. Explain business "
-        "implications and cite sources by name. Call optional tools only if needed."
+        "implications and call optional tools only if needed.\n\n"
+        + render_citation_requirements(
+            "For web_search and news_api evidence, use the article title or publisher "
+            "as the Markdown link label and use the returned article URL.",
+            "Distinguish enacted policies and confirmed government actions from "
+            "proposals, campaign positions, or speculation.",
+        )
     )

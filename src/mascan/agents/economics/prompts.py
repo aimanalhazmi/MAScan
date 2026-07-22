@@ -7,7 +7,11 @@ sections, build task lists, etc.
 
 from typing import Any
 
-from mascan.agents.context import render_agent_context, render_runtime_context
+from mascan.agents.context import (
+    render_agent_context,
+    render_citation_requirements,
+    render_runtime_context,
+)
 
 
 def build_user_prompt(
@@ -22,19 +26,20 @@ def build_user_prompt(
         f"Tasks to analyze:\n{task_lines}\n\n"
         f"Information already gathered:\n{tool_block}\n\n"
         "Write a concise analysis addressing the tasks above. "
+        "Explicitly cover, when relevant to the case: prices/demand, costs and "
+        "incentives, and energy-efficiency or operating-cost savings with business "
+        "impact. Keep economic factors distinct from legal fines/penalties and from "
+        "purely political policy narrative. "
         "Use get_weekly_stock_prices when the task mentions a public company, "
         "stock ticker, stock performance, valuation, equity-market impact, or "
         "company-specific market sensitivity. If the user does not provide dates, "
         "use the last 12 months relative to the runtime current date. "
         "Do not use get_weekly_stock_prices for broad sector or macro questions "
-        "without a company or ticker."
-        "\n\nCitation requirements:\n"
-        "- Cite evidence directly in the analysis text using Markdown links.\n"
-        "- When you use get_weekly_stock_prices, explicitly attribute the figures "
-        "to Yahoo Finance and cite the ticker, for example "
-        "[Yahoo Finance: BMW.DE](https://finance.yahoo.com/quote/BMW.DE). State the "
-        "weekly price/fundamental data you relied on so the market-data tool is "
-        "visible in the analysis.\n"
-        "- For web_search results, cite the page url with the page title or source name.\n"
-        "- If a claim cannot be linked to a source, explicitly mark it as unlinked evidence."
+        "without a company or ticker.\n\n"
+        + render_citation_requirements(
+            "For get_weekly_stock_prices, attribute figures to Yahoo Finance and use "
+            "the returned ticker URL.",
+            "For web_search results, use the page title or publisher and the returned URL.",
+            "State the period and metric used for market or price data.",
+        )
     )

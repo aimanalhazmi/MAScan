@@ -1,23 +1,35 @@
 """BaseAgent — the contract every agent must implement."""
 
+import time
 from abc import ABC, abstractmethod
-from typing import Any, ClassVar
+from typing import Any, ClassVar, cast
+
+from langchain_core.language_models import BaseChatModel
+from langchain_core.messages import HumanMessage, SystemMessage
+from langgraph.errors import GraphRecursionError
 
 from mascan.agents.config import AgentConfig
+from mascan.agents.sources import (
+    cited_provided_sources,
+    cited_tools,
+    dedupe_sources,
+    normalize_agent_citations,
+    render_numbered_source_lines,
+    sources_from_react,
+    sources_from_tool_results,
+)
+from mascan.contracts.metrics import (
+    AgentCallMetrics,
+    ComponentMetrics,
+    merge_agent_metrics,
+)
 from mascan.contracts.reports import AgentReport, Source
 from mascan.contracts.tools import ToolResult
 from mascan.core.llm import get_chat_model
 from mascan.core.logging import get_logger
+from mascan.core.metrics import aggregate_agent_token_usage
 from mascan.tools.base import BaseTool
 from mascan.tools.registry import tool_registry
-from mascan.agents.sources import (
-    dedupe_sources,
-    render_source_lines,
-    sources_from_react,
-    sources_from_tool_results,
-)
-
-from langchain_core.language_models import BaseChatModel
 
 
 class BaseAgent(ABC):
@@ -57,7 +69,7 @@ class BaseAgent(ABC):
 
         self.always_call_tools: dict[str, BaseTool] = tool_registry.get_many(self.config.always_call_tools)
         self.optional_tools: dict[str, BaseTool] = tool_registry.get_many(self.config.optional_tools)
-        # self.tools: dict[str, BaseTool] = {**self.always_call_tools, **self.optional_tools}
+        self.tools: dict[str, BaseTool] = {**self.always_call_tools, **self.optional_tools}
         self.logger = get_logger(f"agents.{self.name}")
 
     @abstractmethod
@@ -65,8 +77,8 @@ class BaseAgent(ABC):
         self,
         tasks: list[str],
         context: dict[str, Any] | None = None,
-        deterministic_outputs: dict[str, ToolResult[Any]] | None = None
-        ) -> AgentReport:
+        deterministic_outputs: dict[str, ToolResult[Any]] | None = None,
+    ) -> AgentReport:
         """Execute the agent's analysis.
 
         Args:
@@ -87,8 +99,8 @@ class BaseAgent(ABC):
 
         module_file = inspect.getfile(cls)
         config_path = Path(module_file).parent / "config.yaml"
-        return AgentConfig.from_yaml(config_path)
-    
+        return cast(AgentConfig, AgentConfig.from_yaml(config_path))
+
     @staticmethod
     def extract_final_answer(result: dict[str, Any]) -> str:
         """Last message in the ReAct result is the LLM's final answer."""
@@ -108,9 +120,48 @@ class BaseAgent(ABC):
                 if name and name not in used:
                     used.append(name)
         return used
-    
+
+    def invoke_react_with_fallback(
+        self,
+        agent: Any,
+        llm: BaseChatModel,
+        user_prompt: str,
+    ) -> dict[str, Any]:
+        """Run ReAct and force a final answer if its tool loop hits the step cap."""
+        latest: dict[str, Any] | None = None
+        try:
+            for update in agent.stream(
+                {"messages": [HumanMessage(content=user_prompt)]},
+                config={"recursion_limit": self.config.max_llm_iterations},
+                stream_mode="values",
+            ):
+                latest = update
+            return latest or {"messages": []}
+        except GraphRecursionError:
+            messages = list((latest or {}).get("messages") or [])
+            self.logger.warning(
+                "ReAct reached recursion limit %s; forcing a tool-free final report.",
+                self.config.max_llm_iterations,
+            )
+            final = llm.invoke(
+                [
+                    SystemMessage(content=self.config.system_prompt),
+                    *messages,
+                    HumanMessage(
+                        content=(
+                            "The evidence-collection budget is exhausted. Do not call any "
+                            "more tools. Write the final concise analysis now using only "
+                            "the evidence already present in this conversation. Preserve "
+                            "the requested inline URL citations and explicitly acknowledge "
+                            "any evidence gaps."
+                        )
+                    ),
+                ]
+            )
+            return {"messages": [*messages, final]}
+
     def run(self, tasks: list[str], context: dict[str, Any] | None = None) -> AgentReport:
-        """Wraps the subclass's `_run()` method with execution of mandatory tool calls.
+        """Run the agent, then normalize citations and rendered output.
 
         Args:
             tasks: Specific subtasks the orchestrator has assigned.
@@ -120,11 +171,66 @@ class BaseAgent(ABC):
             AgentReport with structured fields AND rendered markdown.
         """
 
-        # Execute always-call tools first, if any.
-        deterministic_outputs = self.gather_deterministic(tasks)
-        return self._run(tasks, context=context, deterministic_outputs=deterministic_outputs)
+        started_at = time.perf_counter()
+        outside_agent_metrics: dict[str, AgentCallMetrics] = {}
+        deterministic_outputs = self.gather_deterministic(
+            tasks,
+            context=context,
+            agent_metrics=outside_agent_metrics,
+        )
+        report = self._run(
+            tasks,
+            context=context,
+            deterministic_outputs=deterministic_outputs,
+        )
+        citable_sources = [
+            *report.sources,
+            *cited_provided_sources(report.findings, context),
+        ]
+        cited_findings, ordered_sources = normalize_agent_citations(
+            report.findings,
+            citable_sources,
+        )
+        called_tools = list(report.metadata.get("llm_chosen_tools") or [])
+        referenced_tools = cited_tools(cited_findings, ordered_sources)
+        default_display_tools = list(report.metadata.get("default_display_tools") or [])
+        display_tools = list(dict.fromkeys([*default_display_tools, *called_tools]))
+        rendered = self.render_markdown(
+            report.tasks,
+            cited_findings,
+            ordered_sources,
+            display_tools,
+        )
+        provisional = report.component_metrics.get(self.name, ComponentMetrics())
+        agent_metrics = merge_agent_metrics(
+            provisional.agents,
+            outside_agent_metrics,
+        )
+        component_metrics = {
+            **report.component_metrics,
+            self.name: ComponentMetrics(
+                run_count=1,
+                duration_seconds=round(time.perf_counter() - started_at, 6),
+                token_usage=aggregate_agent_token_usage(agent_metrics),
+                agents=agent_metrics,
+            ),
+        }
+        return report.model_copy(
+            update={
+                "findings": cited_findings,
+                "sources": ordered_sources,
+                "rendered_markdown": rendered,
+                "metadata": {
+                    **report.metadata,
+                    "llm_called_tools": called_tools,
+                    "llm_chosen_tools": called_tools,
+                    "cited_tools": referenced_tools,
+                },
+                "component_metrics": component_metrics,
+            }
+        )
 
-    def llm_with_tools(self) -> BaseChatModel:
+    def llm_with_tools(self) -> Any:
         """Return an LLM bound to this agent's tools for LLM-driven calling.
 
         Usage inside `run()`:
@@ -143,8 +249,13 @@ class BaseAgent(ABC):
         )
         lc_tools = [t.as_langchain_tool() for t in self.optional_tools.values()]
         return llm.bind_tools(lc_tools)
-    
-    def gather_deterministic(self, tasks: list[str]) -> dict[str, ToolResult[Any]]:
+
+    def gather_deterministic(
+        self,
+        tasks: list[str],
+        context: dict[str, Any] | None = None,
+        agent_metrics: dict[str, AgentCallMetrics] | None = None,
+    ) -> dict[str, ToolResult[Any]]:
         """Call the always-call tools regardless of the question."""
         query = " ; ".join(tasks)
         outputs: dict[str, ToolResult[Any]] = {}
@@ -154,15 +265,15 @@ class BaseAgent(ABC):
             else:
                 self.logger.warning(f"Always-call tool {tool_name!r} not available; skipping.")
         return outputs
-    
-    def get_optional_tools(self) -> list:
+
+    def get_optional_tools(self) -> list[Any]:
         """Return LangChain-wrapped tools the LLM is allowed to call."""
         return [
             tool.as_langchain_tool()
             for name, tool in self.optional_tools.items()
             if name in self.config.optional_tools
         ]
-    
+
     def collect_sources(
         self,
         react_result: dict[str, ToolResult[Any]] | None = None,
@@ -184,17 +295,72 @@ class BaseAgent(ABC):
         llm_used_tools: list[str],
     ) -> str:
         task_lines = "\n".join(f"- {t}" for t in tasks)
-        src_lines = render_source_lines(sources)
-        llm_lines = "\n".join(f"- {t}" for t in llm_used_tools) or "- (none)"
-        always_lines = "\n".join(f"- {t}" for t in self.config.always_call_tools)
+        src_lines = render_numbered_source_lines(sources)
+        tool_block = ""
+        if llm_used_tools:
+            llm_lines = "\n".join(f"- {tool}" for tool in llm_used_tools)
+            tool_block = f"**Tools the LLM chose to call:**\n{llm_lines}\n\n"
         return (
             f"## {self.name.title()} Analysis\n\n"
             f"**Tasks:**\n{task_lines}\n\n"
             f"**Findings:**\n\n{findings}\n\n"
-            f"**Tools always called:**\n{always_lines}\n\n"
-            f"**Tools the LLM chose to call:**\n{llm_lines}\n\n"
+            f"{tool_block}"
             f"**Sources:**\n{src_lines}\n"
         )
 
     def __repr__(self) -> str:
-        return f"<Agent name={self.name!r} tools={self.config.tools}>"
+        return f"<Agent name={self.name!r} tools={list(self.tools)}>"
+
+
+class GraphBackedAgent(BaseAgent):
+    """Base class for agents whose `_run()` delegates to a private graph."""
+
+    def _run(
+        self,
+        tasks: list[str],
+        context: dict[str, Any] | None = None,
+        deterministic_outputs: dict[str, ToolResult[Any]] | None = None,
+    ) -> AgentReport:
+        state = self.build_initial_state(
+            tasks,
+            context=context,
+            deterministic_outputs=deterministic_outputs,
+        )
+        final_state = self.build_graph().invoke(state)
+        agent_metrics = final_state.get("agent_metrics", {})
+        report = self.extract_report(final_state)
+        return report.model_copy(
+            update={
+                "component_metrics": {
+                    self.name: ComponentMetrics(
+                        run_count=1,
+                        token_usage=aggregate_agent_token_usage(agent_metrics),
+                        agents=agent_metrics,
+                    )
+                }
+            }
+        )
+
+    @abstractmethod
+    def build_initial_state(
+        self,
+        tasks: list[str],
+        context: dict[str, Any] | None = None,
+        deterministic_outputs: dict[str, ToolResult[Any]] | None = None,
+    ) -> Any:
+        """Build the initial state for this agent's private graph."""
+        ...
+
+    @abstractmethod
+    def build_graph(self) -> Any:
+        """Build this agent's private graph."""
+        ...
+
+    def extract_report(self, final_state: Any) -> AgentReport:
+        """Extract the standard agent report from a completed graph state."""
+        report = final_state.get("report") if isinstance(final_state, dict) else None
+        if not isinstance(report, AgentReport):
+            raise RuntimeError(
+                f"{type(self).__name__} graph completed without an AgentReport."
+            )
+        return report

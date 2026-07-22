@@ -16,9 +16,11 @@ services:
       # the self-hosted Firecrawl
       FIRECRAWL_API_URL: http://firecrawl:3002
       MASCAN_STATIC_DIR: /app/src/mascan/app/static
+      RAG_UPLOAD_DIR: /app/rag_uploads
     volumes:
       - ./src:/app/src:ro
       - ./scripts:/app/scripts:ro
+      - mascan-rag-uploads:/app/rag_uploads
       # Reddit session cached on the host by `rdt login`. Mounted read-only so the
       # reddit_search tool can authenticate non-interactively inside the container.
       - ${HOME}/.config/rdt-cli:/app/.config/rdt-cli:ro
@@ -134,3 +136,5 @@ services:
 volumes:
   mascan-pgdata:
     name: mascan-pgdata
+  mascan-rag-uploads:
+    name: mascan-rag-uploads

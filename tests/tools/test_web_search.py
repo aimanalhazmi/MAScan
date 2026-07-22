@@ -17,6 +17,7 @@ def test_truncate_markdown_caps_long_pages() -> None:
     truncated = WebSearchTool._truncate_markdown(long_body)
 
     assert len(truncated) < len(long_body)
+    assert len(truncated) <= WebSearchTool.MAX_MARKDOWN_CHARS
     assert truncated.endswith("[...truncated...]")
 
 
@@ -24,6 +25,25 @@ def test_truncate_markdown_leaves_short_pages_untouched() -> None:
     body = "short body"
 
     assert WebSearchTool._truncate_markdown(body) == body
+
+
+def test_build_firecrawl_client_cloud_omits_api_url(mocker: Any) -> None:
+    firecrawl_cls = mocker.patch("mascan.tools.common.web_search.Firecrawl")
+
+    WebSearchTool(api_key="fc-test")._build_firecrawl_client()
+
+    firecrawl_cls.assert_called_once_with(api_key="fc-test")
+
+
+def test_build_firecrawl_client_self_hosted_uses_api_url(mocker: Any) -> None:
+    firecrawl_cls = mocker.patch("mascan.tools.common.web_search.Firecrawl")
+
+    WebSearchTool(api_url="http://localhost:3002")._build_firecrawl_client()
+
+    firecrawl_cls.assert_called_once_with(
+        api_key="self-hosted",
+        api_url="http://localhost:3002",
+    )
 
 
 def test_search_impl_truncates_each_result(mocker: Any) -> None:
@@ -40,6 +60,23 @@ def test_search_impl_truncates_each_result(mocker: Any) -> None:
 
     assert len(results) == 1
     assert results[0]["markdown"].endswith("[...truncated...]")
-    assert len(results[0]["markdown"]) <= WebSearchTool.MAX_MARKDOWN_CHARS + len(
-        "\n\n[...truncated...]"
-    )
+    assert len(results[0]["markdown"]) <= WebSearchTool.MAX_MARKDOWN_CHARS
+
+
+def test_run_clamps_oversized_result_count_without_failing(mocker: Any) -> None:
+    tool = WebSearchTool(api_key="test")
+    response = mocker.Mock()
+    response.web = [
+        _Doc(str(index), f"https://example.com/{index}", "body")
+        for index in range(6)
+    ]
+    fake_client = mocker.Mock()
+    fake_client.search.return_value = response
+    tool.client = fake_client
+
+    result = tool.run(query="anything", max_results=50)
+
+    assert result.success
+    assert len(result.data) == 5
+    assert result.metadata["limit_applied"] is True
+    fake_client.search.assert_called_once_with(query="anything", limit=5)

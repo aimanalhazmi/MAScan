@@ -1,3 +1,4 @@
+import time
 from collections.abc import Callable, Iterator
 from typing import Any
 from uuid import uuid4
@@ -8,11 +9,14 @@ from langgraph.types import Command, interrupt
 
 from mascan.agents.registry import agent_registry
 from mascan.contracts import FinalReport
+from mascan.contracts.validation import ValidationReport
 from mascan.core.logging import configure_logging, get_logger
+from mascan.core.metrics import aggregate_component_token_usage
 from mascan.orchestrator.adapters import make_agent_node
 from mascan.orchestrator.planner import planner_node
 from mascan.orchestrator.state import GraphState
 from mascan.orchestrator.synthesizer import synthesizer_node
+from mascan.orchestrator.validator import validator_node
 
 MAX_INFO_REQUESTS = 3
 
@@ -63,9 +67,9 @@ def _append_clarification_to_user_input(
     )
 
 
-def agents_passthrough(state: GraphState) -> GraphState:
+def agents_passthrough(_state: GraphState) -> dict[str, Any]:
     """Passthrough node that routes to all agent nodes."""
-    return state
+    return {}
 
 
 def build_graph() -> Any:
@@ -79,6 +83,7 @@ def build_graph() -> Any:
     graph.add_node("handle_info_request", handle_info_request)
     graph.add_node("agents", agents_passthrough)
     graph.add_node("synthesizer", synthesizer_node)
+    graph.add_node("validator", validator_node)
 
     agents = agent_registry.all()
     if not agents:
@@ -92,7 +97,7 @@ def build_graph() -> Any:
 
     # Edges
     graph.add_edge(START, "planner")
-    
+
     # Conditional routing from planner
     graph.add_conditional_edges(
         "planner",
@@ -110,8 +115,9 @@ def build_graph() -> Any:
     for agent in agents:
         graph.add_edge("agents", agent.name)
         graph.add_edge(agent.name, "synthesizer")
-    
-    graph.add_edge("synthesizer", END)
+
+    graph.add_edge("synthesizer", "validator")
+    graph.add_edge("validator", END)
 
     # Checkpointer lets the clarification interrupt pause and resume by thread_id.
     compiled_graph = graph.compile(checkpointer=MemorySaver())
@@ -133,11 +139,25 @@ def run(
     configure_logging()
     graph = build_graph()
     config = {"configurable": {"thread_id": thread_id or str(uuid4())}}
+    started_at = time.perf_counter()
     result = graph.invoke(GraphState(user_input=query), config=config)
     while (question := interrupt_question(result)) is not None:
         answer = on_clarify(question) if on_clarify else ""
         result = graph.invoke(Command(resume=answer or ""), config=config)
-    return state_to_report(result)
+
+    report = state_to_report(result)
+    token_usage = aggregate_component_token_usage(report.component_metrics)
+    return report.model_copy(
+        update={
+            "metadata": {
+                **report.metadata,
+                "execution": {
+                    "duration_seconds": round(time.perf_counter() - started_at, 6),
+                    "token_usage": token_usage.model_dump(),
+                },
+            }
+        }
+    )
 
 
 def stream(query: str, thread_id: str | None = None) -> Iterator[dict[str, Any]]:
@@ -175,6 +195,13 @@ def interrupt_question(result: dict[str, Any]) -> str | None:
 
 def state_to_report(state_dict: dict[str, Any]) -> FinalReport:
     """Convert the graph's final state dict into a FinalReport."""
+    validation = state_dict.get("validation")
+    if isinstance(validation, ValidationReport):
+        validation_payload = validation.model_dump(mode="json")
+    elif isinstance(validation, dict):
+        validation_payload = validation
+    else:
+        validation_payload = {}
     return FinalReport(
         user_input=state_dict.get("user_input", ""),
         summary=state_dict.get("final_summary", ""),
@@ -182,6 +209,8 @@ def state_to_report(state_dict: dict[str, Any]) -> FinalReport:
         plan=state_dict.get("plan", {}),
         agent_reports=state_dict.get("reports", {}),
         failures=state_dict.get("failures", {}),
+        component_metrics=state_dict.get("component_metrics", {}),
+        metadata={"validation": validation_payload},
     )
 
 def route_planner(state: GraphState) -> str:

@@ -1,5 +1,5 @@
 .DEFAULT_GOAL := help
-.PHONY: help install test lint format clean run-economics run-political run-legal run-social run-environmental run-orchestrator run-orchestrator-docker run-orchestrator-stream run-api dev-ui build-ui compose-up compose-down compose-logs compose-rebuild
+.PHONY: help install test lint format clean run-economics run-political run-legal run-social run-environmental run-technological run-orchestrator run-orchestrator-docker run-orchestrator-stream run-api dev-ui build-ui gold-eval-pre gold-eval gold-eval-post market-scenario-eval-pre market-scenario-eval openwebui-up openwebui-down openwebui-logs compose-up compose-down compose-logs compose-rebuild
 help:  ## Show this help message
 	@echo "MAScan — available commands:"
 	@echo ""
@@ -68,6 +68,41 @@ dev-ui:  ## Run the web UI dev server (proxies to the API on :8000)
 
 build-ui:  ## Build the web UI into the API's static dir (served at :8000)
 	cd frontend && npm install && npm run build
+
+gold-eval-pre:  ## Preview gold-standard eval commands (no API calls)
+	PYTHONPATH=src uv run python scripts/run_gold_pre_human.py --manifest eval_papers/gold_experiment_manifest.example.json --reviewer-out-dir eval_results/human_reviewers --trace-csv-out eval_results/case_trace.csv --preflight-out eval_results/pre_human_preflight.json --preflight-markdown-out eval_results/pre_human_preflight.md
+
+gold-eval:  ## Run the paid gold-standard pre-human phase (responses, judge, human packet)
+	PYTHONPATH=src uv run python scripts/run_gold_pre_human.py --manifest eval_papers/gold_experiment_manifest.example.json --reviewer-out-dir eval_results/human_reviewers --trace-csv-out eval_results/case_trace.csv --preflight-out eval_results/pre_human_preflight.json --preflight-markdown-out eval_results/pre_human_preflight.md --execute
+
+gold-eval-post:  ## Run post-human phase after raters return CSV files
+	PYTHONPATH=src uv run python scripts/run_gold_post_human.py --manifest eval_papers/gold_experiment_manifest.example.json --ratings-csv eval_results/human_reviewers/rater_1_ratings.csv eval_results/human_reviewers/rater_2_ratings.csv eval_results/human_reviewers/rater_3_ratings.csv eval_results/human_reviewers/rater_4_ratings.csv eval_results/human_reviewers/rater_5_ratings.csv --preflight-out eval_results/post_human_preflight.json --preflight-markdown-out eval_results/post_human_preflight.md --execute
+
+market-scenario-eval-pre:  ## Preview 3-case market scenario eval (Evonik, VW, BioNTech)
+	PYTHONPATH=src uv run python scripts/run_market_scenario_eval.py
+
+market-scenario-eval:  ## Run paid 3-case market scenario eval (MAScan vs zero-shot, no human step)
+	PYTHONPATH=src uv run python scripts/run_market_scenario_eval.py --execute --init-pricing
+
+openwebui-up:  ## Start Open WebUI in Docker on http://localhost:3000
+	@docker ps -a --format '{{.Names}}' | grep -q '^mascan-openwebui$$' && \
+		echo "Container already exists. Run 'docker start mascan-openwebui' to resume, or 'make openwebui-down' to remove it first." && exit 1 || true
+	docker run -d \
+		--name mascan-openwebui \
+		--add-host=host.docker.internal:host-gateway \
+		-p 3000:8080 \
+		-v mascan-openwebui-data:/app/backend/data \
+		--restart unless-stopped \
+		ghcr.io/open-webui/open-webui:main
+	@echo ""
+	@echo "Open WebUI starting at http://localhost:3000 (wait ~15s)"
+
+openwebui-down:  ## Stop and remove the Open WebUI container (data is preserved)
+	-docker stop mascan-openwebui
+	-docker rm mascan-openwebui
+
+openwebui-logs:  ## Follow Open WebUI container logs
+	docker logs -f mascan-openwebui
 
 compose-up:  ## Start the full stack (mascan api + UI) via docker compose
 	docker compose up -d --build

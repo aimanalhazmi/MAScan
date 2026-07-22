@@ -1,0 +1,44 @@
+{
+  "gold_standard_file": "eval_papers/gold_standard_cases.json",
+  "expected_case_count": 25,
+  "systems": [
+    {
+      "system_id": "mascan",
+      "model": "gpt-4o-mini",
+      "response_file": "eval_results/responses_mascan.json"
+    },
+    {
+      "system_id": "zero_shot_same_model",
+      "model": "gpt-4o-mini",
+      "response_file": "eval_results/responses_zero_shot.json"
+    },
+    {
+      "system_id": "frontier_model",
+      "model": "gpt-4o",
+      "response_file": "eval_results/responses_frontier.json"
+    }
+  ],
+  "merged_responses_file": "eval_results/responses_all.json",
+  "judged_file": "eval_results/judged_all.json",
+  "priced_judged_file": "eval_results/judged_all_priced.json",
+  "pricing_file": "eval_results/model_pricing.json",
+  "system_summary_file": "eval_results/system_summary.json",
+  "case_trace_file": "eval_results/case_trace.json",
+  "comparisons": [
+    {
+      "treatment_system": "mascan",
+      "control_system": "zero_shot_same_model",
+      "metric": "combined_quality",
+      "normality_alpha": 0.05,
+      "file": "eval_results/mascan_vs_zero_shot.json"
+    },
+    {
+      "treatment_system": "mascan",
+      "control_system": "frontier_model",
+      "metric": "combined_quality",
+      "normality_alpha": 0.05,
+      "file": "eval_results/mascan_vs_frontier.json"
+    }
+  ],
+  "final_report_file": "eval_results/gold_experiment_report.md"
+}

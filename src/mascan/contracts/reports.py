@@ -5,6 +5,7 @@ from typing import Any
 
 from pydantic import BaseModel, Field
 
+from mascan.contracts.metrics import ComponentMetrics
 from mascan.contracts.planning import AgentAssignment
 
 
@@ -27,7 +28,7 @@ class AgentReport(BaseModel):
     confidence: float = Field(0.5, ge=0.0, le=1.0, description="Self-reported confidence [0,1].")
     rendered_markdown: str = Field(..., description="Human-readable markdown rendering.")
     metadata: dict[str, Any] = Field(default_factory=dict)
-
+    component_metrics: dict[str, ComponentMetrics] = Field(default_factory=dict)
 
 
 class FinalReport(BaseModel):
@@ -51,4 +52,5 @@ class FinalReport(BaseModel):
 
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
     metadata: dict[str, Any] = Field(default_factory=dict)
+    component_metrics: dict[str, ComponentMetrics] = Field(default_factory=dict)
     rendered_markdown: str = Field(..., description="Markdown rendering for UI display.")

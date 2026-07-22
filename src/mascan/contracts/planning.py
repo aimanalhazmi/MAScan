@@ -11,6 +11,22 @@ class AgentAssignment(BaseModel):
         description="Agent-specific brief preserving the user's intent and constraints.",
     )
     tasks: list[str] = Field(description="Specific sub-tasks assigned to this agent.")
+    evidence_documents: list[str] = Field(
+        default_factory=list,
+        description=(
+            "Exact uploaded-document filenames whose retrieved evidence should be "
+            "provided to this agent."
+        ),
+    )
+    salient_factors: list[str] = Field(
+        default_factory=list,
+        description=(
+            "3-6 concrete, subject-specific factors this agent must cover for this "
+            "dimension (e.g. named regulations, cost drivers, technologies). These are "
+            "investigation targets/hypotheses the agent should verify with evidence, "
+            "NOT asserted facts about the case."
+        ),
+    )
 
 
 class InformationRequest(BaseModel):

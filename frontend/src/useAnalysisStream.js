@@ -1,11 +1,17 @@
 import { useState } from "react";
-import { AGENTS } from "./graph";
+import { AGENTS } from "./graph.js";
+import { withoutFactCheck } from "./markdown.js";
 
 // Drives an analysis run: POSTs to the SSE endpoints, parses the stream, and
 // reduces node events into a single run object the UI renders.
 
 export function emptyRun() {
-  const nodeStatus = { planner: "idle", clarify: "idle", synthesizer: "idle" };
+  const nodeStatus = {
+    planner: "idle",
+    clarify: "idle",
+    synthesizer: "idle",
+    validator: "idle",
+  };
   for (const a of AGENTS) nodeStatus[a] = "idle";
   return {
     status: "idle", // idle | running | clarification | done | error
@@ -13,12 +19,27 @@ export function emptyRun() {
     plan: {},
     reports: {},
     failures: {},
+    componentMetrics: {},
+    runDurationSeconds: null,
     finalMarkdown: "",
     summary: "",
+    validation: {},
     clarification: null,
     clarifications: [], // answered question/answer pairs, kept for the graph
     error: "",
   };
+}
+
+export function hydrateRun(partial) {
+  const base = emptyRun();
+  if (!partial) return base;
+  const hydrated = {
+    ...base,
+    ...partial,
+    nodeStatus: { ...base.nodeStatus, ...(partial.nodeStatus || {}) },
+  };
+  hydrated.finalMarkdown = withoutFactCheck(hydrated.finalMarkdown);
+  return hydrated;
 }
 
 function markSynthesizer(run) {
@@ -32,8 +53,60 @@ function markSynthesizer(run) {
   return run;
 }
 
+function mergeComponentMetrics(current, incoming) {
+  const merged = { ...current };
+  for (const [name, metric] of Object.entries(incoming || {})) {
+    const previous = merged[name];
+    if (!previous) {
+      merged[name] = metric;
+      continue;
+    }
+    const left = previous.token_usage || {};
+    const right = metric.token_usage || {};
+    merged[name] = {
+      ...previous,
+      ...metric,
+      run_count: (previous.run_count || 0) + (metric.run_count || 0),
+      duration_seconds:
+        (previous.duration_seconds || 0) + (metric.duration_seconds || 0),
+      token_usage: {
+        input_tokens: (left.input_tokens || 0) + (right.input_tokens || 0),
+        output_tokens: (left.output_tokens || 0) + (right.output_tokens || 0),
+        total_tokens: (left.total_tokens || 0) + (right.total_tokens || 0),
+      },
+    };
+  }
+  return merged;
+}
+
+export function aggregateRunTokenUsage(componentMetrics) {
+  return Object.values(componentMetrics || {}).reduce(
+    (totals, metric) => {
+      const tokens = metric.token_usage || {};
+      totals.input_tokens += tokens.input_tokens || 0;
+      totals.output_tokens += tokens.output_tokens || 0;
+      totals.total_tokens += tokens.total_tokens || 0;
+      return totals;
+    },
+    {
+      input_tokens: 0,
+      output_tokens: 0,
+      total_tokens: 0,
+    }
+  );
+}
+
 export function reduce(prev, ev) {
-  const run = { ...prev, nodeStatus: { ...prev.nodeStatus } };
+  const run = {
+    ...prev,
+    nodeStatus: { ...prev.nodeStatus },
+    componentMetrics: { ...(prev.componentMetrics || {}) },
+  };
+
+  if (Number.isFinite(ev.duration_seconds)) {
+    run.runDurationSeconds =
+      (run.runDurationSeconds || 0) + ev.duration_seconds;
+  }
 
   if (ev.event === "start") {
     run.status = "running";
@@ -80,6 +153,13 @@ export function reduce(prev, ev) {
   const { node } = ev;
   const update = ev.update || {};
 
+  if (update.component_metrics && typeof update.component_metrics === "object") {
+    run.componentMetrics = mergeComponentMetrics(
+      run.componentMetrics,
+      update.component_metrics
+    );
+  }
+
   if (node === "planner") {
     // Planner is asking for clarification; stay active until the answer comes.
     if (update.info_request) {
@@ -98,8 +178,15 @@ export function reduce(prev, ev) {
 
   if (node === "synthesizer") {
     run.nodeStatus.synthesizer = "done";
-    run.finalMarkdown = update.final_markdown || run.finalMarkdown;
+    run.nodeStatus.validator = "active";
+    run.finalMarkdown = withoutFactCheck(update.final_markdown || run.finalMarkdown);
     run.summary = update.final_summary || run.summary;
+    return run;
+  }
+
+  if (node === "validator") {
+    run.nodeStatus.validator = "done";
+    run.validation = update.validation || run.validation;
     return run;
   }
 
@@ -141,9 +228,8 @@ async function consume(response, apply) {
 }
 
 export function useAnalysisStream(initialRun) {
-  // Fill any missing fields so a lightweight snapshot still forms a valid run.
-  const hydrate = (partial) => (partial ? { ...emptyRun(), ...partial } : emptyRun());
-  const [run, setRun] = useState(() => hydrate(initialRun));
+  // Fill missing fields, including nodes absent from older saved snapshots.
+  const [run, setRun] = useState(() => hydrateRun(initialRun));
 
   const apply = (ev) => setRun((r) => reduce(r, ev));
 
@@ -183,6 +269,6 @@ export function useAnalysisStream(initialRun) {
       }));
       return post("/analyze/resume", { thread_id, answer });
     },
-    reset: (initial) => setRun(hydrate(initial)),
+    reset: (initial) => setRun(hydrateRun(initial)),
   };
 }
