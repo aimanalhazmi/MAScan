@@ -1,5 +1,5 @@
 {
-  "gold_standard_file": "eval_papers/market_scenario_cases.json",
+  "gold_standard_file": "eval_scenarios/market_scenario_cases.json",
   "expected_case_count": 3,
   "systems": [
     {

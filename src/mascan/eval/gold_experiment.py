@@ -222,9 +222,7 @@ def summarize_system(
     ]
     combined_scores = [combined_quality_score(judge) for judge in judges]
     missing_claim_counts = [len(judge.missing_gold_claims) for judge in judges]
-    unsupported_claim_counts = [
-        len(judge.unsupported_or_wrong_claims) for judge in judges
-    ]
+    unsupported_claim_counts = [len(judge.unsupported_or_wrong_claims) for judge in judges]
     token_totals = [
         record.response.token_usage.total_tokens
         for record in relevant
@@ -245,19 +243,13 @@ def summarize_system(
         n=len(relevant),
         total_quality_points=total_quality,
         mean_analytical_depth=round(sum(depth_scores) / len(depth_scores), 6),
-        mean_categorization_accuracy=round(
-            sum(accuracy_scores) / len(accuracy_scores), 6
-        ),
+        mean_categorization_accuracy=round(sum(accuracy_scores) / len(accuracy_scores), 6),
         mean_grounding_accuracy=(
-            round(sum(grounding_scores) / len(grounding_scores), 6)
-            if grounding_scores
-            else None
+            round(sum(grounding_scores) / len(grounding_scores), 6) if grounding_scores else None
         ),
         mean_combined_quality=round(mean_combined, 6),
         total_missing_gold_claims=sum(missing_claim_counts),
-        mean_missing_gold_claims=round(
-            sum(missing_claim_counts) / len(missing_claim_counts), 6
-        ),
+        mean_missing_gold_claims=round(sum(missing_claim_counts) / len(missing_claim_counts), 6),
         total_unsupported_or_wrong_claims=sum(unsupported_claim_counts),
         mean_unsupported_or_wrong_claims=round(
             sum(unsupported_claim_counts) / len(unsupported_claim_counts), 6
@@ -265,13 +257,7 @@ def summarize_system(
         total_tokens=total_tokens,
         total_cost_usd=total_cost,
         quality_per_1k_tokens=(
-            round(total_quality / total_tokens * 1000, 8)
-            if total_tokens
-            else None
+            round(total_quality / total_tokens * 1000, 8) if total_tokens else None
         ),
-        quality_per_usd=(
-            round(total_quality / total_cost, 8)
-            if total_cost
-            else None
-        ),
+        quality_per_usd=(round(total_quality / total_cost, 8) if total_cost else None),
     )

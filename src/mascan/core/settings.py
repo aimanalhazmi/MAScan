@@ -51,7 +51,7 @@ class Settings(BaseSettings):
         1, description="Max self-correction (CRAG) rewrite-retries on the full retrieval path."
     )
     rag_min_score: float = Field(
-        0.5,
+        0.25,
         description="Minimum similarity a passage needs to reach the planner. Dense search "
         "always returns its nearest neighbour, so this keeps unrelated documents out of the "
         "plan.",
@@ -63,11 +63,14 @@ class Settings(BaseSettings):
     firecrawl_api_key: str | None = Field(
         None, description="Firecrawl API key (not needed for a self-hosted instance)."
     )
-    firecrawl_api_url: str | None = Field(
-        None, description="Base URL of a self-hosted Firecrawl."
+    firecrawl_api_url: str | None = Field(None, description="Base URL of a self-hosted Firecrawl.")
+
+    #  Political agent — NewsData.io API key (env: NEWS_API_KEY)
+    news_api_key: str | None = Field(
+        None, description="NewsData.io API key for the political news_api tool."
     )
 
-    #  Social agent — X/Twitter cookie secrets (kept in env, not config.yaml)
+    #  Social agent — X/Twitter cookie secrets
     twitter_auth_token: str | None = Field(
         None, description="X/Twitter auth_token cookie for twitter-cli in-process auth."
     )
@@ -77,11 +80,10 @@ class Settings(BaseSettings):
 
     # Technological agent — Semantic Scholar API key and URL (optional, but recommended)
     semantic_scholar_api_key: str | None = Field(
-        None, description="Semantic Scholar API key (optional, but recommended for better rate limits)."
+        None,
+        description="Semantic Scholar API key (optional, but recommended for better rate limits).",
     )
-    semantic_scholar_api_url: str | None = Field(
-        None, description="Semantic Scholar API URL."
-    )
+    semantic_scholar_api_url: str | None = Field(None, description="Semantic Scholar API URL.")
 
     #  App
     log_level: str = Field("INFO", description="Logging level.")

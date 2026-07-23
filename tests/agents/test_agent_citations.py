@@ -100,10 +100,7 @@ def test_agent_can_cite_a_provided_uploaded_file_but_not_other_local_paths() -> 
         [uploaded],
     )
 
-    assert normalized == (
-        "Company fact [1](/rag/files/EVONIK%20Q1.pdf). "
-        "Unknown Local file."
-    )
+    assert normalized == ("Company fact [1](/rag/files/EVONIK%20Q1.pdf). Unknown Local file.")
     assert sources == [uploaded]
 
 

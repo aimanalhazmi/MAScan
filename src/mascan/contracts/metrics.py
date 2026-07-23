@@ -43,18 +43,11 @@ def merge_agent_metrics(
         merged[name] = AgentCallMetrics(
             run_count=current.run_count + incoming.run_count,
             token_usage=TokenUsage(
-                input_tokens=(
-                    current.token_usage.input_tokens
-                    + incoming.token_usage.input_tokens
-                ),
+                input_tokens=(current.token_usage.input_tokens + incoming.token_usage.input_tokens),
                 output_tokens=(
-                    current.token_usage.output_tokens
-                    + incoming.token_usage.output_tokens
+                    current.token_usage.output_tokens + incoming.token_usage.output_tokens
                 ),
-                total_tokens=(
-                    current.token_usage.total_tokens
-                    + incoming.token_usage.total_tokens
-                ),
+                total_tokens=(current.token_usage.total_tokens + incoming.token_usage.total_tokens),
             ),
         )
     return merged
@@ -74,18 +67,11 @@ def merge_component_metrics(
                 6,
             ),
             token_usage=TokenUsage(
-                input_tokens=(
-                    current.token_usage.input_tokens
-                    + incoming.token_usage.input_tokens
-                ),
+                input_tokens=(current.token_usage.input_tokens + incoming.token_usage.input_tokens),
                 output_tokens=(
-                    current.token_usage.output_tokens
-                    + incoming.token_usage.output_tokens
+                    current.token_usage.output_tokens + incoming.token_usage.output_tokens
                 ),
-                total_tokens=(
-                    current.token_usage.total_tokens
-                    + incoming.token_usage.total_tokens
-                ),
+                total_tokens=(current.token_usage.total_tokens + incoming.token_usage.total_tokens),
             ),
             agents=merge_agent_metrics(current.agents, incoming.agents),
         )

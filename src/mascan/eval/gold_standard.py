@@ -103,9 +103,7 @@ def load_gold_standard(
 ) -> GoldStandardDataset:
     """Load the frozen 25-case PESTEL gold standard from disk."""
     dataset_path = Path(path)
-    return GoldStandardDataset.model_validate_json(
-        dataset_path.read_text(encoding="utf-8")
-    )
+    return GoldStandardDataset.model_validate_json(dataset_path.read_text(encoding="utf-8"))
 
 
 def prompt_pack(dataset: GoldStandardDataset) -> list[dict[str, str]]:
@@ -139,10 +137,7 @@ def validate_gold_standard_coverage(
         issues.append(
             GoldStandardValidationIssue(
                 code="case_count_mismatch",
-                detail=(
-                    f"Expected {expected_case_count} cases, found "
-                    f"{len(dataset.cases)}."
-                ),
+                detail=(f"Expected {expected_case_count} cases, found {len(dataset.cases)}."),
             )
         )
 
@@ -219,9 +214,7 @@ def _validate_case(
             )
         )
 
-    expected_prompt = dataset.generation_instruction_template.format(
-        case_subject=case.case_subject
-    )
+    expected_prompt = dataset.generation_instruction_template.format(case_subject=case.case_subject)
     if case.prompt != expected_prompt:
         issues.append(
             GoldStandardValidationIssue(
@@ -281,8 +274,7 @@ def _validate_case(
                     code="invalid_category_target_bucket",
                     case_id=case.case_id,
                     detail=(
-                        f"Target {target.factor} uses invalid bucket "
-                        f"{target.correct_category}."
+                        f"Target {target.factor} uses invalid bucket {target.correct_category}."
                     ),
                 )
             )

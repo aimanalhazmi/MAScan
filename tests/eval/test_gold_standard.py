@@ -65,8 +65,7 @@ def test_gold_standard_coverage_report_flags_prompt_template_drift():
 
     assert not report.is_valid
     assert any(
-        issue.code == "prompt_template_mismatch"
-        and issue.case_id == dataset.cases[0].case_id
+        issue.code == "prompt_template_mismatch" and issue.case_id == dataset.cases[0].case_id
         for issue in report.issues
     )
 

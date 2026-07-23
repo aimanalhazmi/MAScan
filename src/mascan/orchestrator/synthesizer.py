@@ -159,9 +159,26 @@ _HEADING_THEME_CUES: dict[str, tuple[str, ...]] = {
     "Political": ("policy", "government", "subsid", "geopolitic", "political"),
     "Economic": ("price", "demand", "cost", "incentive", "efficien", "saving"),
     "Social": ("job", "labor", "labour", "tourism", "education", "community", "demographic"),
-    "Technological": ("innov", "digital", "infrastruct", "r&d", "technolog", "battery", "microgrid"),
+    "Technological": (
+        "innov",
+        "digital",
+        "infrastruct",
+        "r&d",
+        "technolog",
+        "battery",
+        "microgrid",
+    ),
     "Environmental": ("emission", "waste", "water", "climate", "pollut", "aquifer", "co2"),
-    "Legal": ("regulation", "directive", "permit", "authoriz", "fine", "penalt", "litigation", "law"),
+    "Legal": (
+        "regulation",
+        "directive",
+        "permit",
+        "authoriz",
+        "fine",
+        "penalt",
+        "litigation",
+        "law",
+    ),
 }
 
 HTML_SOURCE_REF_PATTERN = re.compile(r'href=["\']#source-(\d+)["\']')
@@ -207,10 +224,12 @@ def _synthesizer_node(state: GraphState) -> dict[str, Any]:
     )
 
     user_prompt = _build_synthesis_prompt(state)
-    response = llm.invoke([
-        SystemMessage(content=SYNTHESIZER_SYSTEM_PROMPT),
-        HumanMessage(content=user_prompt),
-    ])
+    response = llm.invoke(
+        [
+            SystemMessage(content=SYNTHESIZER_SYSTEM_PROMPT),
+            HumanMessage(content=user_prompt),
+        ]
+    )
     normalized = _normalize_citation_links(state, str(response.content))
     if _needs_citation_repair(state, normalized):
         normalized = _repair_missing_citations(state, normalized)
@@ -281,8 +300,7 @@ def _build_synthesis_prompt(state: GraphState) -> str:
         )
     else:
         parts.append(
-            "Citation Registry:\n"
-            "(No URL-backed sources are available. Do not create citations.)\n"
+            "Citation Registry:\n(No URL-backed sources are available. Do not create citations.)\n"
         )
 
     if state.reports:
@@ -321,9 +339,7 @@ def _needs_citation_repair(state: GraphState, draft: str) -> bool:
 
     by_number = {entry.number: entry.source for entry in registry}
     registry_urls = {
-        canonical_source_url(entry.source.url)
-        for entry in registry
-        if entry.source.url
+        canonical_source_url(entry.source.url) for entry in registry if entry.source.url
     }
     has_valid_citation = False
     has_url_citation = False
@@ -432,8 +448,7 @@ def _repair_theme_coverage(state: GraphState, draft: str) -> str:
 
 def _build_coverage_repair_prompt(state: GraphState, draft: str) -> str:
     parts = [
-        "Repair PESTEL theme coverage and category placement using only the "
-        "evidence below.\n",
+        "Repair PESTEL theme coverage and category placement using only the evidence below.\n",
     ]
     parts.append(_build_synthesis_prompt(state))
     parts.append(
@@ -517,10 +532,7 @@ def _build_citation_registry(state: GraphState) -> list[CitationEntry]:
     entries: list[CitationEntry] = []
     seen: set[str] = set()
     sources = [
-        source
-        for report in state.reports.values()
-        for source in report.sources
-        if source.url
+        source for report in state.reports.values() for source in report.sources if source.url
     ]
     for source in sources:
         if not source.url:

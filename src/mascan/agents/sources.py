@@ -111,8 +111,7 @@ def sources_from_react(result: dict[str, Any]) -> list[Source]:
             continue
         tool = getattr(msg, "name", None) or "llm_tool"
         sources.extend(
-            make_source(label, url, tool)
-            for label, url in links_from_content(msg.content)
+            make_source(label, url, tool) for label, url in links_from_content(msg.content)
         )
     return sources
 
@@ -171,9 +170,7 @@ def canonical_source_url(url: str | None) -> str:
         path = ""
     elif path.endswith("/"):
         path = path.rstrip("/")
-    return urlunsplit(
-        (parts.scheme.lower(), parts.netloc.lower(), path, parts.query, "")
-    )
+    return urlunsplit((parts.scheme.lower(), parts.netloc.lower(), path, parts.query, ""))
 
 
 def normalize_agent_citations(
@@ -219,10 +216,7 @@ def cited_tools(
     sources: list[Source],
 ) -> list[str]:
     """Return tools whose collected URLs are actually cited in the findings."""
-    cited_urls = {
-        canonical_source_url(url)
-        for _, url in MARKDOWN_LINK_RE.findall(findings)
-    }
+    cited_urls = {canonical_source_url(url) for _, url in MARKDOWN_LINK_RE.findall(findings)}
     tools: list[str] = []
     for source in sources:
         if not source.url or canonical_source_url(source.url) not in cited_urls:

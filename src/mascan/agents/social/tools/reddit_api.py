@@ -9,8 +9,12 @@ from mascan.tools.base import BaseTool
 class RedditSearchInput(BaseModel):
     query: str = Field(description="Keyword query to search across Reddit.")
     limit: int = Field(10, description="Requested posts; values are clamped to 1–10.")
-    sort: str = Field("relevance", description="Search sort: relevance, hot, top, new, or comments.")
-    time_filter: str = Field("month", description="Time window: hour, day, week, month, year, or all.")
+    sort: str = Field(
+        "relevance", description="Search sort: relevance, hot, top, new, or comments."
+    )
+    time_filter: str = Field(
+        "month", description="Time window: hour, day, week, month, year, or all."
+    )
 
 
 class RedditSearchTool(BaseTool):
@@ -61,8 +65,7 @@ class RedditSearchTool(BaseTool):
             selected = items[: self.MAX_RESULTS]
             posts = self._format_posts(selected)
             text_truncated = any(
-                isinstance(post.get("snippet"), str)
-                and post["snippet"].endswith(" […]")
+                isinstance(post.get("snippet"), str) and post["snippet"].endswith(" […]")
                 for post in posts
             )
             return ToolResult(
@@ -77,9 +80,7 @@ class RedditSearchTool(BaseTool):
                     "sort": sort,
                     "time_filter": time_filter,
                     "limit_applied": (
-                        limit != bounded_limit
-                        or len(items) > self.MAX_RESULTS
-                        or text_truncated
+                        limit != bounded_limit or len(items) > self.MAX_RESULTS or text_truncated
                     ),
                 },
             )

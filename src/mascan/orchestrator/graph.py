@@ -81,7 +81,7 @@ def build_graph() -> Any:
 
     graph.add_node("planner", planner_node)
     graph.add_node("handle_info_request", handle_info_request)
-    graph.add_node("agents", agents_passthrough)
+    graph.add_node("agents", agents_passthrough)  # type: ignore[arg-type]  # plain dict-returning node
     graph.add_node("synthesizer", synthesizer_node)
     graph.add_node("validator", validator_node)
 
@@ -93,7 +93,7 @@ def build_graph() -> Any:
         )
 
     for agent in agents:
-        graph.add_node(agent.name, make_agent_node(agent))
+        graph.add_node(agent.name, make_agent_node(agent))  # type: ignore[arg-type]  # plain dict-returning node
 
     # Edges
     graph.add_edge(START, "planner")
@@ -166,7 +166,9 @@ def stream(query: str, thread_id: str | None = None) -> Iterator[dict[str, Any]]
     configure_logging()
     graph = build_graph()
     config = {"configurable": {"thread_id": thread_id or str(uuid4())}}
-    yield from _emit(graph.stream(GraphState(user_input=query), config=config, stream_mode="updates"))
+    yield from _emit(
+        graph.stream(GraphState(user_input=query), config=config, stream_mode="updates")
+    )
 
 
 def resume(thread_id: str, answer: str) -> Iterator[dict[str, Any]]:
@@ -190,7 +192,8 @@ def interrupt_question(result: dict[str, Any]) -> str | None:
     interrupts = result.get("__interrupt__")
     if not interrupts:
         return None
-    return interrupts[0].value
+    question: str | None = interrupts[0].value
+    return question
 
 
 def state_to_report(state_dict: dict[str, Any]) -> FinalReport:
@@ -212,6 +215,7 @@ def state_to_report(state_dict: dict[str, Any]) -> FinalReport:
         component_metrics=state_dict.get("component_metrics", {}),
         metadata={"validation": validation_payload},
     )
+
 
 def route_planner(state: GraphState) -> str:
     """Route from planner based on whether it needs more info or can proceed to agents."""

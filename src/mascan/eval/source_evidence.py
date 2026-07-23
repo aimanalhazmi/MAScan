@@ -8,7 +8,6 @@ from pydantic import BaseModel, Field
 from mascan.eval.gold_standard import GoldStandardDataset
 from mascan.eval.pdf import extract_pdf_text
 
-
 DEFAULT_ANCHOR_MATCH_THRESHOLD = 0.45
 SOURCE_EVIDENCE_CSV_FIELDS = [
     "case_id",

@@ -1,7 +1,7 @@
 """Run the 3-case market-scenario evaluation (Evonik, Volkswagen, BioNTech).
 
 Uses the same gold pipeline as the 25-case experiment but:
-- separate dataset: eval_papers/market_scenario_cases.json
+- separate dataset: eval_scenarios/market_scenario_cases.json
 - separate outputs: eval_results/market_scenarios/
 - no human-calibration phase (LLM judge + paired stats only)
 
@@ -27,7 +27,7 @@ import subprocess
 import sys
 from pathlib import Path
 
-DEFAULT_MANIFEST = "eval_papers/market_scenario_manifest.json"
+DEFAULT_MANIFEST = "eval_scenarios/market_scenario_manifest.json"
 DEFAULT_OUT_DIR = "eval_results/market_scenarios"
 
 

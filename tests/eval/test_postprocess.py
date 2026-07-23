@@ -3,7 +3,6 @@ from uuid import uuid4
 
 from mascan.eval.postprocess import run_gold_postprocess
 from mascan.eval.readiness import load_experiment_manifest
-
 from tests.eval._gold_fixtures import build_complete_gold_run_fixture
 
 
@@ -16,7 +15,6 @@ def test_run_gold_postprocess_regenerates_derived_artifacts():
         "judged_all_priced.json",
         "system_summary.json",
         "case_trace.json",
-        "human_irr.json",
         "mascan_vs_zero_shot.json",
         "mascan_vs_frontier.json",
         "gold_experiment_report.md",

@@ -135,9 +135,7 @@ class GoldJudgeResult(_LLMGoldJudgeOutput):
     case_id: str
     analytical_depth_score: float = Field(..., ge=1.0, le=3.0)
     categorization_accuracy: float = Field(..., ge=0.0, le=1.0)
-    categorization_accuracy_present_only: float | None = Field(
-        default=None, ge=0.0, le=1.0
-    )
+    categorization_accuracy_present_only: float | None = Field(default=None, ge=0.0, le=1.0)
     grounding: GroundingJudgeResult | None = Field(
         default=None,
         description=(
@@ -208,8 +206,7 @@ def compute_analytical_depth(
     if not response_claim_scores:
         return 1.0
     return round(
-        sum(claim.score for claim in response_claim_scores)
-        / len(response_claim_scores),
+        sum(claim.score for claim in response_claim_scores) / len(response_claim_scores),
         4,
     )
 
@@ -244,14 +241,8 @@ def validate_category_judgment_alignment(
     judgments: list[CategoryTargetJudgment],
 ) -> None:
     """Require one judge categorization judgment per gold target, in order."""
-    expected = [
-        (target.factor, target.correct_category)
-        for target in case.category_targets
-    ]
-    observed = [
-        (judgment.factor, judgment.expected_category)
-        for judgment in judgments
-    ]
+    expected = [(target.factor, target.correct_category) for target in case.category_targets]
+    observed = [(judgment.factor, judgment.expected_category) for judgment in judgments]
     if observed != expected:
         raise ValueError(
             "Judge category_judgments must preserve the gold category_targets "
@@ -292,9 +283,7 @@ def _expected_output_payload(case: GoldStandardCase) -> dict[str, list[str]]:
 def build_gold_judge_user_prompt(case: GoldStandardCase, response_text: str) -> str:
     """Build a single-case judge prompt with gold targets and the model response."""
     gold_claims = [claim.model_dump(mode="json") for claim in case.gold_claims]
-    category_targets = [
-        target.model_dump(mode="json") for target in case.category_targets
-    ]
+    category_targets = [target.model_dump(mode="json") for target in case.category_targets]
     payload = {
         "case_id": case.case_id,
         "case_title": case.case_title,
@@ -409,8 +398,7 @@ def build_gold_judge_result(
         unsupported_or_wrong_claims=out.unsupported_or_wrong_claims,
         summary=out.summary,
         analytical_depth_score=compute_analytical_depth(out.response_claim_scores),
-        categorization_accuracy=compute_categorization_accuracy(out.category_judgments)
-        or 0.0,
+        categorization_accuracy=compute_categorization_accuracy(out.category_judgments) or 0.0,
         categorization_accuracy_present_only=compute_categorization_accuracy(
             out.category_judgments, present_only=True
         ),

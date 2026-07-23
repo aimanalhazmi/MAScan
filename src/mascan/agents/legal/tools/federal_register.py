@@ -74,10 +74,7 @@ class FederalRegisterTool(BaseTool):
             payload = response.json()
 
             raw_documents = payload.get("results", [])
-            documents = [
-                self._parse(item)
-                for item in raw_documents[: self.MAX_RESULTS]
-            ]
+            documents = [self._parse(item) for item in raw_documents[: self.MAX_RESULTS]]
             text_truncated = any(
                 isinstance(item.get("abstract"), str)
                 and len(item["abstract"]) > self.MAX_ABSTRACT_CHARS

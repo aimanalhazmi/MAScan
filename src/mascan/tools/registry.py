@@ -23,9 +23,7 @@ class ToolRegistry:
     def get(self, name: str) -> BaseTool:
         """Get a tool by name. Raises if not found."""
         if name not in self.tools:
-            raise RegistryError(
-                f"Tool {name!r} not found. Registered: {sorted(self.tools.keys())}"
-            )
+            raise RegistryError(f"Tool {name!r} not found. Registered: {sorted(self.tools.keys())}")
         return self.tools[name]
 
     def get_many(self, names: list[str]) -> dict[str, BaseTool]:

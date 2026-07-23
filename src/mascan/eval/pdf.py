@@ -5,7 +5,7 @@ from pathlib import Path
 try:
     from pypdf import PdfReader
 except ModuleNotFoundError:  # pragma: no cover - exercised when pypdf is absent.
-    PdfReader = None
+    PdfReader = None  # type: ignore[assignment,misc]  # conditional-import fallback
 
 
 def extract_pdf_text(path: str | Path) -> str:

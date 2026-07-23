@@ -52,7 +52,7 @@ COPY --from=ui-builder --chown=app:app /ui/src/mascan/app/static /app/static
 ENV MASCAN_STATIC_DIR=/app/static
 
 # Writable dir for figures extracted from uploaded PDFs (RAG_IMAGE_DIR default).
-RUN mkdir -p /app/rag_images && chown app:app /app/rag_images
+RUN mkdir -p /app/rag_images /app/rag_uploads && chown app:app /app/rag_images /app/rag_uploads
 
 ENV PYTHONPATH=/app/src
 

@@ -44,9 +44,7 @@ ENV_INDICATORS_BY_DIMENSION: dict[str, dict[str, str]] = {
 }
 
 ENV_INDICATORS: dict[str, str] = {
-    code: name
-    for group in ENV_INDICATORS_BY_DIMENSION.values()
-    for code, name in group.items()
+    code: name for group in ENV_INDICATORS_BY_DIMENSION.values() for code, name in group.items()
 }
 
 #  Used only when the agent requests no indicators.
