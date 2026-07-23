@@ -1,15 +1,14 @@
 # MAScan
 
 
-MAScan is a multi-agent system that analyzes markets and predicts trends. A set
-of specialised PESTEL agents (Political, Economic, Social, Technological,
-Environmental, Legal) gathers data from external sources, and an orchestrator
-plans the work, merges the results, and returns one cited report.
+MAScan is a multi-agent system that analyzes markets and predicts trends. 
+A set of specialised PESTEL agents (Political, Economic, Social, Technological, Environmental, Legal) gathers data from external sources, while a RAG layer adds the organisation's internal data (reports, records, domain knowledge). An orchestrator  plans the work, merges the results, and returns one cited report.
 
 ## Prerequisites
 
 - [Docker](https://www.docker.com/) installed and running
 - [`uv`](https://github.com/astral-sh/uv) and `make` (only for local development and tests)
+- [`npm`](https://www.npmjs.com/)
 - Python 3.12 (only for local development)
 - An OpenAI API key
 
@@ -44,6 +43,7 @@ All variables live in `.env` (copied from `.env.example`). The most important:
 | Reddit | Reddit tool | Optional. Run `rdt login` once on your machine. It caches a session that the tool reuses; Docker Compose mounts that session read-only. |
 | `DATABASE_URL` | RAG | Set by Docker Compose. Leave unset to disable RAG. See [`src/mascan/rag/README.md`](src/mascan/rag/README.md). |
 | `LANGSMITH_API_KEY` | Tracing | Optional. Use an EU account and match `LANGSMITH_PROJECT`. |
+| `SEMANTIC_SCHOLAR_API_KEY` | Scholar Search Tool | Optional. Request a free API key for access |
 
 The full list, with comments, is in `.env.example`.
 

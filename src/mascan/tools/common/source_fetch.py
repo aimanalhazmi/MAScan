@@ -263,9 +263,7 @@ class SourceFetchTool(BaseTool):
                 api_url=self.api_url,
             )
         if not self.api_key:
-            raise ValueError(
-                "FIRECRAWL_API_KEY is required when FIRECRAWL_API_URL is not set."
-            )
+            raise ValueError("FIRECRAWL_API_KEY is required when FIRECRAWL_API_URL is not set.")
         # Cloud mode: omit api_url entirely. Passing api_url=None crashes the SDK.
         return Firecrawl(api_key=self.api_key)
 
@@ -329,9 +327,7 @@ class SourceFetchTool(BaseTool):
             except socket.gaierror as exc:
                 raise UnsafeSourceUrlError(f"Hostname could not be resolved: {hostname}") from exc
             if not addresses:
-                raise UnsafeSourceUrlError(
-                    f"Hostname could not be resolved: {hostname}"
-                ) from None
+                raise UnsafeSourceUrlError(f"Hostname could not be resolved: {hostname}") from None
             for address in addresses:
                 if not ipaddress.ip_address(address).is_global:
                     raise UnsafeSourceUrlError(

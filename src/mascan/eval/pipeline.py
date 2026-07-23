@@ -210,8 +210,7 @@ def bind_manifest_path(
         command.model_copy(
             update={
                 "argv": [
-                    manifest_path if arg == "__MANIFEST_PATH__" else arg
-                    for arg in command.argv
+                    manifest_path if arg == "__MANIFEST_PATH__" else arg for arg in command.argv
                 ]
             }
         )

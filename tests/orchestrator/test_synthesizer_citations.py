@@ -81,8 +81,7 @@ def test_legacy_html_citations_are_normalized_and_renumbered() -> None:
 
     renumbered = _renumber_citation_links(normalized)
     assert renumbered == (
-        "Policy changed [1](https://example.com/b). "
-        "Growth rose [2](https://example.com/a)."
+        "Policy changed [1](https://example.com/b). Growth rose [2](https://example.com/a)."
     )
     assert _extract_cited_source_numbers(renumbered) == [1, 2]
 
@@ -95,8 +94,7 @@ def test_sources_follow_body_citation_order_and_remove_duplicates() -> None:
     )
 
     assert _render_sources_section(make_state(), summary) == (
-        "1. [Source B](https://example.com/b)\n"
-        "2. [Source A](https://example.com/a)"
+        "1. [Source B](https://example.com/b)\n2. [Source A](https://example.com/a)"
     )
 
 
@@ -108,9 +106,7 @@ def test_sources_do_not_fall_back_to_uncited_registry_entries() -> None:
 def test_uploaded_factsheet_reaches_registry_through_agent_report() -> None:
     upload = Source(
         name="EVONIK Analyst & Investor Factsheet Q1 2026.pdf",
-        url=(
-            "/rag/files/EVONIK%20Analyst%20%26%20Investor%20Factsheet%20Q1%202026.pdf"
-        ),
+        url=("/rag/files/EVONIK%20Analyst%20%26%20Investor%20Factsheet%20Q1%202026.pdf"),
     )
     state = make_state()
     economics = state.reports["economics"].model_copy(
@@ -181,8 +177,7 @@ def test_web_and_upload_sources_are_renumbered_by_first_body_appearance() -> Non
         "https://example.com/a",
     ]
     assert _render_sources_section(state, summary, sources) == (
-        "1. [factsheet.pdf](/rag/files/factsheet.pdf)\n"
-        "2. [Source A](https://example.com/a)"
+        "1. [factsheet.pdf](/rag/files/factsheet.pdf)\n2. [Source A](https://example.com/a)"
     )
 
 

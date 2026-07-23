@@ -49,10 +49,7 @@ def test_compute_categorization_accuracy_counts_missing_as_wrong():
     ]
 
     assert gold_judge.compute_categorization_accuracy(judgments) == 0.3333
-    assert (
-        gold_judge.compute_categorization_accuracy(judgments, present_only=True)
-        == 0.5
-    )
+    assert gold_judge.compute_categorization_accuracy(judgments, present_only=True) == 0.5
 
 
 def test_build_gold_judge_prompt_includes_strict_targets():

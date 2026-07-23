@@ -131,10 +131,7 @@ def render_methodology_appendix(
             ]
             for fingerprint in readiness.fingerprints:
                 lines.append(
-                    "| "
-                    f"{fingerprint.artifact} | "
-                    f"{fingerprint.method} | "
-                    f"`{fingerprint.sha256}` |"
+                    f"| {fingerprint.artifact} | {fingerprint.method} | `{fingerprint.sha256}` |"
                 )
 
         lines += [
@@ -198,7 +195,7 @@ def _evidence_for_step(manifest: GoldExperimentManifest, step: int) -> list[str]
     if step == 1:
         return [
             *(system.response_file for system in manifest.systems),
-            *( [manifest.merged_responses_file] if manifest.merged_responses_file else [] ),
+            *([manifest.merged_responses_file] if manifest.merged_responses_file else []),
         ]
     if step == 2:
         return [manifest.gold_standard_file]
@@ -219,7 +216,7 @@ def _evidence_for_step(manifest: GoldExperimentManifest, step: int) -> list[str]
     if step == 6:
         return [
             *(comparison.file for comparison in manifest.comparisons),
-            *( [manifest.final_report_file] if manifest.final_report_file else [] ),
+            *([manifest.final_report_file] if manifest.final_report_file else []),
         ]
     return []
 

@@ -46,8 +46,7 @@ class XSearchTool(BaseTool):
             items = tweets_to_data(tweets)
             selected = items[: self.MAX_RESULTS]
             text_truncated = any(
-                isinstance(item.get("text"), str)
-                and len(item["text"]) > self.MAX_TEXT_CHARS
+                isinstance(item.get("text"), str) and len(item["text"]) > self.MAX_TEXT_CHARS
                 for item in selected
             )
             posts = self._format_posts(selected)
@@ -80,7 +79,8 @@ class XSearchTool(BaseTool):
         posts: list[dict[str, Any]] = []
         for item in items:
             post_id = item.get("id")
-            author = item.get("author") if isinstance(item.get("author"), dict) else {}
+            raw_author = item.get("author")
+            author = raw_author if isinstance(raw_author, dict) else {}
             screen_name = author.get("screenName")
             if screen_name and post_id:
                 url = f"https://x.com/{screen_name}/status/{post_id}"

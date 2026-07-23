@@ -30,7 +30,9 @@ _ENGLISH = "<http://publications.europa.eu/resource/authority/language/ENG>"
 class EurLexInput(BaseModel):
     """Arguments the LLM supplies when it chooses to call this tool."""
 
-    query: str = Field(description="Keyword(s) to match against EU legislation titles, e.g. 'data protection'.")
+    query: str = Field(
+        description="Keyword(s) to match against EU legislation titles, e.g. 'data protection'."
+    )
     limit: int = Field(default=5, description="Requested legal acts; values are clamped to 1–10.")
 
 
@@ -87,9 +89,7 @@ class EurLexTool(BaseTool):
                     "returned": len(documents),
                     "limit": bounded_limit,
                     "limit_applied": (
-                        limit != bounded_limit
-                        or len(unique) > self.MAX_RESULTS
-                        or text_truncated
+                        limit != bounded_limit or len(unique) > self.MAX_RESULTS or text_truncated
                     ),
                 },
             )
@@ -117,7 +117,7 @@ class EurLexTool(BaseTool):
             f"       cdm:expression_uses_language {_ENGLISH} ;\n"
             "       cdm:expression_title ?title .\n"
             "  OPTIONAL { ?work cdm:work_date_document ?date }\n"
-            f'  ?title bif:contains "\'{keyword}\'" .\n'
+            f"  ?title bif:contains \"'{keyword}'\" .\n"
             "}\n"
             "ORDER BY DESC(?date)\n"
             f"LIMIT {int(limit)}"

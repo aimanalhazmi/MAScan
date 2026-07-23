@@ -17,7 +17,9 @@ def cohen_kappa(
     if not rater_a:
         raise ValueError("at least one paired rating is required")
 
-    categories = list(labels) if labels is not None else sorted(set(rater_a) | set(rater_b))
+    categories = (
+        list(labels) if labels is not None else sorted(set(rater_a) | set(rater_b))  # type: ignore[type-var]  # labels are sortable at runtime
+    )
     if not categories:
         raise ValueError("at least one category label is required")
 
@@ -53,7 +55,9 @@ def weighted_cohen_kappa(
     label_index = {label: index for index, label in enumerate(categories)}
     unknown = (set(rater_a) | set(rater_b)) - set(label_index)
     if unknown:
-        raise ValueError(f"ratings contain labels not present in labels: {sorted(unknown)}")
+        raise ValueError(
+            f"ratings contain labels not present in labels: {sorted(unknown)}"  # type: ignore[type-var]
+        )
 
     n = len(rater_a)
     max_distance = len(categories) - 1
@@ -112,13 +116,13 @@ def fleiss_kappa(
     categories = (
         list(labels)
         if labels is not None
-        else sorted({rating for row in item_ratings for rating in row})
+        else sorted({rating for row in item_ratings for rating in row})  # type: ignore[type-var]
     )
     if not categories:
         raise ValueError("at least one category label is required")
 
     n_items = len(item_ratings)
-    category_totals = Counter()
+    category_totals: Counter[Hashable] = Counter()
     item_agreements: list[float] = []
 
     for row in item_ratings:
@@ -128,9 +132,7 @@ def fleiss_kappa(
         item_agreements.append(agreement / (n_raters * (n_raters - 1)))
 
     observed = sum(item_agreements) / n_items
-    expected = sum(
-        (category_totals[label] / (n_items * n_raters)) ** 2 for label in categories
-    )
+    expected = sum((category_totals[label] / (n_items * n_raters)) ** 2 for label in categories)
 
     if expected == 1.0:
         return 1.0 if observed == 1.0 else 0.0

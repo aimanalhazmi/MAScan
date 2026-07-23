@@ -82,7 +82,10 @@ class SocialAgent(GraphBackedAgent):
         self._last_evidence_plan = plan.model_dump()
         outputs: dict[str, ToolResult[Any]] = {}
 
-        self.tools = {**self.always_call_tools, **self.optional_tools}  # merge for this method only TODO: fix this hack
+        self.tools = {
+            **self.always_call_tools,
+            **self.optional_tools,
+        }  # merge for this method only TODO: fix this hack
 
         # if "web_search" in self.tools:
         #     outputs.update(

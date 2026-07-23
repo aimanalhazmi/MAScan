@@ -129,12 +129,26 @@ class _ToolMessage:
 
 
 def test_extract_llm_sources_surfaces_market_data() -> None:
+    # The market-data tool now embeds a `sources` list; extract_llm_sources emits
+    # one Source per unique URL from it (deduped across repeated tool calls).
     payload = {
         "ticker": "BMW.DE",
         "start_date": "2025-06-01",
         "end_date": "2026-06-01",
         "fundamentals": {"company_name": "Bayerische Motoren Werke AG"},
         "weekly_prices": [],
+        "sources": [
+            {
+                "name": "Yahoo Finance company summary: BMW.DE",
+                "category": "summary",
+                "url": "https://finance.yahoo.com/quote/BMW.DE",
+            },
+            {
+                "name": "Yahoo Finance price history: BMW.DE",
+                "category": "prices",
+                "url": "https://finance.yahoo.com/quote/BMW.DE/history",
+            },
+        ],
     }
     result = {
         "messages": [
@@ -145,17 +159,20 @@ def test_extract_llm_sources_surfaces_market_data() -> None:
 
     sources = EconomicsAgent.extract_llm_sources(result)
 
-    assert len(sources) == 1
-    source = sources[0]
-    assert source.name == "yfinance:BMW.DE"
-    assert source.url == "https://finance.yahoo.com/quote/BMW.DE"
-    assert source.metadata["ticker"] == "BMW.DE"
-    assert source.metadata["company_name"] == "Bayerische Motoren Werke AG"
+    assert len(sources) == 2
+    by_url = {source.url: source for source in sources}
+    summary = by_url["https://finance.yahoo.com/quote/BMW.DE"]
+    assert summary.name == "Yahoo Finance company summary: BMW.DE"
+    assert summary.metadata["ticker"] == "BMW.DE"
+    assert summary.metadata["company_name"] == "Bayerische Motoren Werke AG"
+    assert summary.metadata["category"] == "summary"
 
     from mascan.agents.sources import format_source_line
 
-    line = format_source_line(source)
-    assert line == "- [yfinance:BMW.DE](https://finance.yahoo.com/quote/BMW.DE)"
+    line = format_source_line(summary)
+    assert line == (
+        "- [Yahoo Finance company summary: BMW.DE](https://finance.yahoo.com/quote/BMW.DE)"
+    )
 
 
 def test_weekly_stock_tool_fails_on_delisted_ticker(mocker: Any) -> None:

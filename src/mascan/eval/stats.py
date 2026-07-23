@@ -26,9 +26,7 @@ class PairedTestResult(BaseModel):
     test_selection_reason: str | None = None
 
 
-def _validate_pairs(
-    treatment: Sequence[float], control: Sequence[float]
-) -> list[float]:
+def _validate_pairs(treatment: Sequence[float], control: Sequence[float]) -> list[float]:
     if len(treatment) != len(control):
         raise ValueError("treatment and control must have the same length")
     if not treatment:
@@ -87,11 +85,7 @@ def _regularized_incomplete_beta(a: float, b: float, x: float) -> float:
         return 1.0
 
     log_front = (
-        a * math.log(x)
-        + b * math.log1p(-x)
-        - math.lgamma(a)
-        - math.lgamma(b)
-        + math.lgamma(a + b)
+        a * math.log(x) + b * math.log1p(-x) - math.lgamma(a) - math.lgamma(b) + math.lgamma(a + b)
     )
     front = math.exp(log_front)
 
@@ -113,9 +107,7 @@ def _student_t_cdf(t_value: float, df: int) -> float:
     return 0.5 * ibeta
 
 
-def _p_from_symmetric_cdf(
-    statistic: float, cdf: float, alternative: Alternative
-) -> float:
+def _p_from_symmetric_cdf(statistic: float, cdf: float, alternative: Alternative) -> float:
     if alternative == "greater":
         return 1.0 - cdf
     if alternative == "less":
@@ -142,9 +134,7 @@ def paired_t_test(
         if variance > 0.0:
             effect_size = mean_diff / math.sqrt(variance)
         if variance == 0.0:
-            statistic = (
-                math.inf if mean_diff > 0 else -math.inf if mean_diff < 0 else 0.0
-            )
+            statistic = math.inf if mean_diff > 0 else -math.inf if mean_diff < 0 else 0.0
             p_value = 0.0 if mean_diff != 0 else 1.0
         else:
             statistic = mean_diff / math.sqrt(variance / n)
@@ -206,7 +196,7 @@ def _exact_signed_rank_p_value(
             for score, count in counts.items()
             if min(score, total - score) <= observed_extremity
         )
-    return favourable / outcomes
+    return float(favourable / outcomes)
 
 
 def wilcoxon_signed_rank_test(
@@ -232,15 +222,11 @@ def wilcoxon_signed_rank_test(
 
     abs_differences = [abs(diff) for diff in differences]
     ranks = _average_ranks(abs_differences)
-    positive_rank_sum = sum(
-        rank for diff, rank in zip(differences, ranks, strict=True) if diff > 0
-    )
+    positive_rank_sum = sum(rank for diff, rank in zip(differences, ranks, strict=True) if diff > 0)
     total_rank_sum = sum(ranks)
     negative_rank_sum = total_rank_sum - positive_rank_sum
     effect_size = (
-        (positive_rank_sum - negative_rank_sum) / total_rank_sum
-        if total_rank_sum
-        else 0.0
+        (positive_rank_sum - negative_rank_sum) / total_rank_sum if total_rank_sum else 0.0
     )
     statistic = (
         positive_rank_sum
@@ -263,7 +249,7 @@ def wilcoxon_signed_rank_test(
 
 def _try_shapiro_p_value(values: Sequence[float]) -> float | None:
     try:
-        from scipy import stats as scipy_stats  # type: ignore[import-not-found]
+        from scipy import stats as scipy_stats
     except ModuleNotFoundError:
         return None
     result = scipy_stats.shapiro(values)
@@ -296,9 +282,7 @@ def compare_paired_scores(
                 "SciPy Shapiro-Wilk normality test unavailable; selected "
                 "Wilcoxon signed-rank as the conservative non-parametric default."
             )
-            selected = wilcoxon_signed_rank_test(
-                treatment, control, alternative=alternative
-            )
+            selected = wilcoxon_signed_rank_test(treatment, control, alternative=alternative)
         else:
             normality_method = "shapiro_wilk"
             if normality_p_value >= alpha:
@@ -312,30 +296,22 @@ def compare_paired_scores(
                     f"Shapiro-Wilk p-value {normality_p_value:.6f} < "
                     f"alpha {alpha}; selected Wilcoxon signed-rank."
                 )
-                selected = wilcoxon_signed_rank_test(
-                    treatment, control, alternative=alternative
-                )
+                selected = wilcoxon_signed_rank_test(treatment, control, alternative=alternative)
     elif assume_normal:
         normality_method = "assumed_normal"
         selection_reason = "Normality assumed by caller; selected paired t-test."
         selected = paired_t_test(treatment, control, alternative=alternative)
     else:
         normality_method = "assumed_non_parametric"
-        selection_reason = (
-            "Normality not assumed by caller; selected Wilcoxon signed-rank."
-        )
-        selected = wilcoxon_signed_rank_test(
-            treatment, control, alternative=alternative
-        )
+        selection_reason = "Normality not assumed by caller; selected Wilcoxon signed-rank."
+        selected = wilcoxon_signed_rank_test(treatment, control, alternative=alternative)
 
     return selected.model_copy(
         update={
             "normality_method": normality_method,
             "normality_alpha": alpha,
             "normality_p_value": (
-                round(normality_p_value, 6)
-                if normality_p_value is not None
-                else None
+                round(normality_p_value, 6) if normality_p_value is not None else None
             ),
             "test_selection_reason": selection_reason,
         }

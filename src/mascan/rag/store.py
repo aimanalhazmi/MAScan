@@ -147,7 +147,7 @@ def get_vector_store() -> PGVector:
         raise ConfigError("DATABASE_URL not set; cannot build the PGVector store.")
 
     if store is None:
-        embeddings = OpenAIEmbeddings(model=s.embedding_model, api_key=SecretStr(s.openai_api_key))
+        embeddings = OpenAIEmbeddings(model=s.embedding_model, api_key=SecretStr(s.openai_api_key))  # type: ignore[call-arg]  # api_key accepted at runtime
         store = PGVector(
             embeddings=embeddings,
             connection=s.database_url,

@@ -98,11 +98,7 @@ class EconomicsAgent(GraphBackedAgent):
             if not isinstance(ticker, str) or not ticker:
                 continue
             fundamentals = payload.get("fundamentals")
-            company = (
-                fundamentals.get("company_name")
-                if isinstance(fundamentals, dict)
-                else None
-            )
+            company = fundamentals.get("company_name") if isinstance(fundamentals, dict) else None
             source_entries = payload.get("sources")
             if not isinstance(source_entries, list):
                 continue

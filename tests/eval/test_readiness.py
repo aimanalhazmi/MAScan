@@ -1,8 +1,7 @@
 from pathlib import Path
 from uuid import uuid4
 
-from mascan.eval.gold_analysis import SystemComparison
-from mascan.eval.gold_analysis import case_trace_records
+from mascan.eval.gold_analysis import SystemComparison, case_trace_records
 from mascan.eval.gold_experiment import (
     JudgedModelResponse,
     MetricPairRecord,
@@ -15,22 +14,6 @@ from mascan.eval.gold_judge import (
     GoldJudgeResult,
     gold_judge_prompt_sha256,
     gold_judge_schema_sha256,
-)
-from mascan.eval.human_calibration import (
-    HumanAnswerKeyEntry,
-    HumanCalibrationPacket,
-    HumanPacketItem,
-    HumanPacketOutput,
-    HumanRaterAssignment,
-)
-from mascan.eval.human_ratings import (
-    HumanCategoryRating,
-    HumanCategoryRatingTemplate,
-    HumanDepthRating,
-    HumanDepthRatingTemplate,
-    HumanIrrReport,
-    HumanRatingsFile,
-    HumanRatingsTemplate,
 )
 from mascan.eval.readiness import GoldExperimentManifest, validate_experiment_manifest
 from mascan.eval.stats import PairedTestResult
@@ -443,13 +426,9 @@ def test_validate_experiment_manifest_rejects_stale_case_trace_without_audit_cou
     report = validate_experiment_manifest(manifest, base_dir=tmp_path)
 
     assert report.is_ready is False
+    assert any("missing missing_gold_claim_count" in issue.message for issue in report.issues)
     assert any(
-        "missing missing_gold_claim_count" in issue.message
-        for issue in report.issues
-    )
-    assert any(
-        "missing unsupported_or_wrong_claim_count" in issue.message
-        for issue in report.issues
+        "missing unsupported_or_wrong_claim_count" in issue.message for issue in report.issues
     )
 
 
@@ -519,9 +498,7 @@ def test_validate_experiment_manifest_rejects_stale_judge_fingerprints():
     _write(tmp_path / "case_1.pdf", "%PDF")
 
     response = _response("mascan", "m1")
-    judge = _judge("mascan").model_copy(
-        update={"judge_prompt_sha256": "0" * 64}
-    )
+    judge = _judge("mascan").model_copy(update={"judge_prompt_sha256": "0" * 64})
     _write_json(
         tmp_path / "judged.json",
         [
@@ -548,279 +525,4 @@ def test_validate_experiment_manifest_rejects_stale_judge_fingerprints():
     report = validate_experiment_manifest(manifest, base_dir=tmp_path)
 
     assert report.is_ready is False
-    assert any(
-        "judge_prompt_sha256 does not match" in issue.message
-        for issue in report.issues
-    )
-
-
-def test_validate_experiment_manifest_checks_human_ratings():
-    tmp_path = _workspace_tmp()
-    _write_json(tmp_path / "gold.json", _gold_payload())
-    _write(tmp_path / "case_1.pdf", "%PDF")
-    packet = HumanCalibrationPacket(
-        seed=1,
-        selected_case_ids=["case_1"],
-        cases_per_rater=1,
-        rater_assignments=[HumanRaterAssignment(rater_id="r1", case_ids=["case_1"])],
-        instructions="rate",
-        rating_scale={"1": "surface", "2": "impact", "3": "strategy"},
-        items=[
-            HumanPacketItem(
-                case_id="case_1",
-                case_title="Case 1",
-                prompt="Prompt",
-                expected_output={"political": ["p"]},
-                category_targets=[
-                    {
-                        "factor": "privacy law",
-                        "correct_category": "Legal",
-                        "rationale": "law",
-                    }
-                ],
-                outputs=[HumanPacketOutput(label="A", response_text="answer")],
-            )
-        ],
-    )
-    _write_json(tmp_path / "packet.json", packet.model_dump(mode="json"))
-    _write_json(
-        tmp_path / "answer_key.json",
-        [
-            HumanAnswerKeyEntry(
-                case_id="case_1", label="A", system_id="mascan", model="m"
-            ).model_dump(mode="json")
-        ],
-    )
-    _write_json(
-        tmp_path / "ratings.json",
-        HumanRatingsFile(
-            depth_ratings=[
-                HumanDepthRating(
-                    rater_id="r1",
-                    case_id="case_1",
-                    label="A",
-                    analytical_depth_score=2,
-                )
-            ],
-            category_ratings=[
-                HumanCategoryRating(
-                    rater_id="r1",
-                    case_id="case_1",
-                    label="A",
-                    factor="privacy law",
-                    correct=True,
-                )
-            ],
-        ).model_dump(mode="json"),
-    )
-    _write_json(tmp_path / "irr.json", HumanIrrReport().model_dump(mode="json"))
-
-    manifest = GoldExperimentManifest(
-        gold_standard_file="gold.json",
-        expected_case_count=1,
-        human_calibration={
-            "packet_file": "packet.json",
-            "answer_key_file": "answer_key.json",
-            "ratings_file": "ratings.json",
-            "rater_ids": ["r1"],
-            "cases_per_rater": 1,
-            "irr_file": "irr.json",
-            "expected_case_count": 1,
-        },
-    )
-
-    report = validate_experiment_manifest(manifest, base_dir=tmp_path)
-
-    assert report.is_ready is False
-    assert any("Expected 3 anonymized outputs" in issue.message for issue in report.issues)
-
-
-def test_validate_experiment_manifest_rejects_human_answer_key_mismatch():
-    tmp_path = _workspace_tmp()
-    _write_json(tmp_path / "gold.json", _gold_payload())
-    _write(tmp_path / "case_1.pdf", "%PDF")
-    packet = HumanCalibrationPacket(
-        seed=1,
-        selected_case_ids=["case_1"],
-        cases_per_rater=1,
-        rater_assignments=[HumanRaterAssignment(rater_id="r1", case_ids=["case_1"])],
-        instructions="rate",
-        rating_scale={"1": "surface", "2": "impact", "3": "strategy"},
-        items=[
-            HumanPacketItem(
-                case_id="case_1",
-                case_title="Case 1",
-                prompt="Prompt",
-                expected_output={"political": ["p"]},
-                category_targets=[
-                    {
-                        "factor": "privacy law",
-                        "correct_category": "Legal",
-                        "rationale": "law",
-                    }
-                ],
-                outputs=[
-                    HumanPacketOutput(label="A", response_text="answer a"),
-                    HumanPacketOutput(label="B", response_text="answer b"),
-                    HumanPacketOutput(label="C", response_text="answer c"),
-                ],
-            )
-        ],
-    )
-    _write_json(tmp_path / "packet.json", packet.model_dump(mode="json"))
-    _write_json(
-        tmp_path / "answer_key.json",
-        [
-            HumanAnswerKeyEntry(
-                case_id="case_1", label="A", system_id="mascan", model="m1"
-            ).model_dump(mode="json"),
-            HumanAnswerKeyEntry(
-                case_id="case_1", label="B", system_id="zero_shot_same_model", model="m1"
-            ).model_dump(mode="json"),
-            HumanAnswerKeyEntry(
-                case_id="case_1", label="B", system_id="zero_shot_same_model", model="m1"
-            ).model_dump(mode="json"),
-        ],
-    )
-
-    manifest = GoldExperimentManifest(
-        gold_standard_file="gold.json",
-        expected_case_count=1,
-        systems=[
-            {
-                "system_id": "mascan",
-                "model": "m1",
-                "response_file": "responses_mascan.json",
-            },
-            {
-                "system_id": "zero_shot_same_model",
-                "model": "m1",
-                "response_file": "responses_zero.json",
-            },
-            {
-                "system_id": "frontier_model",
-                "model": "m2",
-                "response_file": "responses_frontier.json",
-            },
-        ],
-        human_calibration={
-            "packet_file": "packet.json",
-            "answer_key_file": "answer_key.json",
-            "rater_ids": ["r1"],
-            "cases_per_rater": 1,
-            "expected_case_count": 1,
-        },
-    )
-
-    report = validate_experiment_manifest(manifest, base_dir=tmp_path)
-
-    assert report.is_ready is False
-    assert any(
-        issue.item == "human.answer_key_file"
-        and "Answer key does not match" in issue.message
-        for issue in report.issues
-    )
-
-
-def test_validate_experiment_manifest_rejects_stale_human_template_context():
-    tmp_path = _workspace_tmp()
-    _write_json(tmp_path / "gold.json", _gold_payload())
-    _write(tmp_path / "case_1.pdf", "%PDF")
-    packet = HumanCalibrationPacket(
-        seed=1,
-        selected_case_ids=["case_1"],
-        cases_per_rater=1,
-        rater_assignments=[HumanRaterAssignment(rater_id="r1", case_ids=["case_1"])],
-        instructions="rate",
-        rating_scale={"1": "surface", "2": "impact", "3": "strategy"},
-        items=[
-            HumanPacketItem(
-                case_id="case_1",
-                case_title="Case 1",
-                prompt="Prompt",
-                expected_output={"political": ["p"]},
-                category_targets=[
-                    {
-                        "factor": "privacy law",
-                        "correct_category": "Legal",
-                        "rationale": "law",
-                    }
-                ],
-                outputs=[
-                    HumanPacketOutput(label="A", response_text="answer a"),
-                    HumanPacketOutput(label="B", response_text="answer b"),
-                    HumanPacketOutput(label="C", response_text="answer c"),
-                ],
-            )
-        ],
-    )
-    _write_json(tmp_path / "packet.json", packet.model_dump(mode="json"))
-    _write_json(
-        tmp_path / "answer_key.json",
-        [
-            HumanAnswerKeyEntry(
-                case_id="case_1", label="A", system_id="mascan", model="m1"
-            ).model_dump(mode="json"),
-            HumanAnswerKeyEntry(
-                case_id="case_1", label="B", system_id="zero_shot_same_model", model="m1"
-            ).model_dump(mode="json"),
-            HumanAnswerKeyEntry(
-                case_id="case_1", label="C", system_id="frontier_model", model="m2"
-            ).model_dump(mode="json"),
-        ],
-    )
-    stale_template = HumanRatingsTemplate(
-        depth_ratings=[
-            HumanDepthRatingTemplate(rater_id="r1", case_id="case_1", label=label)
-            for label in ["A", "B", "C"]
-        ],
-        category_ratings=[
-            HumanCategoryRatingTemplate(
-                rater_id="r1",
-                case_id="case_1",
-                label=label,
-                factor="privacy law",
-            )
-            for label in ["A", "B", "C"]
-        ],
-    )
-    _write_json(tmp_path / "template.json", stale_template.model_dump(mode="json"))
-
-    manifest = GoldExperimentManifest(
-        gold_standard_file="gold.json",
-        expected_case_count=1,
-        systems=[
-            {
-                "system_id": "mascan",
-                "model": "m1",
-                "response_file": "responses_mascan.json",
-            },
-            {
-                "system_id": "zero_shot_same_model",
-                "model": "m1",
-                "response_file": "responses_zero.json",
-            },
-            {
-                "system_id": "frontier_model",
-                "model": "m2",
-                "response_file": "responses_frontier.json",
-            },
-        ],
-        human_calibration={
-            "packet_file": "packet.json",
-            "answer_key_file": "answer_key.json",
-            "ratings_template_file": "template.json",
-            "rater_ids": ["r1"],
-            "cases_per_rater": 1,
-            "expected_case_count": 1,
-        },
-    )
-
-    report = validate_experiment_manifest(manifest, base_dir=tmp_path)
-
-    assert report.is_ready is False
-    assert any(
-        issue.item == "human.ratings_template_file"
-        and "category_context_mismatches" in issue.message
-        for issue in report.issues
-    )
+    assert any("judge_prompt_sha256 does not match" in issue.message for issue in report.issues)

@@ -17,6 +17,7 @@ from mascan.contracts.validation import (
     FactCheckStatus,
     RelevantContentStatus,
     RelevantIssueSubtype,
+    ValidationCategory,
     ValidationCitation,
     ValidationIssue,
     ValidationReport,
@@ -164,9 +165,7 @@ def fetch_cited_sources(
                 numbers.append(citation.number)
 
     web_citations = [
-        citation
-        for citation in document.citations
-        if uploaded_document_name(citation.url) is None
+        citation for citation in document.citations if uploaded_document_name(citation.url) is None
     ]
     results: dict[str, Any] = {}
     if web_citations:
@@ -206,14 +205,14 @@ def fetch_cited_sources(
 
         value = results.get(citation.canonical_url)
         if isinstance(value, tuple):
-            _, exc = value
+            _, exc_value = value
             checks.append(
                 SourceCheck(
                     citation_numbers=numbers,
                     requested_url=citation.url,
                     status="failed",
                     checked_at=datetime.now(UTC).isoformat(),
-                    error=f"{type(exc).__name__}: {exc}",
+                    error=f"{type(exc_value).__name__}: {exc_value}",
                 )
             )
             continue
@@ -240,10 +239,7 @@ def fetch_cited_sources(
                     citation_numbers=numbers,
                     requested_url=citation.url,
                     status="failed" if failure_kind == "operational" else "inaccessible",
-                    checked_at=str(
-                        metadata.get("checked_at")
-                        or datetime.now(UTC).isoformat()
-                    ),
+                    checked_at=str(metadata.get("checked_at") or datetime.now(UTC).isoformat()),
                     error=getattr(value, "error", None) or "Source fetch returned no result",
                 )
             )
@@ -302,8 +298,7 @@ def resolve_uploaded_source(
         )
 
     markdown = "\n\n".join(
-        f"[Page {page}]\n{content}" if page is not None else content
-        for page, content in passages
+        f"[Page {page}]\n{content}" if page is not None else content for page, content in passages
     )
     data = {
         "requested_url": citation.url,
@@ -337,9 +332,7 @@ def evaluate_citation_pairs(
     pairs = unique_attribution_pairs(document)
     if not pairs:
         return []
-    check_by_url = {
-        canonical_source_url(check.requested_url): check for check in source_checks
-    }
+    check_by_url = {canonical_source_url(check.requested_url): check for check in source_checks}
     results: dict[int, CitationCheck] = {}
     pending: list[tuple[int, Attribution, CitationRef, dict[str, Any]]] = []
 
@@ -360,7 +353,7 @@ def evaluate_citation_pairs(
             )
             continue
         if source_check is None or source_check.status != "fetched" or source is None:
-            error = source_check.error if source_check else "No source-fetch result"
+            detail = source_check.error if source_check else "No source-fetch result"
             results[index] = CitationCheck(
                 status="issue",
                 claim=attribution.claim,
@@ -368,8 +361,8 @@ def evaluate_citation_pairs(
                 citation=ValidationCitation(number=citation.number, url=citation.url),
                 link_works=False,
                 stopped_after="link_works",
-                explanation=f"The cited source could not be retrieved: {error}",
-                error=error,
+                explanation=f"The cited source could not be retrieved: {detail}",
+                error=detail,
             )
             continue
         pending.append((index, attribution, citation, source))
@@ -473,7 +466,9 @@ def evaluate_fetched_pair(
             explanation="The source was relevant, but Fact Check evaluation failed.",
             error=f"{type(exc).__name__}: {exc}",
         )
-    status = "passed" if fact_check.fact_check == "supported" else "issue"
+    status: Literal["passed", "issue"] = (
+        "passed" if fact_check.fact_check == "supported" else "issue"
+    )
     return CitationCheck(
         status=status,
         claim=attribution.claim,
@@ -552,8 +547,8 @@ def issues_from_checks(checks: list[CitationCheck]) -> list[ValidationIssue]:
         if check.status != "issue":
             continue
         if not check.link_works:
-            category = "inaccessible_source"
-            subtype = None
+            category: ValidationCategory = "inaccessible_source"
+            subtype: RelevantIssueSubtype | FactCheckIssueSubtype | None = None
         elif check.relevant_content != "relevant":
             category = "relevant_content"
             subtype = cast(RelevantIssueSubtype, check.relevant_content)
@@ -607,7 +602,7 @@ def render_validation_markdown(report: ValidationReport) -> str:
     if report.issues:
         lines.extend(["", "### Issues"])
         for index, issue in enumerate(report.issues, start=1):
-            label = issue.category
+            label: str = issue.category
             if issue.subtype:
                 label = f"{label} / {issue.subtype}"
             indent = " " * (len(str(index)) + 2)

@@ -4,9 +4,7 @@ from typing import Final
 
 from mascan.core.settings import get_settings
 
-LOG_FORMAT: Final = (
-    "%(asctime)s | %(levelname)-7s | %(name)-30s | %(message)s"
-)
+LOG_FORMAT: Final = "%(asctime)s | %(levelname)-7s | %(name)-30s | %(message)s"
 DATE_FORMAT: Final = "%Y-%m-%d %H:%M:%S"
 
 configured = False

@@ -2,6 +2,7 @@
 
 Provides: sensible timeouts, simple retry on transient errors.
 """
+
 from typing import Any
 
 import httpx
