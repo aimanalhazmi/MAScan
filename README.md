@@ -1,10 +1,8 @@
 # MAScan
 
 
-MAScan is a multi-agent system that analyzes markets and predicts trends. A set
-of specialised PESTEL agents (Political, Economic, Social, Technological,
-Environmental, Legal) gathers data from external sources, and an orchestrator
-plans the work, merges the results, and returns one cited report.
+MAScan is a multi-agent system that analyzes markets and predicts trends. 
+A set of specialised PESTEL agents (Political, Economic, Social, Technological, Environmental, Legal) gathers data from external sources, while a RAG layer adds the organisation's internal data (reports, records, domain knowledge). An orchestrator  plans the work, merges the results, and returns one cited report.
 
 ## Prerequisites
 
