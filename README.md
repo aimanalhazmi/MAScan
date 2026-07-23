@@ -98,7 +98,7 @@ single agent (`economics`, `political`, `legal`, `social`, `environmental`,
 `technological`).
 
 ### 3. Scenarios 
-The repo contains 3 different premade scenarios (Evonik, Volkswagen, BioNTech) each with it's ready query and input resources that can be used for the RAG system
+The repo contains 3 different premade scenarios (Evonik, Volkswagen, BioNTech) each with it's ready query and input resources that can be used for the RAG system (see [`resources/Scenarios`](resources/Scenarios)).
 
 ## Documentation
 
