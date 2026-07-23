@@ -51,7 +51,7 @@ class Settings(BaseSettings):
         1, description="Max self-correction (CRAG) rewrite-retries on the full retrieval path."
     )
     rag_min_score: float = Field(
-        0.5,
+        0.25,
         description="Minimum similarity a passage needs to reach the planner. Dense search "
         "always returns its nearest neighbour, so this keeps unrelated documents out of the "
         "plan.",
