@@ -184,6 +184,10 @@ _HEADING_THEME_CUES: dict[str, tuple[str, ...]] = {
 HTML_SOURCE_REF_PATTERN = re.compile(r'href=["\']#source-(\d+)["\']')
 MARKDOWN_SOURCE_REF_PATTERN = re.compile(r"\[(\d+)\]\(([^)]+)\)")
 NUMBERED_CITATION_PATTERN = re.compile(r"\[(\d+)\](?:\(([^)\s]+)\))?")
+_HEADING_SPLIT_PATTERN = re.compile(
+    r"(?im)^(?:#{2,3}\s*)?(Political|Economic|Social|Technological|Environmental|Legal|"
+    r"Strategic implications)\s*$"
+)
 
 
 @dataclass(frozen=True)
