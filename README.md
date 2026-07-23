@@ -10,6 +10,7 @@ plans the work, merges the results, and returns one cited report.
 
 - [Docker](https://www.docker.com/) installed and running
 - [`uv`](https://github.com/astral-sh/uv) and `make` (only for local development and tests)
+- [`npm`](https://www.npmjs.com/)
 - Python 3.12 (only for local development)
 - An OpenAI API key
 
