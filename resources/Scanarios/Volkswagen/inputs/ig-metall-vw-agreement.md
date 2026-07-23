@@ -1,4 +1,5 @@
 # Volkswagen  Verhandlungsergebnis bei VW und Tochternunternehmen
+source : https://www.igmetall.de/tarif/tarifrunden/tarifrunde-volkswagen-2024
 
 ## Nach 70 Stunden Verhandlung steht das Tarifergebnis für VW. Die roten Linien der IG Metall werden eingehalten: Keine Werksschließungen, keine Massenentlassungen und keine langfristigen Einschnitte in den Tarifvertrag. Auch für die VW-Tochterunternehmen wurde nun ein guter Kompromiss ausgehandelt.
 

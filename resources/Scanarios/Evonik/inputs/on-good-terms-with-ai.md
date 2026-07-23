@@ -1,18 +1,12 @@
-**Server Infos** ×
+# On Good Terms with AI
+- date : OCTOBER 08, 2025
+- Author : KARSTEN LEMM
+- link : https://elements.evonik.com/en/articles/03_2025/aichembuddy.html
 
-Server:
+## Sometimes researchers come up against their limits. Experiments are too complex—there are too many possibilities, and that prevents them from reaching the goal quickly and efficiently. In cases like these, artificial intelligence can get a project moving again. At Evonik, AIChemBuddy supports its human colleagues with advice and provides space for new inspiration
 
-Server IP:
 
-Environment:
 
-Authorized User:
-
-cm-p115160-e1228952-aem-publish-8497f47487-nz52q
-
-172.22.155.193
-
-publish,local
 
 The task ahead of them was trickier than expected. Sabine Kanbach and her team were looking for a production process for a new lipid. This chemical building block can be used to produce lipid nanoparticles, which form a protective shell around active ingredient molecules, for example in vaccines. This protection should be stable, a high degree of purity is mandatory, and the lipids must be easy to process. The expert team’s goal was clear, but the path to it lay hidden in a fog of unknown factors.
 
