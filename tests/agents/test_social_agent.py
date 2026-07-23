@@ -4,10 +4,7 @@ from typing import Any
 from langchain_core.messages import ToolMessage
 
 from mascan.agents.registry import agent_registry
-from mascan.agents.social.agent import (
-    SocialAgent,
-    SocialEvidencePlan,
-)
+from mascan.agents.social.agent import SocialAgent, SocialEvidencePlan
 from mascan.agents.social.tools.reddit_api import RedditSearchTool
 from mascan.agents.social.tools.world_bank import WorldBankSocialIndicatorsTool
 from mascan.agents.social.tools.x_api import XSearchTool
@@ -140,9 +137,7 @@ def test_social_agent_run_returns_report(mocker: Any) -> None:
         "https://api.worldbank.org/v2/country/WLD/indicator/SP.POP.TOTL",
         "https://reddit.com/r/electricvehicles/comments/abc123",
     ]
-    # The web-search Source is labelled by the article title.
     assert "Survey: Americans concerned about EV battery disposal" in report.rendered_markdown
-    # The reddit Source carries the post link, not just the tool name.
     assert "https://reddit.com/r/electricvehicles/comments/abc123" in report.rendered_markdown
     assert "https://api.worldbank.org/v2/country/WLD/indicator/SP.POP.TOTL" in (
         report.rendered_markdown
@@ -171,7 +166,6 @@ def test_social_extract_llm_sources_pulls_post_links() -> None:
     sources = sources_from_react(result)
     by_url = {s.url: s for s in sources}
 
-    # One article-level Source per post, labelled by the post's title/text.
     assert by_url["https://reddit.com/r/x/comments/abc"].name == "t"
     assert by_url["https://reddit.com/r/x/comments/abc"].metadata["tool"] == "reddit_search"
     assert by_url["https://x.com/u/status/1"].name == "hi"

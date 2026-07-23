@@ -233,9 +233,6 @@ def _synthesizer_node(state: GraphState) -> dict[str, Any]:
     normalized = _normalize_citation_links(state, str(response.content))
     if _needs_citation_repair(state, normalized):
         normalized = _repair_missing_citations(state, normalized)
-    if _needs_coverage_repair(normalized):
-        normalized = _repair_theme_coverage(state, normalized)
-        normalized = _normalize_citation_links(state, normalized)
     summary, cited_sources = _renumber_all_citations(state, normalized)
     rendered_sources = cited_sources
     markdown = _render_markdown(state, summary, rendered_sources)

@@ -12,3 +12,12 @@ def test_eval_models_overridable(monkeypatch):
     monkeypatch.setenv("EVAL_JUDGE_MODEL", "gpt-4o-mini")
     s = Settings()
     assert s.eval_judge_model == "gpt-4o-mini"
+
+
+def test_news_api_key_is_loaded_from_environment(monkeypatch):
+    monkeypatch.setenv("OPENAI_API_KEY", "x")
+    monkeypatch.setenv("NEWS_API_KEY", "news-key")
+
+    s = Settings()
+
+    assert s.news_api_key == "news-key"
