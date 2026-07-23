@@ -45,6 +45,7 @@ All variables live in `.env` (copied from `.env.example`). The most important:
 | Reddit | Reddit tool | Optional. Run `rdt login` once on your machine. It caches a session that the tool reuses; Docker Compose mounts that session read-only. |
 | `DATABASE_URL` | RAG | Set by Docker Compose. Leave unset to disable RAG. See [`src/mascan/rag/README.md`](src/mascan/rag/README.md). |
 | `LANGSMITH_API_KEY` | Tracing | Optional. Use an EU account and match `LANGSMITH_PROJECT`. |
+| `SEMANTIC_SCHOLAR_API_KEY` | Scholar Search Tool | Optional. Request a free API key for access |
 
 The full list, with comments, is in `.env.example`.
 
