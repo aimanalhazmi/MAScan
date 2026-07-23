@@ -124,18 +124,14 @@ def test_social_agent_run_returns_report(mocker: Any) -> None:
     assert report.metadata["deterministic_tools"] == []
     assert report.metadata["llm_chosen_tools"] == ["reddit_search"]
     assert "## Social Analysis" in report.rendered_markdown
-    # The LLM-chosen tools render in their own section, not mixed into Sources.
     assert "**Tools the LLM chose to call:**" in report.rendered_markdown
     assert "- reddit_search" in report.rendered_markdown
-    # Sources are real article-level links, not tool names.
     assert [source.url for source in report.sources] == [
         "https://example.com/ev-battery-recycling",
         "https://api.worldbank.org/v2/country/WLD/indicator/SP.POP.TOTL",
         "https://reddit.com/r/electricvehicles/comments/abc123",
     ]
-    # The web-search Source is labelled by the article title.
     assert "Survey: Americans concerned about EV battery disposal" in report.rendered_markdown
-    # The reddit Source carries the post link, not just the tool name.
     assert "https://reddit.com/r/electricvehicles/comments/abc123" in report.rendered_markdown
     assert "https://api.worldbank.org/v2/country/WLD/indicator/SP.POP.TOTL" in (
         report.rendered_markdown
@@ -164,7 +160,6 @@ def test_social_extract_llm_sources_pulls_post_links() -> None:
     sources = sources_from_react(result)
     by_url = {s.url: s for s in sources}
 
-    # One article-level Source per post, labelled by the post's title/text.
     assert by_url["https://reddit.com/r/x/comments/abc"].name == "t"
     assert by_url["https://reddit.com/r/x/comments/abc"].metadata["tool"] == "reddit_search"
     assert by_url["https://x.com/u/status/1"].name == "hi"

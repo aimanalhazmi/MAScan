@@ -4,7 +4,6 @@ import mascan.agents.political.tools  # noqa: F401  # register agent-specific to
 from mascan.agents.political.agent import PoliticalAgent
 from mascan.agents.registry import agent_registry
 
-# Register the agent itself
 agent_registry.register(PoliticalAgent())
 
 __all__ = ["PoliticalAgent"]
