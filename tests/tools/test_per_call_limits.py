@@ -64,10 +64,8 @@ def test_news_clamps_oversized_call_without_failing(mocker: Any) -> None:
     assert len(result.data["articles"]) == 10
     assert all(len(article["description"]) <= 1_000 for article in result.data["articles"])
     assert result.metadata["limit_applied"] is True
-    client.latest_api.assert_called_once_with(
+    client.news_api.assert_called_once_with(
         q="policy",
-        country=None,
-        language=None,
         category="politics",
         size=10,
     )
