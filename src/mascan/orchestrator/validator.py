@@ -27,15 +27,15 @@ from mascan.contracts.validation import (
 from mascan.core.logging import get_logger
 from mascan.core.metrics import measure_component
 from mascan.core.settings import get_settings
-from mascan.orchestrator.attribution import (
+from mascan.orchestrator.state import GraphState
+from mascan.tools.registry import tool_registry
+from mascan.utils.attribution import (
     Attribution,
     AttributionDocument,
     CitationRef,
     parse_attribution_document,
     uploaded_document_name,
 )
-from mascan.orchestrator.state import GraphState
-from mascan.tools.registry import tool_registry
 
 logger = get_logger("orchestrator.validator")
 

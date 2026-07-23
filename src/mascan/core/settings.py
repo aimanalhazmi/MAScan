@@ -69,6 +69,9 @@ class Settings(BaseSettings):
     news_api_key: str | None = Field(
         None, description="NewsData.io API key for the political news_api tool."
     )
+    news_api_key: str | None = Field(
+        None, description="NewsData.io API key used by the Political agent."
+    )
 
     #  Social agent — X/Twitter cookie secrets
     twitter_auth_token: str | None = Field(

@@ -64,7 +64,29 @@ def test_news_clamps_oversized_call_without_failing(mocker: Any) -> None:
     assert len(result.data["articles"]) == 10
     assert all(len(article["description"]) <= 1_000 for article in result.data["articles"])
     assert result.metadata["limit_applied"] is True
-    client.news_api.assert_called_once_with(q="policy", category="politics", size=10)
+    client.latest_api.assert_called_once_with(
+        q="policy",
+        country=None,
+        language=None,
+        category="politics",
+        size=10,
+    )
+
+
+def test_news_returns_clear_failure_when_api_key_is_missing(mocker: Any) -> None:
+    settings = mocker.patch(
+        "mascan.agents.political.tools.news_api.get_settings"
+    ).return_value
+    settings.news_api_key = None
+    client = mocker.patch(
+        "mascan.agents.political.tools.news_api.NewsDataApiClient"
+    )
+
+    result = NewsDataSearchTool().run(query="policy")
+
+    assert result.success is False
+    assert result.error == "NEWS_API_KEY is not configured."
+    client.assert_not_called()
 
 
 def test_scholar_clamps_results_and_abstracts(mocker: Any) -> None:
@@ -202,6 +224,42 @@ def test_x_clamps_posts_and_text_without_failing(mocker: Any) -> None:
     assert all(len(post["text"]) <= 1_000 for post in result.data)
     assert result.metadata["limit_applied"] is True
     client.fetch_search.assert_called_once_with("market", count=10, product="Top")
+
+
+def test_x_repairs_missing_client_transaction_from_home(mocker: Any) -> None:
+    settings = mocker.patch("mascan.agents.social.tools.x_api.get_settings").return_value
+    settings.twitter_auth_token = "token"
+    settings.twitter_ct0 = "csrf"
+
+    client = mocker.patch("twitter_cli.client.TwitterClient").return_value
+    client._client_transaction = None
+    client.fetch_search.return_value = []
+    mocker.patch("twitter_cli.serialization.tweets_to_data", return_value=[])
+
+    home_page = mocker.Mock(content=b"<html></html>")
+    ondemand_file = mocker.Mock(text="ondemand script")
+    session = mocker.patch("twitter_cli.client._get_cffi_session").return_value
+    session.get.side_effect = [home_page, ondemand_file]
+    mocker.patch("twitter_cli.client._gen_ct_headers", return_value={"User-Agent": "test"})
+    parsed_home = mocker.patch("bs4.BeautifulSoup").return_value
+    mocker.patch(
+        "x_client_transaction.utils.get_ondemand_file_url",
+        return_value="https://abs.twimg.com/responsive-web/client-web/ondemand.s.js",
+    )
+    transaction_factory = mocker.patch("x_client_transaction.ClientTransaction")
+    transaction = transaction_factory.return_value
+
+    result = XSearchTool().run(query="market", max_results=1)
+
+    assert result.success
+    assert client._client_transaction is transaction
+    session.get.assert_any_call("https://x.com/home", headers={"User-Agent": "test"}, timeout=10)
+    home_page.raise_for_status.assert_called_once_with()
+    ondemand_file.raise_for_status.assert_called_once_with()
+    transaction_factory.assert_called_once_with(
+        home_page_response=parsed_home,
+        ondemand_file_response="ondemand script",
+    )
 
 
 def world_bank_response() -> Any:

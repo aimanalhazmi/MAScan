@@ -46,6 +46,19 @@ class NewsDataSearchTool(BaseTool):
         try:
             bounded_size = max(1, min(size, self.MAX_RESULTS))
             settings = get_settings()
+            if not settings.news_api_key:
+                return ToolResult(
+                    success=False,
+                    data=None,
+                    source=f"newsdata:{query}",
+                    error="NEWS_API_KEY is not configured.",
+                    metadata={
+                        "provider": "newsdata.io",
+                        "country": country,
+                        "language": language,
+                        "category": category,
+                    },
+                )
 
             api = NewsDataApiClient(apikey=settings.news_api_key or "")
 
