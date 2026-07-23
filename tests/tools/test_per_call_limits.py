@@ -72,13 +72,9 @@ def test_news_clamps_oversized_call_without_failing(mocker: Any) -> None:
 
 
 def test_news_returns_clear_failure_when_api_key_is_missing(mocker: Any) -> None:
-    settings = mocker.patch(
-        "mascan.agents.political.tools.news_api.get_settings"
-    ).return_value
+    settings = mocker.patch("mascan.agents.political.tools.news_api.get_settings").return_value
     settings.news_api_key = None
-    client = mocker.patch(
-        "mascan.agents.political.tools.news_api.NewsDataApiClient"
-    )
+    client = mocker.patch("mascan.agents.political.tools.news_api.NewsDataApiClient")
 
     result = NewsDataSearchTool().run(query="policy")
 

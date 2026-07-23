@@ -28,7 +28,7 @@ def test_react_fallback_drops_trailing_unanswered_tool_calls(mocker: Any) -> Non
                 "args": {"query": "German manufacturing emissions"},
                 "id": "call-emissions",
                 "type": "tool_call",
-            }
+            },
         ],
     )
     original_user_message = HumanMessage(content="Analyze water stress.")
