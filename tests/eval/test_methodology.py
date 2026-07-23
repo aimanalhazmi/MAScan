@@ -1,8 +1,8 @@
+from mascan.eval.fingerprints import ArtifactFingerprint
 from mascan.eval.methodology import (
     build_methodology_checklist,
     render_methodology_appendix,
 )
-from mascan.eval.fingerprints import ArtifactFingerprint
 from mascan.eval.readiness import (
     GoldExperimentManifest,
     ReadinessIssue,
@@ -72,8 +72,8 @@ def test_methodology_checklist_maps_readiness_issues_to_steps():
             ),
             ReadinessIssue(
                 severity="error",
-                item="human.ratings_file",
-                message="missing ratings",
+                item="case_trace_file",
+                message="missing trace/cost analysis",
             ),
         ],
     )
@@ -81,8 +81,8 @@ def test_methodology_checklist_maps_readiness_issues_to_steps():
     checklist = build_methodology_checklist(_manifest(), readiness)
     by_step = {item.step: item for item in checklist}
 
-    assert by_step[1].status == "incomplete"
-    assert by_step[5].status == "incomplete"
+    assert by_step[1].status == "incomplete"  # response_file:mascan
+    assert by_step[5].status == "incomplete"  # case_trace_file -> Trace And Cost Analysis
     assert by_step[2].status == "complete"
 
 

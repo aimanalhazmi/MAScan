@@ -47,8 +47,13 @@ class BaseTool(ABC):
         self.logger = get_logger(f"tools.{self.name}")
 
     @abstractmethod
-    def run(self, **kwargs: Any) -> ToolResult:
-        """Execute the tool. Kwargs are tool-specific."""
+    def run(self, *args: Any, **kwargs: Any) -> ToolResult[Any]:
+        """Execute the tool. Concrete tools declare their own typed parameters.
+
+        The base signature is intentionally `(*args, **kwargs)` so that
+        specialised subclass overrides (e.g. `run(self, query: str, ...)`)
+        type-check without per-tool `# type: ignore[override]`.
+        """
         ...
 
     def as_langchain_tool(self) -> StructuredTool:
@@ -64,7 +69,6 @@ class BaseTool(ABC):
             this tool's class attributes.
         """
 
-
         @functools.wraps(self.run)
         def invoke(**call_kwargs: Any) -> Any:
             self.logger.info("call args=%s", call_kwargs)
@@ -78,7 +82,7 @@ class BaseTool(ABC):
                 return result.data.model_dump(mode="json")
             return result.data
 
-        invoke.__signature__ = inspect.signature(self.run)
+        invoke.__signature__ = inspect.signature(self.run)  # type: ignore[attr-defined]  # attach signature for StructuredTool
 
         kwargs: dict[str, Any] = {
             "func": invoke,

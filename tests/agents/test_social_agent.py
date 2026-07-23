@@ -67,9 +67,7 @@ def test_social_agent_run_returns_report(mocker: Any) -> None:
                 "country_code": "WLD",
                 "country_codes": ["WLD"],
                 "indicator_count": 1,
-                "source_urls": [
-                    "https://api.worldbank.org/v2/country/WLD/indicator/SP.POP.TOTL"
-                ],
+                "source_urls": ["https://api.worldbank.org/v2/country/WLD/indicator/SP.POP.TOTL"],
             },
         ),
     }
@@ -81,6 +79,9 @@ def test_social_agent_run_returns_report(mocker: Any) -> None:
             metadata={"tool": "reddit_search"},
         )
     ]
+    # The report's Sources are harvested from the ReAct result's tool messages
+    # (via collect_sources -> sources_from_react), so the react_result must carry
+    # the reddit post link the assertions expect.
     react_result = {
         "messages": [
             ToolMessage(
@@ -121,11 +122,16 @@ def test_social_agent_run_returns_report(mocker: Any) -> None:
     assert report.tasks == ["consumer sentiment around EV battery recycling"]
     assert report.findings == "Social sentiment findings"
     assert report.metadata["mode"] == "mixed"
+    # Social has no config.always_call_tools; World Bank is gathered via the
+    # agent's overridden gather_deterministic, so this metadata list is empty.
     assert report.metadata["deterministic_tools"] == []
     assert report.metadata["llm_chosen_tools"] == ["reddit_search"]
     assert "## Social Analysis" in report.rendered_markdown
+    # The LLM-chosen tools render in their own section, not mixed into Sources.
+    # (world_bank is prepended via default_display_tools, so don't assume adjacency.)
     assert "**Tools the LLM chose to call:**" in report.rendered_markdown
     assert "- reddit_search" in report.rendered_markdown
+    # Sources are real article-level links, not tool names.
     assert [source.url for source in report.sources] == [
         "https://example.com/ev-battery-recycling",
         "https://api.worldbank.org/v2/country/WLD/indicator/SP.POP.TOTL",
@@ -195,6 +201,8 @@ def test_social_gather_deterministic_skips_reddit_and_x(mocker: Any) -> None:
         data=[],
         source="world_bank:social_indicators",
     )
+    # gather_deterministic rebuilds self.tools from always_call_tools + optional_tools,
+    # so inject the mocks there rather than on agent.tools.
     agent.always_call_tools = {}
     agent.optional_tools = {
         "web_search": web_search,
@@ -207,12 +215,16 @@ def test_social_gather_deterministic_skips_reddit_and_x(mocker: Any) -> None:
         "plan_evidence",
         return_value=SocialEvidencePlan(
             country_codes=["DEU", "USA"],
-            web_queries=["germany ev battery recycling consumer sentiment", "recycling social risk"],
+            web_queries=[
+                "germany ev battery recycling consumer sentiment",
+                "recycling social risk",
+            ],
         ),
     )
 
     outputs = agent.gather_deterministic(["Analyze Germany and United States labour trends"])
 
+    # Only World Bank is gathered deterministically; web_search/reddit/x are LLM-decided.
     world_bank.run.assert_called_once_with(country_codes=["DEU", "USA"])
     web_search.run.assert_not_called()
     reddit.run.assert_not_called()
@@ -227,6 +239,7 @@ def test_social_get_optional_tools_respects_flags() -> None:
     agent.config.options = {"enable_reddit": True, "enable_x": False}
     optional = agent.get_optional_tools()
 
+    # web_search and world_bank are always offered; only x_search is gated off here.
     assert {tool.name for tool in optional} == {
         "web_search",
         "world_bank_social_indicators",
@@ -390,8 +403,7 @@ def test_world_bank_social_indicators_formats_latest_values(mocker: Any) -> None
     assert result.data[0]["country_name"] == "World"
     assert result.data[0]["value"] == 8000000000
     assert result.data[0]["api_url"] == (
-        "https://api.worldbank.org/v2/country/WLD/indicator/SP.POP.TOTL"
-        "?format=json&per_page=5"
+        "https://api.worldbank.org/v2/country/WLD/indicator/SP.POP.TOTL?format=json&per_page=5"
     )
     assert result.data[0]["url"] == (
         "https://data.worldbank.org/indicator/SP.POP.TOTL?locations=1W"

@@ -69,9 +69,7 @@ def test_uploaded_document_bare_citation_is_outside_public_validation() -> None:
 
 def test_parser_accepts_safe_uploaded_file_links() -> None:
     document = parse_attribution_document(
-        "## Summary\n\n"
-        "EVONIK reported higher earnings "
-        "[3](/rag/files/EVONIK%20Q1%202026.pdf)."
+        "## Summary\n\nEVONIK reported higher earnings [3](/rag/files/EVONIK%20Q1%202026.pdf)."
     )
 
     assert document.citations[0].url == "/rag/files/EVONIK%20Q1%202026.pdf"

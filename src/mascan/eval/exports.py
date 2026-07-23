@@ -7,17 +7,21 @@ import json
 from collections.abc import Sequence
 
 from mascan.eval.fingerprints import model_sha256
-from mascan.eval.gold_judge import GOLD_JUDGE_SYSTEM_PROMPT
-from mascan.eval.gold_judge import build_gold_judge_user_prompt
-from mascan.eval.gold_judge import gold_judge_output_schema
-from mascan.eval.gold_judge import gold_judge_prompt_sha256
-from mascan.eval.gold_judge import gold_judge_schema_sha256
-from mascan.eval.gold_standard import GoldStandardDataset, PESTEL_HEADINGS
-from mascan.eval.gold_standard import EXPECTED_OUTPUT_FIELDS
-from mascan.eval.gold_standard import GoldStandardCoverageReport
-from mascan.eval.gold_standard import GoldStandardCase
-from mascan.eval.gold_standard import validate_gold_standard_coverage
-
+from mascan.eval.gold_judge import (
+    GOLD_JUDGE_SYSTEM_PROMPT,
+    build_gold_judge_user_prompt,
+    gold_judge_output_schema,
+    gold_judge_prompt_sha256,
+    gold_judge_schema_sha256,
+)
+from mascan.eval.gold_standard import (
+    EXPECTED_OUTPUT_FIELDS,
+    PESTEL_HEADINGS,
+    GoldStandardCase,
+    GoldStandardCoverageReport,
+    GoldStandardDataset,
+    validate_gold_standard_coverage,
+)
 
 PROMPT_PACK_CSV_FIELDS = ["case_id", "case_title", "source_pdf", "prompt"]
 GOLD_STANDARD_MANIFEST_CSV_FIELDS = [
@@ -69,8 +73,7 @@ def render_gold_standard_validation_report(
         for case in dataset.cases
     )
     all_target_buckets_present = all(
-        {target.correct_category for target in case.category_targets}
-        == set(PESTEL_HEADINGS)
+        {target.correct_category for target in case.category_targets} == set(PESTEL_HEADINGS)
         for case in dataset.cases
     )
     target_counts = [len(case.category_targets) for case in dataset.cases]
@@ -128,9 +131,7 @@ def render_gold_standard_validation_report(
 
         lines += ["### Categorization Targets", ""]
         for target in case.category_targets:
-            lines.append(
-                f"- {target.factor} -> {target.correct_category}: {target.rationale}"
-            )
+            lines.append(f"- {target.factor} -> {target.correct_category}: {target.rationale}")
 
         lines += ["", "### Source Anchors", ""]
         lines.extend(f"- {anchor}" for anchor in case.validation_notes.source_anchors)
@@ -248,10 +249,7 @@ def gold_standard_manifest_csv_rows(
 ) -> list[dict[str, str]]:
     """Return per-case freeze manifest rows suitable for CSV export."""
     return [
-        {
-            key: _csv_value(row[key])
-            for key in GOLD_STANDARD_MANIFEST_CSV_FIELDS
-        }
+        {key: _csv_value(row[key]) for key in GOLD_STANDARD_MANIFEST_CSV_FIELDS}
         for row in _gold_standard_manifest_rows(dataset)
     ]
 
@@ -274,7 +272,9 @@ def render_gold_standard_manifest_markdown(
         "| Case | Prompt SHA-256 | Expected Output SHA-256 | Claims | Targets | Anchors | Sections | Buckets |",
         "|---|---|---|---:|---:|---:|---|---|",
     ]
-    for row in payload["cases"]:
+    cases = payload["cases"]
+    assert isinstance(cases, list)
+    for row in cases:
         assert isinstance(row, dict)
         lines.append(
             "| "
@@ -302,9 +302,7 @@ def _gold_standard_manifest_rows(
     for case in dataset.cases:
         expected_output = case.expected_output.model_dump(mode="json")
         gold_claims = [claim.model_dump(mode="json") for claim in case.gold_claims]
-        category_targets = [
-            target.model_dump(mode="json") for target in case.category_targets
-        ]
+        category_targets = [target.model_dump(mode="json") for target in case.category_targets]
         rows.append(
             {
                 "case_id": case.case_id,
@@ -318,8 +316,7 @@ def _gold_standard_manifest_rows(
                 "category_target_count": len(category_targets),
                 "source_anchor_count": len(case.validation_notes.source_anchors),
                 "expected_sections_complete": all(
-                    bool(getattr(case.expected_output, field))
-                    for field in EXPECTED_OUTPUT_FIELDS
+                    bool(getattr(case.expected_output, field)) for field in EXPECTED_OUTPUT_FIELDS
                 ),
                 "category_targets_cover_all_buckets": {
                     target.correct_category for target in case.category_targets

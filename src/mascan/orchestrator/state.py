@@ -10,7 +10,7 @@ from mascan.contracts.reports import AgentReport, Source
 from mascan.contracts.validation import ValidationReport
 
 
-def merge_dicts(left: dict, right: dict) -> dict:
+def merge_dicts(left: dict[str, Any], right: dict[str, Any]) -> dict[str, Any]:
     return {**left, **right}
 
 
@@ -30,6 +30,7 @@ class RuntimeContext(BaseModel):
 
 class GraphState(BaseModel):
     """State carried through the orchestrator graph."""
+
     user_input: str
     # Runtime metadata available throughout a single graph execution.
     runtime_context: RuntimeContext = Field(default_factory=RuntimeContext.from_system)
@@ -53,9 +54,7 @@ class GraphState(BaseModel):
         description="Successful agent reports keyed by agent name.",
     )
 
-    component_metrics: Annotated[
-        dict[str, ComponentMetrics], merge_component_metrics
-    ] = Field(
+    component_metrics: Annotated[dict[str, ComponentMetrics], merge_component_metrics] = Field(
         default_factory=dict,
         description="Accumulated execution metrics keyed by owning component.",
     )

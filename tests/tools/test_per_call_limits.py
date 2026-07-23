@@ -52,10 +52,8 @@ def test_news_clamps_oversized_call_without_failing(mocker: Any) -> None:
         }
         for index in range(12)
     ]
-    client = mocker.patch(
-        "mascan.agents.political.tools.news_api.NewsDataApiClient"
-    ).return_value
-    client.latest_api.return_value = {"results": articles}
+    client = mocker.patch("mascan.agents.political.tools.news_api.NewsDataApiClient").return_value
+    client.news_api.return_value = {"results": articles}
     mocker.patch(
         "mascan.agents.political.tools.news_api.get_settings"
     ).return_value.news_api_key = "test"
@@ -209,19 +207,14 @@ def test_reddit_clamps_posts_and_snippets_without_failing(mocker: Any) -> None:
 
 
 def test_x_clamps_posts_and_text_without_failing(mocker: Any) -> None:
-    settings = mocker.patch(
-        "mascan.agents.social.tools.x_api.get_settings"
-    ).return_value
+    settings = mocker.patch("mascan.agents.social.tools.x_api.get_settings").return_value
     settings.twitter_auth_token = "token"
     settings.twitter_ct0 = "csrf"
     client = mocker.patch("twitter_cli.client.TwitterClient").return_value
     client.fetch_search.return_value = [object()] * 12
     mocker.patch(
         "twitter_cli.serialization.tweets_to_data",
-        return_value=[
-            {"id": str(index), "text": "x" * 1_500}
-            for index in range(12)
-        ],
+        return_value=[{"id": str(index), "text": "x" * 1_500} for index in range(12)],
     )
 
     result = XSearchTool().run(query="market", max_results=50)
@@ -344,4 +337,6 @@ def test_stock_history_clamps_range_and_rows_without_failing(mocker: Any) -> Non
     assert result.data["weekly_prices"][0] == prices[6]
     assert result.metadata["limit_applied"] is True
     applied = fetch.call_args.kwargs
-    assert (date.fromisoformat(applied["end_date"]) - date.fromisoformat(applied["start_date"])).days == 730
+    assert (
+        date.fromisoformat(applied["end_date"]) - date.fromisoformat(applied["start_date"])
+    ).days == 730

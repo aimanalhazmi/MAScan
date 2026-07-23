@@ -113,55 +113,6 @@ def _write_inputs(base: Path) -> None:
     (base / "pricing.json").write_text(pricing.model_dump_json(), encoding="utf-8")
 
 
-def _write_packet(base: Path) -> None:
-    packet = {
-        "seed": 1,
-        "selected_case_ids": ["case_1"],
-        "cases_per_rater": 1,
-        "rater_assignments": [{"rater_id": "r1", "case_ids": ["case_1"]}],
-        "instructions": "rate",
-        "rating_scale": {"1": "surface", "2": "impact", "3": "strategy"},
-        "items": [
-            {
-                "case_id": "case_1",
-                "case_title": "Case 1",
-                "prompt": "Prompt",
-                "expected_output": {"political": ["p"]},
-                "category_targets": [
-                    {
-                        "factor": "privacy law",
-                        "correct_category": "Legal",
-                        "rationale": "law",
-                    }
-                ],
-                "outputs": [
-                    {"label": "A", "response_text": "answer a"},
-                    {"label": "B", "response_text": "answer b"},
-                    {"label": "C", "response_text": "answer c"},
-                ],
-            }
-        ],
-    }
-    (base / "packet.json").write_text(json.dumps(packet), encoding="utf-8")
-
-
-def _ratings_csv_text(rater_id: str, *, labels: list[str] | None = None) -> str:
-    labels = labels or ["A", "B", "C"]
-    rows = [
-        "metric,rater_id,case_id,label,factor,correct_category,rationale,analytical_depth_score,correct"
-    ]
-    for label in labels:
-        rows.append(
-            f"analytical_depth,{rater_id},case_1,{label},,,,2,"
-        )
-    for label in labels:
-        rows.append(
-            "categorization_accuracy,"
-            f"{rater_id},case_1,{label},privacy law,Legal,law,,true"
-        )
-    return "\n".join(rows) + "\n"
-
-
 def test_pre_human_preflight_accepts_required_inputs(monkeypatch):
     base = _workspace_tmp()
     _write_inputs(base)
@@ -175,15 +126,11 @@ def test_pre_human_preflight_accepts_required_inputs(monkeypatch):
         lambda _name: object(),
     )
 
-    report = run_gold_preflight(_manifest(), base_dir=base, phase="pre_human")
+    report = run_gold_preflight(_manifest(), base_dir=base)
 
     assert report.is_ready is True
     assert report.errors == 0
-    assert {
-        issue.message
-        for issue in report.issues
-        if issue.item == "pricing_file"
-    } == {
+    assert {issue.message for issue in report.issues if issue.item == "pricing_file"} == {
         "Pricing table is missing citation metadata field: source_url",
         "Pricing table is missing citation metadata field: captured_at",
     }
@@ -203,7 +150,7 @@ def test_pre_human_preflight_reports_missing_key_and_pricing(monkeypatch):
         lambda _name: object(),
     )
 
-    report = run_gold_preflight(_manifest(), base_dir=base, phase="pre_human")
+    report = run_gold_preflight(_manifest(), base_dir=base)
 
     assert report.is_ready is False
     assert any(issue.item == "env:OPENAI_API_KEY" for issue in report.issues)
@@ -223,60 +170,12 @@ def test_pre_human_preflight_blocks_wrong_python(monkeypatch):
         lambda _name: object(),
     )
 
-    report = run_gold_preflight(_manifest(), base_dir=base, phase="pre_human")
+    report = run_gold_preflight(_manifest(), base_dir=base)
 
     assert report.is_ready is False
     assert any(
-        issue.severity == "error" and issue.item == "python_version"
-        for issue in report.issues
+        issue.severity == "error" and issue.item == "python_version" for issue in report.issues
     )
-
-
-def test_post_human_preflight_accepts_returned_csvs():
-    base = _workspace_tmp()
-    _write_packet(base)
-    (base / "r1.csv").write_text(_ratings_csv_text("r1"), encoding="utf-8")
-
-    report = run_gold_preflight(
-        _manifest(),
-        base_dir=base,
-        phase="post_human",
-        ratings_csv_files=["r1.csv"],
-    )
-
-    assert report.errors == 0
-
-
-def test_post_human_preflight_rejects_incomplete_returned_csvs():
-    base = _workspace_tmp()
-    _write_packet(base)
-    (base / "r1.csv").write_text(
-        _ratings_csv_text("r1", labels=["A", "B"]),
-        encoding="utf-8",
-    )
-
-    report = run_gold_preflight(
-        _manifest(),
-        base_dir=base,
-        phase="post_human",
-        ratings_csv_files=["r1.csv"],
-    )
-
-    assert report.is_ready is False
-    assert any(
-        issue.item == "ratings_csv" and "incomplete" in issue.message
-        for issue in report.issues
-    )
-
-
-def test_post_human_preflight_requires_ratings_file_or_csv():
-    base = _workspace_tmp()
-    _write_packet(base)
-
-    report = run_gold_preflight(_manifest(), base_dir=base, phase="post_human")
-
-    assert report.is_ready is False
-    assert any(issue.item == "human.ratings_file" for issue in report.issues)
 
 
 def test_render_preflight_markdown_includes_action_checklist():

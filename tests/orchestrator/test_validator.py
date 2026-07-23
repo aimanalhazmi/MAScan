@@ -54,9 +54,7 @@ def make_state(
 
 
 def make_attribution():
-    document = parse_attribution_document(
-        "## Summary\n\nGDP grew [1](https://example.com/gdp)."
-    )
+    document = parse_attribution_document("## Summary\n\nGDP grew [1](https://example.com/gdp).")
     return document.attributions[0], document.citations[0]
 
 
@@ -142,9 +140,7 @@ def test_supported_pair_passes_without_an_issue() -> None:
 
 
 def test_inaccessible_source_stops_without_creating_models() -> None:
-    document = parse_attribution_document(
-        "## Summary\n\nGDP grew [1](https://example.com/gdp)."
-    )
+    document = parse_attribution_document("## Summary\n\nGDP grew [1](https://example.com/gdp).")
     checks = evaluate_citation_pairs(
         document,
         [
@@ -168,9 +164,7 @@ def test_inaccessible_source_stops_without_creating_models() -> None:
 
 
 def test_operational_source_failure_is_not_an_inaccessible_issue() -> None:
-    document = parse_attribution_document(
-        "## Summary\n\nGDP grew [1](https://example.com/gdp)."
-    )
+    document = parse_attribution_document("## Summary\n\nGDP grew [1](https://example.com/gdp).")
     checks = evaluate_citation_pairs(
         document,
         [
@@ -241,8 +235,7 @@ def test_issue_schema_rejects_category_subtype_mismatch() -> None:
 
 def test_source_fetch_deduplicates_urls_without_a_cap() -> None:
     paragraphs = [
-        f"Claim {number} [{number}](https://example.com/{number})."
-        for number in range(1, 13)
+        f"Claim {number} [{number}](https://example.com/{number})." for number in range(1, 13)
     ]
     paragraphs.append("Repeated source [13](https://example.com/1).")
     document = parse_attribution_document("## Summary\n\n" + "\n\n".join(paragraphs))
@@ -285,8 +278,7 @@ def test_uploaded_file_uses_rag_evidence_without_source_fetch(
     state = GraphState(
         user_input="Use the attached EVONIK factsheet",
         final_markdown=(
-            "## Summary\n\nAdjusted EBITDA increased "
-            "[1](/rag/files/EVONIK%20Q1%202026.pdf)."
+            "## Summary\n\nAdjusted EBITDA increased [1](/rag/files/EVONIK%20Q1%202026.pdf)."
         ),
         rag_evidence=[
             {
@@ -325,9 +317,7 @@ def test_uploaded_file_is_inaccessible_only_when_original_is_missing(
     )
     state = GraphState(
         user_input="Use the attachment",
-        final_markdown=(
-            "## Summary\n\nCompany fact [1](/rag/files/factsheet.pdf)."
-        ),
+        final_markdown=("## Summary\n\nCompany fact [1](/rag/files/factsheet.pdf)."),
     )
     parsed = parse_attribution_document(state.final_markdown)
 
@@ -473,9 +463,7 @@ def test_citation_workers_inherit_the_validator_measurement_context(
         )
 
     monkeypatch.setattr("mascan.orchestrator.validator.evaluate_fetched_pair", judge)
-    document = parse_attribution_document(
-        "## Summary\n\nGDP grew [1](https://example.com/gdp)."
-    )
+    document = parse_attribution_document("## Summary\n\nGDP grew [1](https://example.com/gdp).")
 
     checks = evaluate_citation_pairs(
         document,

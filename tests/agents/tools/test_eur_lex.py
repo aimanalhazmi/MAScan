@@ -10,7 +10,10 @@ SAMPLE_PAYLOAD = {
     "results": {
         "bindings": [
             {
-                "work": {"type": "uri", "value": "http://publications.europa.eu/resource/celex/32016R0679"},
+                "work": {
+                    "type": "uri",
+                    "value": "http://publications.europa.eu/resource/celex/32016R0679",
+                },
                 "celex": {"type": "literal", "value": "32016R0679"},
                 "title": {
                     "type": "literal",
@@ -127,6 +130,6 @@ def test_eur_lex_escapes_quotes_in_query(mocker: Any) -> None:
     result = EurLexTool().run(query="workers' rights")
 
     assert result.success is True
-    
+
     sparql = captured["params"]["query"]
     assert "workers" in sparql

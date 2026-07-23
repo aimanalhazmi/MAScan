@@ -56,11 +56,29 @@ COUNTRY_ALIASES: dict[str, str] = {
 }
 
 WORLD_BANK_LOCATION_CODES: dict[str, str] = {
-    "ARG": "AR", "AUS": "AU", "BRA": "BR", "CAN": "CA", "CHN": "CN",
-    "DEU": "DE", "FRA": "FR", "GBR": "GB", "IND": "IN", "IDN": "ID",
-    "ITA": "IT", "JPN": "JP", "KOR": "KR", "MEX": "MX", "NLD": "NL",
-    "RUS": "RU", "SAU": "SA", "ESP": "ES", "TUR": "TR", "USA": "US",
-    "ZAF": "ZA", "EUU": "EU", "WLD": "1W",
+    "ARG": "AR",
+    "AUS": "AU",
+    "BRA": "BR",
+    "CAN": "CA",
+    "CHN": "CN",
+    "DEU": "DE",
+    "FRA": "FR",
+    "GBR": "GB",
+    "IND": "IN",
+    "IDN": "ID",
+    "ITA": "IT",
+    "JPN": "JP",
+    "KOR": "KR",
+    "MEX": "MX",
+    "NLD": "NL",
+    "RUS": "RU",
+    "SAU": "SA",
+    "ESP": "ES",
+    "TUR": "TR",
+    "USA": "US",
+    "ZAF": "ZA",
+    "EUU": "EU",
+    "WLD": "1W",
 }
 
 

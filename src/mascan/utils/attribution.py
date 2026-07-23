@@ -11,9 +11,7 @@ from mascan.agents.sources import canonical_source_url
 SUMMARY_HEADING_RE = re.compile(r"(?im)^##\s+Summary\s*$")
 END_HEADING_RE = re.compile(r"(?im)^##\s+(?:Sources|Fact Check|Citation Validation)\s*$")
 UPLOADED_FILE_PREFIX = "/rag/files/"
-MARKDOWN_CITATION_RE = re.compile(
-    r"\[(\d+)\]\(((?:https?://|/rag/files/)[^)\s]+)\)"
-)
+MARKDOWN_CITATION_RE = re.compile(r"\[(\d+)\]\(((?:https?://|/rag/files/)[^)\s]+)\)")
 MARKDOWN_CITATION_NUMBER_RE = re.compile(r"\[(\d+)\]\(")
 SENTENCE_BOUNDARY_RE = re.compile(r"(?<=[.!?])\s+(?=(?:[\"'(*_]*[A-Z0-9]))")
 MARKDOWN_DECORATION_RE = re.compile(r"(?:\*\*|__|~~|`)")
@@ -85,14 +83,9 @@ def parse_attribution_document(markdown: str) -> AttributionDocument:
         sentence_refs: list[list[CitationRef]] = []
         for sentence in sentences:
             linked_numbers = [
-                int(number)
-                for number in MARKDOWN_CITATION_NUMBER_RE.findall(sentence)
+                int(number) for number in MARKDOWN_CITATION_NUMBER_RE.findall(sentence)
             ]
-            refs = [
-                ref
-                for number in linked_numbers
-                for ref in refs_by_number.get(number, [])
-            ]
+            refs = [ref for number in linked_numbers for ref in refs_by_number.get(number, [])]
             sentence_refs.append(_dedupe_refs(refs))
 
         for sentence, refs in zip(sentences, sentence_refs, strict=True):
@@ -101,9 +94,7 @@ def parse_attribution_document(markdown: str) -> AttributionDocument:
                 continue
             if not refs:
                 continue
-            attributions.append(
-                Attribution(claim=claim, passage=passage, citations=tuple(refs))
-            )
+            attributions.append(Attribution(claim=claim, passage=passage, citations=tuple(refs)))
 
     return AttributionDocument(
         body=body,

@@ -2,7 +2,7 @@
 
 import time
 from abc import ABC, abstractmethod
-from typing import Any, ClassVar, cast
+from typing import Any, ClassVar
 
 from langchain_core.language_models import BaseChatModel
 from langchain_core.messages import HumanMessage, SystemMessage
@@ -67,8 +67,12 @@ class BaseAgent(ABC):
                 f"Config name {self.config.name!r} does not match agent class name {self.name!r}."
             )
 
-        self.always_call_tools: dict[str, BaseTool] = tool_registry.get_many(self.config.always_call_tools)
-        self.optional_tools: dict[str, BaseTool] = tool_registry.get_many(self.config.optional_tools)
+        self.always_call_tools: dict[str, BaseTool] = tool_registry.get_many(
+            self.config.always_call_tools
+        )
+        self.optional_tools: dict[str, BaseTool] = tool_registry.get_many(
+            self.config.optional_tools
+        )
         self.tools: dict[str, BaseTool] = {**self.always_call_tools, **self.optional_tools}
         self.logger = get_logger(f"agents.{self.name}")
 
@@ -99,7 +103,7 @@ class BaseAgent(ABC):
 
         module_file = inspect.getfile(cls)
         config_path = Path(module_file).parent / "config.yaml"
-        return cast(AgentConfig, AgentConfig.from_yaml(config_path))
+        return AgentConfig.from_yaml(config_path)
 
     @staticmethod
     def extract_final_answer(result: dict[str, Any]) -> str:
@@ -365,7 +369,5 @@ class GraphBackedAgent(BaseAgent):
         """Extract the standard agent report from a completed graph state."""
         report = final_state.get("report") if isinstance(final_state, dict) else None
         if not isinstance(report, AgentReport):
-            raise RuntimeError(
-                f"{type(self).__name__} graph completed without an AgentReport."
-            )
+            raise RuntimeError(f"{type(self).__name__} graph completed without an AgentReport.")
         return report

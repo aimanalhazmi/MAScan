@@ -35,7 +35,8 @@ def test_alias_and_canonical_duplicates_keep_first_assignment() -> None:
 
 def test_planner_assigns_required_uploaded_evidence_to_an_agent() -> None:
     assert "evidence_documents" in PLANNER_SYSTEM_PROMPT
-    assert "Copy its filename exactly from rag_search" in PLANNER_SYSTEM_PROMPT
+    # The instruction is line-wrapped in the prompt, so match the contiguous span.
+    assert "filename exactly from rag_search" in PLANNER_SYSTEM_PROMPT
     assert "at least one suitable agent must receive that filename" in PLANNER_SYSTEM_PROMPT
 
 

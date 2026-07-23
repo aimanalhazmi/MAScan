@@ -15,7 +15,7 @@ from mascan.agents.context import (
 from mascan.contracts.tools import ToolResult
 
 
-def render_tool_outputs(outputs: dict[str, ToolResult]) -> str:
+def render_tool_outputs(outputs: dict[str, ToolResult[Any]]) -> str:
     parts: list[str] = []
     for name, result in outputs.items():
         if result.success:

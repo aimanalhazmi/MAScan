@@ -36,6 +36,7 @@ class InformationRequest(BaseModel):
         description="A request for additional information or clarification from the user."
     )
 
+
 class PlanModel(BaseModel):
     """Structured output the planner LLM is forced to return."""
 

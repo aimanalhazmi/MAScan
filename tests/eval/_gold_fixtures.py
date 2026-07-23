@@ -21,15 +21,6 @@ from mascan.eval.gold_judge import (
 )
 from mascan.eval.gold_report import render_gold_experiment_report
 from mascan.eval.gold_standard import GoldStandardCase, load_gold_standard
-from mascan.eval.human_calibration import build_human_calibration_bundle, assigned_rater_id
-from mascan.eval.human_ratings import (
-    HumanCategoryRating,
-    HumanDepthRating,
-    HumanRatingsFile,
-    build_human_ratings_template,
-    compute_human_irr_report,
-    discretize_depth_score,
-)
 from mascan.eval.readiness import GoldExperimentManifest, validate_experiment_manifest
 
 SYSTEM_MODELS = {
@@ -118,36 +109,6 @@ def build_complete_gold_run_fixture(
         [trace.model_dump(mode="json") for trace in traces],
     )
 
-    bundle = build_human_calibration_bundle(
-        dataset,
-        response_records,
-        systems=systems,
-        rater_ids=["rater_1", "rater_2", "rater_3", "rater_4", "rater_5"],
-        cases_per_rater=5,
-        seed=seed,
-    )
-    _write_json(output / "human_packet.json", bundle.packet.model_dump(mode="json"))
-    _write_json(
-        output / "human_answer_key.json",
-        [entry.model_dump(mode="json") for entry in bundle.answer_key],
-    )
-    ratings_template = build_human_ratings_template(
-        bundle.packet,
-        rater_ids=["rater_1", "rater_2", "rater_3", "rater_4", "rater_5"],
-    )
-    _write_json(
-        output / "human_ratings_template.json",
-        ratings_template.model_dump(mode="json"),
-    )
-    human_ratings = _human_ratings(bundle, priced_judged)
-    _write_json(output / "human_ratings.json", human_ratings.model_dump(mode="json"))
-    human_irr = compute_human_irr_report(
-        human_ratings,
-        priced_judged,
-        bundle.answer_key,
-    )
-    _write_json(output / "human_irr.json", human_irr.model_dump(mode="json"))
-
     comparisons = [
         compare_systems(
             priced_judged,
@@ -174,7 +135,6 @@ def build_complete_gold_run_fixture(
     report_text = render_gold_experiment_report(
         summaries,
         comparisons=comparisons,
-        human_irr=human_irr,
     )
     (output / "gold_experiment_report.md").write_text(report_text, encoding="utf-8")
 
@@ -277,44 +237,6 @@ def _judge(case: GoldStandardCase, system_id: str) -> GoldJudgeResult:
     )
 
 
-def _human_ratings(bundle, judged_records: list[JudgedModelResponse]) -> HumanRatingsFile:
-    by_key = {
-        (record.response.case_id, record.response.system_id): record
-        for record in judged_records
-        if record.judge is not None
-    }
-    depth_ratings: list[HumanDepthRating] = []
-    category_ratings: list[HumanCategoryRating] = []
-    for entry in bundle.answer_key:
-        rater_id = assigned_rater_id(bundle.packet, entry.case_id)
-        judged = by_key[(entry.case_id, entry.system_id)]
-        assert judged.judge is not None
-        depth_ratings.append(
-            HumanDepthRating(
-                rater_id=rater_id,
-                case_id=entry.case_id,
-                label=entry.label,
-                analytical_depth_score=discretize_depth_score(
-                    judged.judge.analytical_depth_score
-                ),
-            )
-        )
-        for judgment in judged.judge.category_judgments:
-            category_ratings.append(
-                HumanCategoryRating(
-                    rater_id=rater_id,
-                    case_id=entry.case_id,
-                    label=entry.label,
-                    factor=judgment.factor,
-                    correct=judgment.correct,
-                )
-            )
-    return HumanRatingsFile(
-        depth_ratings=depth_ratings,
-        category_ratings=category_ratings,
-    )
-
-
 def _manifest(out_dir: Path, gold_standard_path: str | Path) -> GoldExperimentManifest:
     def path(name: str) -> str:
         return str((out_dir / name).as_posix())
@@ -336,16 +258,6 @@ def _manifest(out_dir: Path, gold_standard_path: str | Path) -> GoldExperimentMa
         pricing_file=path("model_pricing.json"),
         system_summary_file=path("system_summary.json"),
         case_trace_file=path("case_trace.json"),
-        human_calibration={
-            "packet_file": path("human_packet.json"),
-            "answer_key_file": path("human_answer_key.json"),
-            "ratings_template_file": path("human_ratings_template.json"),
-            "ratings_file": path("human_ratings.json"),
-            "rater_ids": ["rater_1", "rater_2", "rater_3", "rater_4", "rater_5"],
-            "cases_per_rater": 5,
-            "irr_file": path("human_irr.json"),
-            "expected_case_count": 25,
-        },
         comparisons=[
             {
                 "treatment_system": "mascan",
